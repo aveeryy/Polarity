@@ -4,7 +4,6 @@ import re
 import os
 import sys
 from urllib import parse
-
 import pretty_errors
 
 from platform import system, version, python_version
@@ -18,7 +17,7 @@ from polarity.config import config
 
 from polarity.downloader import DOWNLOADERS, __DOWNLOADERS__
 
-__usage__ = 'Polarity <url> [OPTIONS]'
+__usage__ = 'Polarity [OPTIONS] <url(s)>'
 
 class MinimalHelpFormatter(argparse.HelpFormatter):
     def _format_action_invocation(self, action):
@@ -48,10 +47,10 @@ def main():
     lang_help = lang['main']['arguments']['help']
     lang_meta = lang['main']['arguments']['metavar']
     lang_group = lang['main']['arguments']['groups']
-    # Set log filename
+    # Set logging filename and configuration
     log_filename = logs_dir + f'log_{filename_datetime()}.log'
     logging.basicConfig(filename=log_filename, format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG)
-    # Set options defaults
+    # Set options' base dictionaries
     opts = {'download': {}, 'sync': {}, 'extractor': {}}
     args_map = {}
 
