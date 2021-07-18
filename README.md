@@ -21,14 +21,14 @@
 
 
 ## Installation
-- ### [Windows Installation <img src="https://aveeryy.github.io/Polarity/platform-icons/Windows_small.png" alt="Windows" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#windows-)
-- ### [Android Installation <img src="https://aveeryy.github.io/Polarity/platform-icons/Android_small.png" alt="Android" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#android-)
+- ### [Windows Installation <img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#windows-)
+- ### [Android Installation <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#android-)
 
 ## Supported websites
 | | Platforms | Premium | Subtitles |
 |:-:|:-:|:-:|:-:|
-| Atresplayer | <img src="https://aveeryy.github.io/Polarity/platform-icons/Windows_small.png" alt="Windows" width="16"/> <img src="https://aveeryy.github.io/Polarity/platform-icons/Linux_small.png" alt="Linux" width="16"/> <img src="https://aveeryy.github.io/Polarity/platform-icons/MacOS_small.png" alt="MacOS" width="16"/> <img src="https://aveeryy.github.io/Polarity/platform-icons/Android_small.png" alt="Android" width="16"/> | ✔️ | ✔️ |
-| Crunchyroll |<img src="https://aveeryy.github.io/Polarity/platform-icons/Windows_small.png" alt="Windows" width="16"/> <img src="https://aveeryy.github.io/Polarity/platform-icons/Linux_small.png" alt="Linux" width="16"/> <img src="https://aveeryy.github.io/Polarity/platform-icons/MacOS_small.png" alt="MacOS" width="16"/> <img src="https://aveeryy.github.io/Polarity/platform-icons/Android_small.png" alt="Android" width="16"/> | ✔️ | ✔️ |
+| Atresplayer | <img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/> <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/> <img src="https://aveeryy.github.io/icons/small/MacOS.png" alt="MacOS" width="16"/> <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/> | ✔️ | ✔️ |
+| Crunchyroll |<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/> <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/> <img src="https://aveeryy.github.io/icons/small/MacOS.png" alt="MacOS" width="16"/> <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/> | ✔️ | ✔️ |
 | Crunchyroll-Beta | 🍝 | 🍝 | 🍝 |
 
 > Note: "🍝" means in progress
@@ -50,13 +50,13 @@ Configuration files are found at:
     ~/.Polarity/
 
 ## Testing devices
-<img src="https://aveeryy.github.io/Polarity/platform-icons/Windows_small.png" alt="Linux" width="16"/>  **Windows 11** (idk)
+<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Linux" width="16"/>  **Windows 11** (idk)
 
-<img src="https://aveeryy.github.io/Polarity/platform-icons/Linux_small.png" alt="Linux" width="16"/>  **Arch Linux** (latest kernel)
+<img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/>  **Arch Linux** (latest kernel)
 
-<img src="https://aveeryy.github.io/Polarity/platform-icons/Android_small.png" alt="Android" width="16"/>  **Android 11** (Termux latest/4.9.118)
+<img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>  **Android 11** (Termux latest/4.9.118)
 
-<img src="https://aveeryy.github.io/Polarity/platform-icons/Android_small.png" alt="Android" width="16"/>  **Android 10** (Termux 0.101/4.4.210-Sultan)
+<img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>  **Android 10** (Termux 0.101/4.4.210-Sultan)
 
 ## Development roadmap (not in order)
 - Finish Crunchyroll support ✔
