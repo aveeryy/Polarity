@@ -23,7 +23,7 @@ sync_file = user_dir + 'SyncList.json'
 dl_arch_file = user_dir + 'AlreadyDownloaded.log'
 
 # Create non-existing directories
-for dir in [user_dir, cookies_dir, default_dl_dir, temp_dir, logs_dir]:
+for dir in [user_dir, cookies_dir, default_dl_dir, temp_dir, logs_dir, binaries_dir]:
 	if not os.path.isdir(dir):
 		try:
 			os.makedirs(dir)

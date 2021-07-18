@@ -5,14 +5,12 @@ import os
 import sys
 from urllib import parse
 
-from tqdm.std import tqdm
-
 import pretty_errors
 
 from platform import system, version, python_version
 from .Polarity import Polarity
 from .extractor import get_extractors
-from .paths import logs_dir, temp_dir, config_file
+from .paths import logs_dir
 from .utils import vprint, load_language, filename_datetime
 from .version import __version__
 
