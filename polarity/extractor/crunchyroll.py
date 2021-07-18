@@ -43,7 +43,7 @@ class CrunchyrollExtractor(BaseExtractor):
         {
             'args': ['--crunchyroll-subs'],
             'attrib': {
-                'choices': ['all', 'enUS', 'esES', 'esLA', 'frFR', 'ptBR', 'arME', 'itIT', 'deDE', 'ruRU'],
+                'choices': ['all', 'none', 'enUS', 'esES', 'esLA', 'frFR', 'ptBR', 'arME', 'itIT', 'deDE', 'ruRU'],
                 'help': 'Crunchyroll subtitle languages to download',
                 'nargs': '+',
             },
