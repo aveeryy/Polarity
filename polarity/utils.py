@@ -1,4 +1,4 @@
-from shutil import Error, which
+from shutil import which
 from sys import platform
 from threading import Thread, current_thread
 from urllib.parse import urljoin
@@ -29,7 +29,7 @@ def vprint(message, level=1, module_name='polarity', error_level=None, end='\n',
     [demo/debug] Hello world!  # Output
     >>>
     '''
-    from .__main__ import verbose_level
+    from polarity.config import verbose_level
 
     # Colors
     colorama.init()
