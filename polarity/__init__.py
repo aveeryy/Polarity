@@ -5,4 +5,4 @@ from .version import __version__
 
 update = selfupdate
 
-version = __version__
+_version = __version__

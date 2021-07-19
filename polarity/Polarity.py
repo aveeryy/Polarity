@@ -9,7 +9,7 @@ import re
 import os
 import toml
 
-from polarity.config import config, ConfigError
+from polarity.config import config, ConfigError, verbose_level, USAGE
 from polarity.downloader import DOWNLOADERS
 from polarity.extractor import get_extractors
 from polarity.paths import dl_arch_file
@@ -26,15 +26,12 @@ _STATS = {
 
 
 class Polarity:
-    def __init__(self, urls=list, options=dict, verbose=None):
-        global verbose_level
+    def __init__(self, urls=list, options=dict):
         self.url_pool = urls
         _STATS['url_queue'] = self.url_pool
         self.lang = load_language()
         if options == dict:
             options = {'mode': {}}
-        verbose_level = verbose or config['verbose']
-        verbose_level = int(verbose_level)
         if verbose_level < 1 or verbose_level > 5:
             raise ConfigError(self.lang['polarity']['exceptions']['verbose_error'] % verbose_level)
         self.options = recurse_merge_dict(config, options)
@@ -52,8 +49,7 @@ class Polarity:
                 os._exit(0)
 
         if not urls or urls == list:
-            from .__main__ import __usage__
-            print(self.lang['polarity']['use'] + __usage__ + '\n')
+            print(self.lang['polarity']['use'] + USAGE + '\n')
             print(self.lang['polarity']['no_urls'])
             print(self.lang['polarity']['use_help'])
             os._exit(1)
