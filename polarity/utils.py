@@ -246,7 +246,7 @@ def load_language(lang=None):
         return recurse_merge_dict(base_language, loaded_language)
     else:
         # This string doesn't need to be translated \/
-        vprint('Specified language "%s" doesn\'t exist. Defaulting to english' % lang)
+        # vprint('Specified language "%s" doesn\'t exist. Defaulting to english' % lang)
         return base_language
 
 def filename_datetime():
@@ -382,5 +382,5 @@ def handle_signal():
     return signal == 'STOP'
 
 def mkfile(path=str, contents=str, ):
-    if not os.path.exists:
+    if not os.path.exists(path):
         open(path, 'w').write(contents)
