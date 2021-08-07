@@ -1,9 +1,10 @@
 import cloudscraper
 import re
 
+from .datetime import Time
 
 class Lyrics:
-    lrc_format = r'\[(?P<time>(?:\d{2,3}:|)\d{2}:\d{2}.\d{2})\](?P<lyr>.+)\n'
+    lrc_format = r'\[(?P<time>(?:\d{2,3}:|)\d{2}:\d{2}.\d{2})\](?P<lyr>.+)'
 
     def __init__(self) -> None:
         self.lyrics = []
@@ -25,18 +26,22 @@ class Lyrics:
         elif contents is not None:
             self.__imported = contents
         for line in self.__imported.split('\n'):
+            line = line.replace('\n', '')
+            print(line)
             if re.match(r'\[(?:ar|al|ti):.+\]', line):
                 continue
             self.__parsed_line = re.match(self.lrc_format, line)
+            if self.__parsed_line is None:
+                continue
             self.__line = LyricLine()
             self.__line.lyrics = self.__parsed_line.group('lyr')
-            # TODO: convert time to unix time
-            self.__line.start_time = None
+            self.__line.time = Time().time_to_unix(self.__parsed_line.group('time'))
+            self.lyrics.append(self.__line)
 
     def export_to_lrc(self, fp=None) -> str:
         pass
 
 class LyricLine:
     def __init__(self) -> None:
-        self.start_time = None
+        self.time = None
         self.lyrics = None

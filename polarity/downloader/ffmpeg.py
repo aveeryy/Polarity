@@ -3,7 +3,7 @@ from polarity.version import __version__
 from random import randint
 
 from .base import BaseDownloader
-from ..paths import temp_dir
+from ..paths import TEMP
 class FFMPEGDownloader(BaseDownloader):
 
     @classmethod
@@ -22,7 +22,7 @@ class FFMPEGDownloader(BaseDownloader):
             defaults=self.DEFAULTS,
             config_file_ignore=['resolution', 'concat'])
         # This file is used to report progress
-        self.progress_file = f'{temp_dir}ffmpeg_progress_{randint(0, 727727)}'
+        self.progress_file = f'{TEMP}ffmpeg_progress_{randint(0, 727727)}'
         self.add_arguments(f'-hide_banner -stats -progress {self.progress_file}')
         self.config_to_args()
         #self.parse_extra_urls()

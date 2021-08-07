@@ -1,14 +1,16 @@
 import logging
 import os
 import sys
+import traceback
 import pretty_errors
 
 from platform import system, version, python_version
 
-from polarity.config import argument_parser
+from polarity.arguments import argument_parser
+from polarity.config import lang
 from polarity.Polarity import Polarity
-from polarity.paths import logs_dir
-from polarity.utils import vprint, load_language, filename_datetime
+from polarity.paths import LOGS
+from polarity.utils import vprint, filename_datetime
 from polarity.version import __version__
 
 
@@ -18,7 +20,6 @@ def main():
     Polarity(urls=urls, options=opts).start()
 
 if __name__ == '__main__':
-    lang = load_language()
     if '--update-git' in sys.argv:
         from polarity.update import selfupdate
         selfupdate(mode='git')
@@ -29,13 +30,15 @@ if __name__ == '__main__':
         vprint(lang['main']['exit_msg'], 1)
         os._exit(0)
     except Exception as e:
-        for handler in logging.root.handlers[:]:
-            logging.root.removeHandler(handler)
-        exception_filename = logs_dir + f'exception_{filename_datetime()}.log'
+        exception_filename = LOGS + f'exception_{filename_datetime()}.log'
         with open(exception_filename, 'w', encoding='utf-8') as log:
-            log.write('Polarity version: %s\nOS: %s %s\nPython %s\n' %(
-                __version__, system(), version(), python_version()))
-        logging.basicConfig(filename=exception_filename, level=logging.ERROR)
-        logging.error(e, exc_info=True)
+            log.write('Polarity version: %s\nOS: %s %s\nPython %s\n%s' %(
+                __version__,
+                system(),
+                version(),
+                python_version(),
+                traceback.format_exc()
+                )
+            )
         # Re-raise exception
         raise

@@ -1,12 +1,13 @@
+from polarity.config import lang
 from polarity.downloader.base import BaseDownloader, InitSegment, Segment
 from polarity.downloader.penguin.protocols import *
-from polarity.paths import temp_dir as temporary_dir
-from polarity.utils import get_extension, vprint, threaded_vprint, load_language, calculate_time_left
+from polarity.paths import TEMP as temporary_dir
+from polarity.utils import get_extension, humanbytes, vprint, threaded_vprint, calculate_time_left
 from polarity.version import __version__
 
 from datetime import timedelta
 from requests.adapters import HTTPAdapter
-from shutil import move, rmtree
+from shutil import move
 from urllib.parse import unquote
 from urllib3.util.retry import Retry
 from threading import Thread, Lock, current_thread
@@ -18,6 +19,7 @@ import re
 import subprocess
 import toml
 import threading
+
 
 class PenguinDownloader(BaseDownloader):
     '''
@@ -35,7 +37,7 @@ class PenguinDownloader(BaseDownloader):
     ``{'url': url, 'lang': 'ffmpeg language code', 'name': 'track name'}`
     '''
 
-    __penguin_version__ = '2021.07.12'
+    __penguin_version__ = '2021.08.06'
 
     ARGUMENTS = [
         {
@@ -79,7 +81,7 @@ class PenguinDownloader(BaseDownloader):
 
     print_lock = Lock()
 
-    lang = load_language()['penguin']
+    lang = lang['penguin']
 
     DEFAULTS = {            
         'video_threads': 5,
@@ -96,11 +98,6 @@ class PenguinDownloader(BaseDownloader):
             'running': False,
             'finished': False,
             'bytes_downloaded': 0,
-            'download_speed': {
-                'bytes': 0,
-                'segments': 0,
-            },
-            'estimated_total_bytes': 0,
             'ffmpeg_command': [
                 'ffmpeg',
                 '-v', 'error',
@@ -153,31 +150,31 @@ class PenguinDownloader(BaseDownloader):
             }
         }
 
-        # Create a status file if it does not exist, else load it
-        if not os.path.exists(f'{temporary_dir}{self.output_name}.status'):
-            with open(f'{temporary_dir}{self.output_name.replace("?", "")}.status', 'w') as status:
-                toml.dump(self.stats, status)
-        elif os.path.exists(f'{temporary_dir}{self.output_name}.status'):
-            with open(f'{temporary_dir}{self.output_name.replace("?", "")}.status', 'r') as status:
-                self.stats = toml.load(status)
-
-        # Sanitize the filename so that ffmpeg won't fuck the whole thing up
+        # Sanitize the filename so that ffmpeg (and Android ) won't fuck the whole thing up
         # This is not a problem on Windows systems as the '?' character and gets replaced
         # in the filename formatting
-        self.sanitized_output_name = self.output_name.replace('?', '')
+        self.content_sanitized = self.content.replace('?', '')
         # Remove temporary directory created by the base and create a sanitized directory
-        if self.sanitized_output_name != self.output_name:
+        if self.content_sanitized != self.output_name:
             os.removedirs(f'{temporary_dir}{self.output_name}')
-        if not os.path.exists(f'{temporary_dir}{self.sanitized_output_name}'):
-            os.makedirs(f'{temporary_dir}{self.sanitized_output_name}')
+        if not os.path.exists(f'{temporary_dir}{self.content_sanitized}'):
+            os.makedirs(f'{temporary_dir}{self.content_sanitized}')
+
+        # Create a status file if it does not exist, else load it
+        if not os.path.exists(f'{temporary_dir}{self.content_sanitized}.status'):
+            with open(f'{temporary_dir}{self.content_sanitized}.status', 'w', encoding='utf-8') as status:
+                toml.dump(self.stats, status)
+        elif os.path.exists(f'{temporary_dir}{self.content_sanitized}.status'):
+            with open(f'{temporary_dir}{self.content_sanitized}.status', 'r', encoding='utf-8') as status:
+                self.stats = toml.load(status)
 
         for protocol in ALL_PROTOCOLS:
-            if get_extension(self.url) in protocol.SUPPORTED_EXTENSIONS:
+            if get_extension(self.stream.url) in protocol.SUPPORTED_EXTENSIONS:
                 self.protocol = protocol
                 break
         if not hasattr(self, 'protocol'):
-            raise IncompatibleProtocolError(f'Protocol with extension "{get_extension(self.url)}" is not supported')
-        self.segment_info = self.protocol(self.url, options=self.options).extract_frags()
+            raise IncompatibleProtocolError(f'Protocol with extension "{get_extension(self.stream.url)}" is not supported')
+        self.segment_info = self.protocol(self.stream.url, options=self.options).extract_frags()
         self.segment_groups = self.segment_info['segment_lists']
         self.processed_tracks = self.segment_info['tracks']
         # Build M3U8 playlists for merging
@@ -192,9 +189,9 @@ class PenguinDownloader(BaseDownloader):
                 # Audio is untested due to no extractors actually using it!
                 for item in self.extra_audio:
                     for protocol in ALL_PROTOCOLS:
-                        if get_extension(item['url']) in protocol.SUPPORTED_EXTENSIONS:
+                        if get_extension(item.url) in protocol.SUPPORTED_EXTENSIONS:
                             self.protocol = protocol
-                            self.processed_audio = self.protocol(url=item['url'], options=self.options)['segment_lists']
+                            self.processed_audio = self.protocol(url=item.url, options=self.options)['segment_lists']
                             # Override protocol-set identifier
                             self.processed_audio['id'] = f'audio_{self.processed_tracks["audio"]}'
                             self.segment_groups.append(self.processed_audio)
@@ -202,8 +199,8 @@ class PenguinDownloader(BaseDownloader):
                             self.stats['ffmpeg_metadata'].extend(
                             [
                                 '-map', f'{str(self.stats["input_count"]["total"])}:a?',
-                                f'-metadata:s:s:{str(self.stats["input_count"]["audio"])}', f'language={item["lang"]}',
-                                f'-metadata:s:s:{str(self.stats["input_count"]["audio"])}', f'title={item["name"]}',
+                                f'-metadata:s:s:{str(self.stats["input_count"]["audio"])}', f'language={item.language}',
+                                f'-metadata:s:s:{str(self.stats["input_count"]["audio"])}', f'title={item.name}',
                             ])
                             self.stats['input_count']['total'] += 1
                             self.stats['input_count']['audio'] += 1
@@ -219,9 +216,9 @@ class PenguinDownloader(BaseDownloader):
                 for item in self.extra_subs:
                     self.processed_tracks['subtitles'] += 1
                     for protocol in ALL_PROTOCOLS:
-                        if get_extension(item['url']) in protocol.SUPPORTED_EXTENSIONS:
+                        if get_extension(item.url) in protocol.SUPPORTED_EXTENSIONS:
                             self.protocol = protocol
-                            self.processed_subts = [s for s in self.protocol(url=item['url'], options=self.options).extract_frags()['segment_lists'] if s['format'] == 'subtitles']
+                            self.processed_subts = [s for s in self.protocol(url=item.url, options=self.options).extract_frags()['segment_lists'] if s['format'] == 'subtitles']
                             # Override protocol-set identifier
                             self.processed_subts[0]['id'] = f'subtitles_{self.processed_tracks["subtitles"]}'
                             self.processed_tracks['subtitles'] += 1
@@ -230,7 +227,7 @@ class PenguinDownloader(BaseDownloader):
                     if not hasattr(self, 'protocol'):
                         # Add it as a normal file
                         self.subtitle_segment = Segment(
-                            url=item['url'],
+                            url=item.url,
                             number=0,
                             type='subtitles',
                             group=f'subtitles_{self.processed_tracks["subtitles"]}',
@@ -241,14 +238,14 @@ class PenguinDownloader(BaseDownloader):
                             'id': f'subtitles_{self.processed_tracks["subtitles"]}'
                         }
                         self.segment_groups.append(self.subtitle_set)
-                        self.stats['files'].append(f'{temporary_dir}{self.sanitized_output_name}/subtitles_{self.processed_tracks["subtitles"]}_0{get_extension(item["url"])}')
+                        self.stats['files'].append(f'{temporary_dir}{self.content_sanitized}/subtitles_{self.processed_tracks["subtitles"]}_0{get_extension(item.url)}')
                         self.stats['ffmpeg_metadata'].extend(
                             [
                                 '-map', str(self.stats["input_count"]['total']) + '?',
-                                f'-metadata:s:s:{str(self.stats["input_count"]["subt"])}', f'language={item["lang"]}',
-                                f'-metadata:s:s:{str(self.stats["input_count"]["subt"])}', f'title={item["name"]}',
+                                f'-metadata:s:s:{str(self.stats["input_count"]["subt"])}', f'language={item.language}',
+                                f'-metadata:s:s:{str(self.stats["input_count"]["subt"])}', f'title={item.name}',
                             ])
-                        if get_extension(item['url']) == '.vtt':
+                        if get_extension(item.url) == '.vtt':
                             self.stats['ffmpeg_metadata'].extend([f'-c:{self.stats["input_count"]["total"]}, srt'])
                         self.stats['input_count']['total'] += 1
                         self.stats['input_count']['subt'] += 1
@@ -301,7 +298,7 @@ class PenguinDownloader(BaseDownloader):
             # TODO: do not do ffmpeg metadata generation in segment downloaders
             # This is just a quick fix
             if mode == 'subtitles' and f'{temporary_dir}{segment.output}' not in self.stats['files'] and not [f for f in self.stats['files'] if re.search(segment.group, f)]:
-                self.stats['files'].append(f'{temporary_dir}{self.sanitized_output_name}/{segment.output}')
+                self.stats['files'].append(f'{temporary_dir}{self.content_sanitized}/{segment.output}')
                 self.stats['ffmpeg_metadata'].extend(['-map', str(self.stats['input_count']['total']) + '?'])
                 self.stats['input_count']['total'] += 1
             if mode == 'subtitles' and get_extension(segment.url) == '.vtt':
@@ -310,7 +307,7 @@ class PenguinDownloader(BaseDownloader):
                     self.stats['ffmpeg_metadata'].extend([f'-c:s:{group_index}', 'srt'])
 
             # Example path: ~/.Polarity/Temp/Johnny's cookies S01E01 - The return of the cookie/video_0_727.ts
-            fragment_path = f'{temporary_dir}{self.sanitized_output_name}/{segment.id}{segment.ext}'
+            fragment_path = f'{temporary_dir}{self.content_sanitized}/{segment.id}{segment.ext}'
             # Check if segment is already downloaded
             if os.path.exists(fragment_path):
                 threaded_vprint(
@@ -335,8 +332,9 @@ class PenguinDownloader(BaseDownloader):
                     session.mount('http://', HTTPAdapter(max_retries=self.retry_config))
                     try:
                         segment_data = session.get(segment.url, timeout=self.options['penguin']['thread_timeout'])
-                    except BaseException:
+                    except BaseException as e:
                         sleep(0.5)
+                        threaded_vprint(f'exception? {e} - {thread_name}', lock=self.print_lock)
                         continue
                     try:
                         self.stats['bytes_downloaded'] += int(segment_data.headers['Content-Length'])
@@ -373,6 +371,9 @@ class PenguinDownloader(BaseDownloader):
                         module_name='penguin',
                         error_level='debug',
                         lock=self.print_lock)
+                    
+                    del segment, segment_contents, segment_data
+                    
                     break
 
     def start(self):
@@ -399,7 +400,7 @@ class PenguinDownloader(BaseDownloader):
                 for i in s['segments']
                 if s['format'] == mode
                 # Don't add already downloaded segments
-                if not os.path.exists(f'{temporary_dir}{self.sanitized_output_name}/{i.id}{i.ext}')
+                if not os.path.exists(f'{temporary_dir}{self.content_sanitized}/{i.id}{i.ext}')
                 ]
         
         self.segment_downloaders = {}
@@ -423,12 +424,12 @@ class PenguinDownloader(BaseDownloader):
 
         if self.segments['multi']:            
             self.total_threads = self.options['penguin']['video_threads'] + self.options['penguin']['audio_threads']
-            for i in range(self.total_threads):
+            for _ in range(self.total_threads):
                 create_segment_downloader('multi')
         else:
-            for i in range(self.options['penguin']['video_threads']):
+            for _ in range(self.options['penguin']['video_threads']):
                 create_segment_downloader('video')
-            for i in range(self.options['penguin']['audio_threads']):
+            for _ in range(self.options['penguin']['audio_threads']):
                 create_segment_downloader('audio')
         if self.segments['subtitles']:
             create_segment_downloader('subtitles')
@@ -450,7 +451,7 @@ class PenguinDownloader(BaseDownloader):
                 s
                 for s in self.segments['total']
                 if not os.path.exists(
-                    os.path.join(temporary_dir, self.sanitized_output_name, f'{s.id}{s.ext}')
+                    os.path.join(temporary_dir, self.content_sanitized, f'{s.id}{s.ext}')
                 )]
             if not self.missing_segments:
                 break
@@ -465,26 +466,26 @@ class PenguinDownloader(BaseDownloader):
             self.progress_bar.close()
         except AttributeError:
             pass
-        vprint('Download process finished', module_name='penguin')
+        vprint('Download process finished', 2, module_name='penguin')
 
         self.stats['time_start']['merge'] = time()
-        vprint('Merging segments together...', 1, 'penguin')
+        vprint('Merging segments together...', 2, 'penguin')
         subprocess.run(self.build_ffmpeg_command(), check=True)
 
-        vprint('Moving file to download folder', 1, 'penguin')
+        vprint('Moving file to download folder', 2, 'penguin')
         self.stats['time_start']['moving'] = time()
         # Move file to download folder
-        move(f'{temporary_dir}{self.sanitized_output_name}.mkv', f'{self.output_path}.mkv')
+        move(f'{temporary_dir}{self.content_sanitized}.mkv', f'{self.output_path}.mkv')
         self.stats['running'] = False
         self.stats['finished'] = True
 
         self.stats['time_start']['cleanup'] = time()
         # Clean-up
-        vprint('Cleaning up the temporary folder...', module_name='penguin')
-        for file in os.scandir(f'{temporary_dir}{self.sanitized_output_name}'):
+        vprint('Cleaning up the temporary folder...', 2, module_name='penguin')
+        for file in os.scandir(f'{temporary_dir}{self.content_sanitized}'):
             os.remove(file.path)
-        os.rmdir(f'{temporary_dir}{self.sanitized_output_name}')
-        os.remove(f'{temporary_dir}{self.output_name.replace("?", "")}.status')
+        os.rmdir(f'{temporary_dir}{self.content_sanitized}')
+        os.remove(f'{temporary_dir}{self.content_sanitized}.status')
 
     def check_active_threads(self):
         'Checks active threads'
@@ -508,8 +509,9 @@ class PenguinDownloader(BaseDownloader):
         while True:
             # Check if there are any downloaders alive
             self.active_threads = [s for s in self.segment_downloaders.items() if s[1]["thread"].is_alive()]
+            # vprint(f'{current_thread().name} - {humanbytes(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)}', 3, error_level='debug')
             if self.active_threads:
-                sleep(0.1)
+                sleep(0.5)
                 continue
             return
 
@@ -529,12 +531,12 @@ class PenguinDownloader(BaseDownloader):
         self.stats['ffmpeg_command'].extend(self.hls_files)
         self.stats['ffmpeg_command'].extend(self.ffmpeg_files)
         self.stats['ffmpeg_command'].extend(self.stats['ffmpeg_metadata'])
-        self.stats['ffmpeg_command'].append(f'{temporary_dir}{self.sanitized_output_name}.mkv')
+        self.stats['ffmpeg_command'].append(f'{temporary_dir}{self.content_sanitized}.mkv')
         return self.stats['ffmpeg_command']
 
 
     def build_m3u8_playlist(self, playlist=dict):
-        if os.path.exists(f'{temporary_dir}{self.sanitized_output_name}/{playlist["id"]}.m3u8'):
+        if os.path.exists(f'{temporary_dir}{self.content_sanitized}/{playlist["id"]}.m3u8'):
             return
         if playlist['format'] == 'subtitles' and len(playlist['segments']) == 1:
             return
@@ -557,17 +559,18 @@ class PenguinDownloader(BaseDownloader):
                 session.mount('https://', HTTPAdapter(max_retries=self.retry_config))
                 self.key_contents = session.get(unquote(self.first_segment.key))
                 # Write key to file
-                with open(f'{temporary_dir}{self.sanitized_output_name}/{playlist["id"]}.key', 'wb') as key_file:
+                with open(f'{temporary_dir}{self.content_sanitized}/{playlist["id"]}.key', 'wb') as key_file:
                     key_file.write(self.key_contents.content)
         # Add segments to playlist
         for segment in playlist['segments']:
             self.playlist += f'#EXTINF:{segment.duration},\n{segment.id}{segment.ext}\n'
+        # Write end of file 
         self.playlist += '#EXT-X-ENDLIST\n'
         # Write playlist to file
-        with open(f'{temporary_dir}{self.sanitized_output_name}/{playlist["id"]}.m3u8', 'w') as playlist_file:
+        with open(f'{temporary_dir}{self.content_sanitized}/{playlist["id"]}.m3u8', 'w') as playlist_file:
             playlist_file.write(self.playlist)
         # Add playlist to inputs
-        self.stats['files'].append(f'{temporary_dir}{self.sanitized_output_name}/{playlist["id"]}.m3u8')
+        self.stats['files'].append(f'{temporary_dir}{self.content_sanitized}/{playlist["id"]}.m3u8')
         self.stats['ffmpeg_metadata'].extend([
             '-map', f'{str(self.stats["input_count"]["total"])}:v?',
             '-map', f'{str(self.stats["input_count"]["total"])}:a?',
@@ -591,17 +594,12 @@ class PenguinDownloader(BaseDownloader):
         # Thread(target=self.print_status_thread, daemon=True).start()
         while True:
             # Refresh stats
-            self.stats['download_speed']['bytes'] = self.stats["bytes_downloaded"] / (time() - self.stats["time_start"]["download"])
-            self.stats['download_speed']['segments'] = self.stats["segments_downloaded"]["actually_downloaded"] / (time() - self.stats["time_start"]["download"])
-            self.stats['time_elapsed'] = time() - self.stats["time_start"]["download"]
-            self.stats['time_left'] = calculate_time_left(self.stats["segments_downloaded"]["actually_downloaded"], self.stats["total_segments"]["total"] - self.stats["segments_skipped"], self.stats["time_start"]["download"])
-            self.stats['last_report'] = time()
             try:
                 self.stats['estimated_total_bytes'] = self.stats['bytes_downloaded'] / self.stats['segments_downloaded']['total'] * self.stats['total_segments']['total']
             except ZeroDivisionError:
                 pass
 
-            with open(f'{temporary_dir}{self.output_name.replace("?", "")}.status', 'w') as status:
+            with open(f'{temporary_dir}{self.content_sanitized}.status', 'w', encoding='utf-8') as status:
                 toml.dump(self.stats, status)
             
             # Update total file size since it's really volatile

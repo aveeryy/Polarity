@@ -1,4 +1,4 @@
-from polarity.utils import get_extension
+from polarity.utils import vprint
 import cloudscraper
 from urllib.parse import urljoin
 from m3u8 import parse
@@ -15,7 +15,7 @@ class HTTPLiveStream(StreamProtocol):
         self.processed_tracks = {
             'video': -1,
             'audio': -1,
-            'multi': -1,
+            'unified': -1,
             'subtitles': -1
         }
         if self.parsed_data['is_variant']:
@@ -48,13 +48,14 @@ class HTTPLiveStream(StreamProtocol):
                         key=s['key']['uri'] if 'key' in s else None,
                         key_method=s['key']['method'] if 'key' in s else None,
                         duration=s['duration'],
-                        group=f'{media_type}_{self.processed_tracks[media_type]}',
+                        group=f'{media_type}{self.processed_tracks[media_type]}',
                         )
                     for s in self.parsed_stream['segments']],
                 'format': media_type,
-                'id': f'{media_type}_{self.processed_tracks[media_type]}'
+                'id': f'{media_type}{self.processed_tracks[media_type]}'
             }
         self.stream_url = urljoin(self.url, stream['uri'])
+        vprint('Getting stream data', 1, 'penguin/hls', 'debug')
         self.stream_data = self.scraper.get(self.stream_url).content
         self.parsed_stream = parse(self.stream_data.decode())
         # Support for legacy m3u8 playlists
@@ -67,21 +68,21 @@ class HTTPLiveStream(StreamProtocol):
                         url=urljoin(self.stream_url, self.parsed_stream['segment_map']['uri']),
                         number=99999,
                         type=force_type,
-                        group=f'{force_type}_{self.processed_tracks[force_type]}'
+                        group=f'{force_type}{self.processed_tracks[force_type]}'
                     )
                 )
             self.segment_list.append(self.segment_set)
             return
 
         if 'audio' not in stream['stream_info']:
-            self.segment_set = build_segment_list('multi')
+            self.segment_set = build_segment_list('unified')
             if 'segment_map' in self.parsed_stream:
                 self.segment_set['segments'].append(
                     InitSegment(
                         url=urljoin(self.stream_url, self.parsed_stream['segment_map']['uri']),
                         number=99999,
-                        type='multi',
-                        group=f'{"multi"}_{self.processed_tracks["multi"]}'
+                        type='unified',
+                        group=f'{"unified"}{self.processed_tracks["unified"]}'
                     )
                 )
         else:
@@ -93,7 +94,7 @@ class HTTPLiveStream(StreamProtocol):
                     url=urljoin(self.stream_url, self.parsed_stream['segment_map']['uri']),
                     number=99999,
                     type='video',
-                    group=f'{"video"}_{self.processed_tracks["video"]}'
+                    group=f'{"video"}{self.processed_tracks["video"]}'
                 )
             )       
         # Open extra media
@@ -118,12 +119,12 @@ class HTTPLiveStream(StreamProtocol):
                         url=urljoin(self.url, media['uri']),
                         number=0,
                         type='subtitles',
-                        group=f'subtitles_{self.processed_tracks["subtitles"]}',
+                        group=f'subtitles{self.processed_tracks["subtitles"]}',
                     )
                     self.subtitle_set = {
                         'segments': [self.subtitle_object],
                         'format': 'subtitles',
-                        'id': f'subtitles_{self.processed_tracks["subtitles"]}'
+                        'id': f'subtitles{self.processed_tracks["subtitles"]}'
                     }
                     self.segment_list.append(self.subtitle_set)    
 
@@ -135,6 +136,7 @@ class HTTPLiveStream(StreamProtocol):
             'platform': 'android',
             'desktop': False,
         }
+        vprint('Getting playlist data', module_name='penguin/hls', error_level='debug')
         self.scraper = cloudscraper.create_scraper(browser=self.browser)
         self.scraper.mount('https://', HTTPAdapter(max_retries=self.retries))
         self.open_playlist()
