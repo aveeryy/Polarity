@@ -98,6 +98,7 @@ class PenguinDownloader(BaseDownloader):
             'running': False,
             'finished': False,
             'bytes_downloaded': 0,
+            'estimated_total_bytes': 0,
             'ffmpeg_command': [
                 'ffmpeg',
                 '-v', 'error',
