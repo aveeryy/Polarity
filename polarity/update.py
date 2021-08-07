@@ -17,7 +17,7 @@ def selfupdate(mode='git'):
 
     if sys.argv[0].endswith('.py'):
         # Update python package
-        installation_path = os.path.dirname(sys.argv[0]).removesuffix('/polarity')
+        installation_path = os.path.dirname(sys.argv[0]).removesuffix('polarity')
         vprint(f'Installing to {installation_path}')
         if mode == 'git':
             vprint('Downloading latest git release')
