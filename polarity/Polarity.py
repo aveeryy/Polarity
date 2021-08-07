@@ -58,7 +58,8 @@ class Polarity:
                 
         if 'install_windows' in self.options:
             windows_install()
-        elif 'installed_languages' in self.options:
+            
+        if 'installed_languages' in self.options:
             languages = os.scandir(LANGUAGES)
             if languages is True:
                 vprint('Listing installed languages')
@@ -80,7 +81,6 @@ class Polarity:
             download_languages(self.options['install_languages'])
             os._exit(0)
 
-    def start(self):
         self.mode = self.options['mode']
         if self.mode == 'download':
             '''
