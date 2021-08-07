@@ -1,133 +1,69 @@
-from json.decoder import JSONDecodeError
-from xml.parsers.expat import ExpatError
-import os
-
-from tqdm.std import tqdm
-from ..utils import vprint, load_language
-from ..config import config, save_config
-from ..paths import cookies_dir
-from http.cookiejar import LWPCookieJar
+from polarity.config import config, save_config, lang
+from polarity.paths import ACCOUNTS
+from polarity.types import * 
+from polarity.utils import vprint, is_download_id
 from getpass import getpass
-import cloudscraper
-import json
-import xmltodict
+from http.cookiejar import LWPCookieJar
+from tqdm.std import tqdm
 
-class BaseExtractor(object):
-    '''
-    ## Base extractor
-    ### __init__
-    - Sets the url to extract the info from
-    - Loads user inputted options
-    - Calls `load_at_init`, usually to add arguments and default config
-    '''
-    def __init__(self, url=str, options=dict):
+from colorama import Fore
+
+import os
+import sys
+
+class BaseExtractor:
+    
+    def __init__(self, url=str, options=dict, external=False):
         self.url = url
         self.extractor_name = self.return_class()[:-9]
-        if self.extractor_name not in config['extractor']:
-            config['extractor'][self.extractor_name] = self.DEFAULTS
-            save_config()
+        self.info = None
         if options != dict:
-            self.options = {**config['extractor'][self.extractor_name], **options}
+            self.options = {**self.DEFAULTS, **config['extractor'][self.extractor_name.lower()], **options}
         else:
-            self.options = config['extractor'][self.extractor_name]
-        self.lang = load_language()
-        self.extractor_lang = self.lang[self.extractor_name.lower()]
+            self.options = {**self.DEFAULTS, **config['extractor'][self.extractor_name.lower()]}
+        self.external_tool = external
+        if self.extractor_name.lower() in lang:
+            self.extractor_lang = lang[self.extractor_name.lower()]
         # Create a cookiejar for the extractor
-        if not os.path.exists(cookies_dir + f'{self.extractor_name}.cjar'):
-            with open(cookies_dir + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
+        if not os.path.exists(ACCOUNTS + f'{self.extractor_name}.cjar'):
+            with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
                 c.write('#LWP-Cookies-2.0\n')
         # Open that cookiejar
-        self.cjar = LWPCookieJar(cookies_dir + f'{self.extractor_name}.cjar')
+        self.cjar = LWPCookieJar(ACCOUNTS + f'{self.extractor_name}.cjar')
         self.cjar.load(ignore_discard=True, ignore_expires=True)
+        self.extraction = False
+        self.search_results = []
         if hasattr(self, 'load_at_init'):
             self.load_at_init()
         # Login if there's an user-inputted username and password in the options
-        if 'username' in options and 'password' in options:
-            self.login(options['username'], options['password'])
+        if 'username' in self.options and 'password' in self.options:
+            self.login(self.options['username'], self.options['password'])
 
-    def load_info_template(self, media_type=str):
+    def set_main_info(self, media_type=str):
         if media_type == 'series':
-            self.info = {'title': '',
-                         'id': '',
-                         'type': 'series',
-                         'synopsis': '',
-                         'year': 0,
-                         'genres': [],
-                         'actors': [],
-                         'images': {'tall': [], 'wide': []},
-                         'seasons': []}
+            self.info = Series()
 
         elif media_type == 'movie':
-            self.info = {'title': '',
-                         'id': '',
-                         'type': 'movie',
-                         'synopsis': '',
-                         'year': 0,
-                         'genres': [],
-                         'images': {'tall': [], 'wide': []},
-                         'streams': [],
-                         'extra_audio': [],
-                         'extra_subs': []}
-
-    def load_new_info_template(self, template=str):
-        if template == 'series':
-            return {
-                'title': '',
-                'id': '',
-                'type': 'series',
-                'synopsis': '',
-                'year': 0,
-                'genres': [],
-                'actors': [],
-                'images': {'tall': [], 'wide': []},
-                'seasons': [],
-                'episodes': [],
-                'extras': [],
-                'indexes': []
-            }
-        elif template == 'movie':
-            return {
-                'title': '',
-                'id': '',
-                'type': 'movie',
-                'synopsis': '',
-                'year': 0,
-                'genres': [],
-                'actors': [],
-                'images': {'tall': [], 'wide': []},
-                'streams': [],
-                'extra_audio': [],
-                'extra_subs': []
-            }
-        elif template == 'artist':
-            # TODO: Finish artist template
-            return {
-                'name': '',
-                'id': '',
-                'type': '',
-                'images': [],
-                'albums': [],
-                'songs': [],
-            }
+            # self.info = Movie()
+            pass
 
 
     def create_progress_bar(self, *args, **kwargs):
+        color = Fore.MAGENTA if sys.platform != 'win32' else ''
         self.progress_bar = tqdm(*args, **kwargs)
-        self.progress_bar.desc = f'[ex] {self.progress_bar.desc}'
+        self.progress_bar.desc = f'{color}[extraction]{Fore.RESET} {self.progress_bar.desc}'
         self.progress_bar.update(0)
 
-    'Login / cookiejar functions'
-
-    def login_form(self, user=str, password=str):
-        if user == str:
-            self.user = input(self.lang['extractor']['base']['login_email_prompt'])
+    def login_with_form(self, user: str, password: str):
+        if not user:
+            user = input(lang['extractor']['base']['login_email_prompt'])
         else:
-            self.user = user
-        if password == str:
-            self.password = getpass(self.lang['extractor']['base']['login_password_prompt'])
+            user = user
+        if not password:
+            password = getpass(lang['extractor']['base']['login_password_prompt'])
         else:
-            self.password = password
-        return (self.user, self.password)
+            password = password
+        self.login(user=user, password=password)
 
     def save_cookies_in_jar(self, cookies, filter_list=list):
         for cookie in cookies:
@@ -139,137 +75,53 @@ class BaseExtractor(object):
     def cookie_exists(self, cookie_name=str):
         return bool([c for c in self.cjar if c.name == cookie_name])
 
-    'HTTP request functions'
 
-    @classmethod
-    def request_webpage(self, url=str, method='get', **kwargs):
-
+    def create_season(self, independent=False, **metadata):
         '''
-        Make a HTTP request using cloudscraper
-
-        `url` url to make the request to
-
-        `method` http request method
-
-        `cloudscraper_kwargs` extra cloudscraper arguments, for more info check the `requests wiki`
+        Metadata parameter is optional
         '''
-        # Create a cloudscraper session
-        # Spoof an Android Firefox browser to bypass Captcha v2
-        self.browser = {
-            'browser': 'firefox',
-            'platform': 'android',
-            'desktop': False,
-        } 
-        self.r = cloudscraper.create_scraper(browser=self.browser)
-        try:
-             self.response = getattr(self.r, method.lower())(url, **kwargs)
-        except AttributeError:
-                raise ExtractorCodingError('Invalid cloudscraper method "%s"' % method)
-        return self.response
+        if not independent and type(self.info) != Series:
+            raise ExtractorCodingError
+        self.season = Season()
+        if not independent:
+            # Link season to series
+            self.info.link_season(season=self.season)
+        if metadata:
+            self.season.set_metadata(**metadata)
 
-    @classmethod
-    def request_json(self, url=str, method='get', **kwargs):
-        '''
-        Same as request_webpage, except it returns a tuple with the json as a dict and the response object
-        '''
-        self.response = self.request_webpage(url,
-                                             method,
-                                             **kwargs)
-        try:
-            return (json.loads(self.response.content.decode()),
-                    self.response)
-        except JSONDecodeError:
-            return ({},
-                    self.response)
-
-    @classmethod
-    def request_xml(self, url=str, method='get', **kwargs):
-        '''
-        Same as request_webpage, except it returns a tuple with the xml as a dict and the response object
-        '''
-        self.response = self.request_webpage(url,
-                                             method,
-                                             **kwargs)
-        try:
-            return (xmltodict.parse(self.response.content.decode()),
-                    self.response)
-        except ExpatError:
-            return ({},
-                    self.response)
-
-    '''
-    Media functions
-    '''
-
-    def create_season(self, **metadata):
-        # TODO: replace all wiki links with actual links
-        '''
-        Create a new season and append the last opened one
-
-        See the [polarity wiki](monkey_ass) for more info
-        '''
-        #if not 'type' in self.info or self.info['type'] != 'series':
-        #    raise ExtractorCodingError('You can only use create_season with a series')
-        if hasattr(self, 'season'):
-            self.info['seasons'].append(self.season)
-        self.season_base = {'title': '', 'id': '', 'synopsis': '', 'images': {'tall': [], 'wide': []}, 'season_number': 0, 'total_episodes': 0, 'episodes': []}
-        self.season = {**self.season_base, **metadata}
-
-    def append_season(self):
-        '''
-        Appends a created season without creating a new one
-        '''
-        if hasattr(self, 'season'):
-            self.info['seasons'].append(self.season)
-        else:
-            raise ExtractorCodingError('Can\'t append something that doesn\'t exist! (create a season first)')
-        del self.season
-
-
-    def create_episode(self, **metadata):
-        # TODO: replace all wiki links with actual links
-        '''
-        Create a new episode and append the last opened one
-
-        See the [polarity wiki](monkey_ass) for more info
-        '''
-        if not 'type' in self.info or self.info['type'] != 'series':
-            raise ExtractorCodingError('You can only use create_episode with a series')
-        if not hasattr(self, 'season'):
+    def create_episode(self, independent=False, **metadata):
+        if not independent and type(self.info) != Series:
+            raise ExtractorCodingError('You can only create an episode with a series')
+        if not independent and not hasattr(self, 'season'):
             raise ExtractorCodingError('You need to create a season before creating an episode!')
-        if hasattr(self, 'episode'):
-            self.season['episodes'].append(self.episode)
-        self.episode_base = {'title': '', 'id': '', 'type': '', 'synopsis': '', 'year': 0000, 'episode_number': 0, 'images': {'tall': [], 'wide': []}, 'streams': {}, 'extra_audio': [], 'extra_subs': []}
-        self.episode = {**self.episode_base, **metadata}        
+        self.episode = Episode()
+        if not independent:
+            self.season.link_episode(episode=self.episode)
+        if metadata:
+            self.episode.set_metadata(**metadata)
+            
+    def create_stream(self, independent=False, **metadata):
+        self.stream = Stream()
+        if not independent and type(self.info) == Series:
+            self.episode.link_stream(stream=self.stream)
+        elif not independent and type(self.info) == Movie:
+            self.info.link_stream(stream=self.stream)
+        elif not independent and self.info is None:
+            self.episode.link_stream(stream=self.stream)
+        self.stream.set_metadata(**metadata)
 
-    def append_episode(self):
-        '''
-        Appends a created episode without creating a new one
-        '''
-        if hasattr(self, 'season'):
-            if hasattr(self, 'episode'):
-                self.season['episodes'].append(self.episode)
-                del self.episode
-            else:
-                raise ExtractorCodingError('Can\'t append something that doesn\'t exist! (create an episode first)')
-        else:
-            raise ExtractorCodingError('Can\'t append to something that doesn\'t exist! (create a season first)')
-
-    def create_content(self, create=str, **metadata):
-        '''
-        Valid types: season, episode, album, song, actor
-        '''
-        def create_season():
-            self.info['seasons'].append(metadata)
-            self.info['index_map'][metadata['id']] = len(self.info['seasons']) - 1
-        def create_episode():
-            self.info['episodes'].append(metadata)
-            self.info['index_map'][metadata['id']] = len(self.info['episodes']) - 1
-
-    def search(self, term):
-        self.r = self.search_function()
+    def create_search_result(self, name: str, media_type: PolarType, low_id: str, url: str):
+        self.search_result = SearchResult()
+        self.search_result.name = name
+        self.search_result.url = url
+        self.search_result.type = media_type
+        self.search_result.id = f'{self.extractor_name.lower()}/{media_type.__name__.lower()}-{low_id}'
+        self.search_results.append(self.search_result)
         
 class ExtractorError(Exception):
+    pass
+
+class InvalidURLError(Exception):
     pass
 
 class LoginError(Exception):

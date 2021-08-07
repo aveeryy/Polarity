@@ -7,8 +7,8 @@ from requests import get
 from time import sleep
 from zipfile import ZipFile
 
-from polarity.paths import temp_dir, binaries_dir
-from polarity.utils import vprint, humanbytes
+from polarity.paths import LANGUAGES, TEMP, BINARIES
+from polarity.utils import vprint, humanbytes, request_webpage
 
 PYTHON_GIT = 'https://github.com/Aveeryy/Polarity/archive/refs/heads/main.zip'
 
@@ -24,7 +24,7 @@ def selfupdate(mode='git'):
             update_zip = get(PYTHON_GIT)
             with open('update.zip', 'wb') as f:
                 f.write(update_zip.content)
-            ZipFile('update.zip').extractall(temp_dir)
+            ZipFile('update.zip').extractall(TEMP)
             # Wipe current installation directory without removing it
             vprint('Updating...')
             for item in os.listdir(installation_path):
@@ -32,10 +32,10 @@ def selfupdate(mode='git'):
                     shutil.rmtree(f'{installation_path}/{item}')
                 else:
                     os.remove(f'{installation_path}/{item}')
-            for item in os.listdir(f'{temp_dir}Polarity-main/'):
-                shutil.move(f'{temp_dir}Polarity-main/{item}', installation_path)
+            for item in os.listdir(f'{TEMP}Polarity-main/'):
+                shutil.move(f'{TEMP}Polarity-main/{item}', installation_path)
             # Clean up
-            os.rmdir(f'{temp_dir}Polarity-main/')
+            os.rmdir(f'{TEMP}Polarity-main/')
             vprint('Success! Exiting in 3 seconds')
             sleep(3)
             os._exit(0)
@@ -43,6 +43,30 @@ def selfupdate(mode='git'):
             raise NotImplementedError('Updating to a release version is not yet supported')
     else:
         raise NotImplementedError('Updating native binaries is not yet supported ')
+    
+def download_languages(language_list: list):
+    
+    LANGUAGE_URL = 'https://aveeryy.github.io/Polarity-Languages/%s.toml' 
+    
+    failed = 0
+    
+    for lang in language_list:
+        
+        response = request_webpage(
+            url=LANGUAGE_URL % lang
+            )
+        if response.status_code == 404:
+            vprint(f'Language "{lang}" not found in server', 1, 'update', 'warning')
+            failed += 1
+            continue
+        vprint(f'Installing language {lang}', 1, 'update')
+        with open(LANGUAGES + f'{lang}.toml', 'wb') as f:
+            f.write(response.content)
+        vprint(f'Language {lang} written to file', 3, 'update', 'debug')
+    if failed:
+        vprint('Language installer finished with warnings', 1, 'update', 'warning')
+    else:
+        vprint('All languages installed successfully', 1, 'update')
 
 def windows_install() -> None:
     'User-friendly install-finisher for Windows users'
@@ -57,8 +81,6 @@ def windows_install() -> None:
 
     hb = humanbytes
 
-    print('[-] Installing dependencies')
-    os.system('pip install --no-input -q -q -q -r requirements.txt')
     print('[-] Downloading FFmpeg')
     download = get(FFMPEG, stream=True)
     total = int(download.headers["Content-Length"])
@@ -67,17 +89,17 @@ def windows_install() -> None:
         for chunk in download.iter_content(chunk_size=1024):
             output.write(chunk)
             downloaded += len(chunk)
-            print(f'[-] {hb(downloaded)} / {hb(total)}    ', end='\r')
-    print('[-] Extracting FFmpeg')
-    ZipFile('ffmpeg.zip', 'r').extractall(temp_dir)
+            vprint(f'{hb(downloaded)} / {hb(total)}    ', end='\r', module_name='update')
+    vprint('Extracting FFmpeg', module_name='update')
+    ZipFile('ffmpeg.zip', 'r').extractall(TEMP)
     os.remove('ffmpeg.zip')
     version = get(LATEST).text
     version_str = f'ffmpeg-{version}-essentials_build'
-    os.rename(f'{temp_dir}{version_str}/bin/ffmpeg.exe', f'{binaries_dir}ffmpeg.exe')
-    os.rename(f'{temp_dir}{version_str}/bin/ffprobe.exe', f'{binaries_dir}ffprobe.exe')
-    print('[-] Cleaning up')
-    shutil.rmtree(f'{temp_dir}{version_str}')
-    print('[-] Installation complete')
-    print('[-] Exiting in 2 seconds')
+    os.rename(f'{TEMP}{version_str}/bin/ffmpeg.exe', f'{BINARIES}ffmpeg.exe')
+    os.rename(f'{TEMP}{version_str}/bin/ffprobe.exe', f'{BINARIES}ffprobe.exe')
+    vprint('Cleaning up', module_name='update')
+    shutil.rmtree(f'{TEMP}{version_str}')
+    vprint('Installation complete', module_name='update')
+    vprint('Exiting installer in 2 seconds', module_name='update')
     sleep(2)
     os._exit(0)

@@ -3,12 +3,14 @@ import threading
 import re
 import os
 import subprocess
+import sys
 import time
 
+from colorama import Fore
 from tqdm import tqdm
 
 from polarity.config import config, save_config
-from polarity.paths import temp_dir as temporary_dir
+from polarity.paths import TEMP as temporary_dir
 from polarity.utils import get_extension, vprint, send_android_notification, recurse_merge_dict
 
 class BaseDownloader:
@@ -21,8 +23,8 @@ class BaseDownloader:
                 self.downloader_config(...)
                 # Stuff to load at init here
     '''
-    def __init__(self, main_url=str, extra_audio=dict, extra_subs=dict, options=dict, status_list=list, media_metadata=dict, name=str, output=str):
-        self.url = main_url
+    def __init__(self, stream=None, extra_audio=None, extra_subs=dict, options=dict, status_list=list, media_metadata=dict, name=str, id=str, output=str):
+        self.stream = stream
         self.extra_audio = extra_audio
         self.extra_subs = extra_subs
         self.user_options = options
@@ -31,10 +33,13 @@ class BaseDownloader:
             config['download'][self.downloader_name] = self.DEFAULTS
             save_config()
         self.options = recurse_merge_dict({self.downloader_name: self.DEFAULTS}, config['download'])
-        self.options = recurse_merge_dict(self.options, self.user_options)
+        if options != dict:
+            self.options = recurse_merge_dict(self.options, self.user_options)
         self.status = status_list
         self.media_metadata = media_metadata
         self.content_name = name
+        self.content_id = id
+        self.content = f'{name} ({id})'
         self.output = output
         self.output_path = output.replace(get_extension(output), '')
         self.output_name = os.path.basename(output).replace(get_extension(output), '')
@@ -99,8 +104,9 @@ class BaseDownloader:
             self.launch_args.append(self.a)
 
     def create_progress_bar(self, *args, **kwargs):
+        color = Fore.MAGENTA if sys.platform != 'win32' else ''
         self.progress_bar = tqdm(*args, **kwargs)
-        self.progress_bar.desc = f'[dl] {self.progress_bar.desc}'
+        self.progress_bar.desc = f'{color}[download]{Fore.RESET} {self.progress_bar.desc}'
         self.progress_bar.update(0)
 
     def start(self):
@@ -114,6 +120,7 @@ class BaseDownloader:
             time.sleep(0.5)
             raise
 
+# TODO: create a type for this
 class Segment:
     '''
     Defines a segment

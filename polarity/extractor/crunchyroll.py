@@ -1,50 +1,35 @@
-from .base import BaseExtractor, ExtractorError, ContentUnavailableError
-from urllib.parse import urlparse
-import requests
-from requests.cookies import create_cookie
-import json
-import re
-from ..utils import order_list, vprint
 
-from cloudscraper import (CloudflareChallengeError, CloudflareCaptchaProvider, CloudflareCaptchaError)
+from .base import BaseExtractor, ExtractorError, InvalidURLError
+
+from polarity.config import lang
+from polarity.utils import get_country_from_ip, is_download_id, order_dict, parse_download_id, vprint, request_json, request_webpage
+
+import re
+
+from urllib.parse import urlparse
+from uuid import uuid4
 
 class CrunchyrollExtractor(BaseExtractor):
     
-    # Extractor config
-    HOST = r'(?:http(?:s://|://|)|)(?:www.|)crunchyroll.com'
-
-    # API URLs
-    _url = 'https://www.crunchyroll.com/%s/'
-    api_url = 'https://api.crunchyroll.com/'
-
-    # Dict containing languages' respective lang codes
-    # Format - code: (subs lang name, subs lang code, info lang code, dub regex)
-    _lang_codes = {
-        'enUS': ('English (USA)', 'eng', '', r'\(English Dub\)'),
-        'esES': ('Español (España)', 'spa', 'es-es', r'null'),  
-        'esLA': ('Español (América Latina)', 'spa', 'es', r'\(Spanish Dub\)'),
-        'frFR': ('Français (France)', 'fre', 'fr', r'\(French Dub\)'),
-        'ptBR': ('Português (Brasil)', 'por', 'pt-br', r'\(Portuguese Dub\)'),
-        'arME': ('العربية', 'ara', 'ar', r'null'),
-        'itIT': ('Italiano', 'ita', 'it', r'\(Italian Dub\)'),
-        'deDE': ('Deutsch', 'ger', 'de', r'\(German Dub\)'),
-        'ruRU': ('Русский', 'rus', 'ru', r'\(Russian\)'),
-        'jpJP': ('日本語',  'jpn', '', r'[^()]'),
-        }
-
+    HOST = r'(?:http(?:s://|://|)|)(?:www\.|beta\.|)crunchyroll\.com'
+    
+    LOGIN_REQUIRED = False
+    
     DEFAULTS = {
         'sub_language': ['all'],
         'dub_language': ['all'],
-        'meta_language': 'enUS',
+        'meta_language': 'en-US',
         'hardsub_language': 'none',
-        'spoof_us_session': True}
-        
+        'premium_spoof': False,
+        'region_spoof': 'none'
+        }
+    
     ARGUMENTS = [
         {
             'args': ['--crunchyroll-subs'],
             'attrib': {
-                'choices': ['all', 'none', 'enUS', 'esES', 'esLA', 'frFR', 'ptBR', 'arME', 'itIT', 'deDE', 'ruRU'],
-                'help': 'Crunchyroll subtitle languages to download',
+                'choices': ['all', 'none', 'en-US', 'es-ES', 'es-LA', 'fr-FR', 'pt-BR', 'ar-ME', 'it-IT', 'de-DE', 'ru-RU'],
+                'help': lang['crunchyroll']['args']['subs'],
                 'nargs': '+',
             },
             'variable': 'sub_language'
@@ -52,8 +37,8 @@ class CrunchyrollExtractor(BaseExtractor):
         {
             'args': ['--crunchyroll-dubs'],
             'attrib': {
-                'choices': ['all', 'jpJP', 'enUS', 'esLA', 'frFR', 'ptBR', 'itIT', 'deDE', 'ruRU'],
-                'help': 'Crunchyroll dub languages to download',
+                'choices': ['all', 'jp-JP', 'en-US', 'es-LA', 'fr-FR', 'pt-BR', 'it-IT', 'de-DE', 'ru-RU'],
+                'help': lang['crunchyroll']['args']['dubs'],
                 'nargs': '+',
             },
             'variable': 'dub_language'
@@ -61,633 +46,591 @@ class CrunchyrollExtractor(BaseExtractor):
         {
             'args': ['--crunchyroll-meta'],
             'attrib': {
-                'choices': ['enUS', 'esLA', 'esES', 'frFR', 'ptBR', 'arME', 'itIT', 'deDE', 'ruRU'],
-                'help': 'Metadata language for Crunchyroll',
+                'choices': ['en-US', 'es-LA', 'es-ES', 'fr-FR', 'pt-BR', 'ar-ME', 'it-IT', 'de-DE', 'ru-RU'],
+                'help': lang['crunchyroll']['args']['meta'],
             },
             'variable': 'meta_language'
         },
         {
             'args': ['--crunchyroll-hardsub'],
             'attrib': {
-                'choices': ['none', 'enUS', 'esLA', 'esES', 'frFR', 'ptBR', 'arME', 'itIT', 'deDE', 'ruRU'],
-                'help': 'Download a hardsubbed version',
+                'choices': ['none', 'en-US', 'es-LA', 'es-ES', 'fr-FR', 'pt-BR', 'ar-ME', 'it-IT', 'de-DE', 'ru-RU'],
+                'help': lang['crunchyroll']['args']['hard'],
             },
             'variable': 'hardsub_language'
         },
         {
-            'args': ['--crunchyroll-usa-session'],
+            'args': ['--crunchyroll-spoof-region'],
+            'attrib': {
+                'help': lang['crunchyroll']['args']['region']
+                },
+            'variable': 'region_spoof'
+        },
+        {
+            'args': ['--crunchyroll-spoof-premium'],
             'attrib': {
                 'action': 'store_true',
-                'help': 'Spoof a Crunchyroll USA session'
+                'help': lang['crunchyroll']['args']['premium']
                 },
-            'variable': 'spoof_us_session'
+            'variable': 'premium_spoof'
         },
         {
             'args': ['--crunchyroll-email'],
             'attrib': {
-                'help': 'Your Crunchyroll email'
+                'help': lang['crunchyroll']['args']['email']
             },
             'variable': 'username'
         },
         {
             'args': ['--crunchyroll-password'],
             'attrib': {
-                'help': 'Your Crunchyroll password',
+                'help': lang['crunchyroll']['args']['pass'],
             },
             'variable': 'password'
         },
-        {
-            'args': ['--crunchyroll-session'],
-            'attrib': {
-                'help': 'Use a custom session_id'
-            },
-            'variable': 'session'
-        }
     ]
 
-    @classmethod
-    def return_class(self): return __class__.__name__.lower()
+    
+    account_info = {
+        'basic': 'Basic bm9haWhkZXZtXzZpeWcwYThsMHE6',
+        'bearer': None,
+        'session_id': None,
+        'policy': None,
+        'signature': None,
+        'key_pair_id': None,
+        'bucket': None,
+        'country': None,
+        'madurity': None,
+        'email': None,
+    }
+    
+    API_URL = 'https://beta-api.crunchyroll.com/'
+    
+    LANG_CODES = {
+        'en-US': {'meta': '', 'lang': 'eng', 'name': 'English (USA)'},
+        'es-ES': {'meta': 'es-es', 'lang': 'spa', 'name': 'Español (España)'},
+        'es-LA': {'meta': 'es', 'lang': 'spa', 'name': 'Español (América Latina)'},
+        'fr-FR': {'meta': 'fr', 'lang': 'fre', 'name': 'Français (France)'},
+        'pt-BR': {'meta': 'pt-br', 'lang': 'por', 'name': 'Português (Brasil)'},
+        'de-DE': {'meta': 'de', 'lang': 'ger', 'name': 'Deutsch'},
+        'it-IT': {'meta': 'it', 'lang': 'ita', 'name': 'Italiano'},
+        'ar-ME': {'meta': 'ar', 'lang': 'ara', 'name': 'العربية'},
+        'ru-RU': {'meta': 'ru', 'lang': 'rus', 'name': 'Русский'},
+        'ja-JP': {'meta': '', 'lang': 'jpn', 'name': '日本語'},
+    }
 
     @classmethod
-    def translate_beta_lang(self, lang_code=str): return lang_code.replace('-', '').replace('419', 'LA')
+    # def return_class(self): return __class__.__name__.lower()
+    def return_class(self): return __class__.__name__
 
     def load_at_init(self):
-        # Convert Crunchyroll's Beta language string to legacy ones
-        # Examples: es-ES -> esES or es-419 -> esLA
-        self.options['sub_language'] = [
-            self.translate_beta_lang(s)
-            for s in self.options['sub_language']
-            ]
-        self.options['dub_language'] = [
-            self.translate_beta_lang(s)
-            for s in self.options['dub_language']
-            ]
-        self.options['meta_language'] = self.translate_beta_lang(self.options['meta_language'])
-        self.options['hardsub_language'] = self.translate_beta_lang(self.options['hardsub_language'])
-        # Set metadata language
-        try:
-            self._url = self._url % self._lang_codes[self.options['meta_language']][2]
-        except KeyError:
-            vprint(self.lang['crunchyroll']['invalid_metadata'], 1, 'crunchyroll', 'warning')
-            self._url = self._url % ''
-
-    def get_session_id(self, force_new=False):
-        def user_region():
-            vprint(self.extractor_lang['session_id_region'], 1, 'crunchyroll')
-            while True:
-                self._cookies_req = self.request_webpage(self.api_url + 'start_session.0.json?device_type=com.crunchyroll.windows.desktop&device_id=00000000-0000-0000-0000-000000000000&access_token=LNDJgOit5yaRIWN', cookies=self.cjar)
-                if not 'session_id' in self._cookies_req.cookies:
-                    vprint(self.extractor_lang['session_id_failure'], 1, 'crunchyroll', 'error')
-                    continue
-                break
-            for cookie in self._cookies_req.cookies:
-                self.cjar.set_cookie(cookie)
-            self.cjar.save(ignore_discard=True, ignore_expires=True)
-            self._s = [c for c in self._cookies_req.cookies if c.name == 'session_id'][0].value
-            return self._s
-
-        def usa_region():           
-            vprint(self.extractor_lang['session_id_usa'], 1, 'crunchyroll')
-            self.id_server = 'https://cr-unblocker.us.to/start_session'
-            self.session_json = self.request_json(url=self.id_server)[0]['data']
-            self.cookie_values = {'name': 'session_id',
-                                  'value': self.session_json['session_id'],
-                                  'expires': None,
-                                  'domain': '.crunchyroll.com',
-                                  'path': '/',
-                                  'version': 0}
-            self.cookie = create_cookie(**self.cookie_values)
-            # Create a requests session and set cookie created before
-            self.s = requests.session()
-            self.s.cookies.set_cookie(self.cookie)
-            # Open cookie jar
-            for cookie in self.s.cookies:
-                self.cjar.set_cookie(cookie)
-            self.cjar.save(ignore_discard=True, ignore_expires=True)            
-            return self.session_json['session_id']
-
-        def is_valid(session_id=str):
-            self.check_req = self.request_json(self.api_url + 'list_collections.0.json',
-                                              params={'session_id': session_id})[0]
-            if 'error' in self.check_req and self.check_req['code'] == 'bad_session':
-                return False
+        self.spoofed_region = False
+        self.proxy = {}
+        if self.options['region_spoof'] not in ('none', None):
+            self.region_spoof(region_code=self.options['region_spoof'])
+        self.get_bearer_token(spoof_premium=self.options['premium_spoof'])
+        self.get_cms_tokens()
+    
+    @staticmethod
+    def check_for_error(contents=dict, error_msg=None) -> bool:
+        if 'error' in contents and contents['error']:
+            vprint(message=error_msg, module_name='cr:unified', error_level='error')
             return True
-        
-        if not force_new:
-            # Check if there's a cookie
-            if self.cookie_exists('session_id'):
-                self.saved_session = [c for c in self.cjar if c.name == 'session_id'][0]
-                if self.saved_session.value != '':
-                    # Non empty session id, valid session
-                    if is_valid(self.saved_session.value):
-                        vprint(self.extractor_lang['session_id_local'], 1, 'crunchyroll')
-                        self.session_id = self.saved_session.value
-                        vprint(self.session_id, 3, 'crunchyroll', 'debug')
-                        return self.session_id
-                    pass
-                pass
-            
-        # In case of invalid / expired session id, get a new one
-        if 'session' in self.options:
-            if is_valid(self.options['session']):
-                self.session_id = self.options['session']
-        elif self.options['spoof_us_session']:
-            self.session_id = usa_region()
+        return False
+    
+    @staticmethod
+    def identify_url(url=str):
+        'Identifies an url type'
+        is_legacy = False
+        parsed_url = urlparse(url=url)
+        url_host = parsed_url.netloc
+        url_path = parsed_url.path
+        # Check if URL host is valid
+        if not re.match(r'(?:www\.|beta\.|)crunchyroll\.com', url_host):
+            raise ExtractorError
+        # Identify if the url is a legacy one
+        if url_host in ('www.crunchyroll.com', 'crunchyroll.com'):
+            is_legacy = True
+        if is_legacy:
+            regexes = {
+                # Regex breakdown
+                # 1. (/[a-z-]{2,5}/|/) -> matches a language i.e: /es-es/ or /ru/
+                # 2. (?:\w+-(?P<id>\d+) -> matches a series short url, i.e series-272199
+                # 3. [^/]+) -> matches the series part of the url, i.e new-game
+                # 4. (?:/$|$) -> matches the end of the url
+                # 5. [\w-] -> matches the episode part of the url i.e episode-3...
+                # 6. media)- -> matches an episode short url
+                # 7. (?P<id>[\d]{6,}) -> matches the id on both a long and a short url, i.e 811160
+                'series': r'(?:/[a-z-]{2,5}/|/)(?:\w+-(?P<id>\d+)|[^/]+)(?:/$|$)',
+                'episode': r'(?:/[a-z-]{2,5}/|/)(?:(?:[^/]+)/[\w-]+|media)-(?P<id>[\d]{6,})(?:/$|$)'
+            }
         else:
-            self.session_id = user_region()
-        vprint(self.extractor_lang['session_id'] + self.session_id, 3, 'crunchyroll', 'debug')
-        return self.session_id
-
-    def login(self, email=str, password=str):
-        if not hasattr(self, 'session_id'):
-            self.get_session_id()
-        self.email, self.password = self.login_form(email, password)
-        self.login_req = self.request_json(
-            self.api_url + 'login.0.json',
+            regexes = {
+                # Regex breakdown
+                # 1. (/[a-z-]{2,5}/|/) -> matches a language i.e: /es-es/ or /ru/
+                # 2. (?P<id>[\w\d]+) -> matches the media id i.e: GVWU0P0K5
+                # 3. (?:$|/[\w-]+) -> matches the end or the episode title i.e Se-cumpl...
+                'series': r'(?:/[a-z-]{2,5}/|/)series/(?P<id>[\w\d]+)(?:$|/[\w-]+)(?:/$|$)',
+                'episode': r'(?:/[a-z-]{2,5}/|/)watch/(?P<id>[\w\d]+)(?:$|/[\w-]+)(?:/$|$)',
+            }
+        for media_type, regex in regexes.items():
+            match = re.match(regex, url_path)
+            if match:
+                return (media_type, match.group('id'))
+        raise InvalidURLError
+            
+            
+    # Session stuff   
+    def get_session_id(self, save_to_cjar=False) -> str:
+        req = request_json(
+            url='https://api.crunchyroll.com/start_session.0.json',
+            headers={'content-type': 'application/x-www-form-urlencoded'},
+            params={
+                'sess_id': '1',
+                'device_type': 'com.crunchyroll.static',
+                'device_id': '46n8i3b963vch0.95917811',
+                'access_token': 'giKq5eY27ny3cqz'
+            },
+            cookies=self.cjar
+        )
+        self.account_info['session_id'] = req[0]['data']['session_id']
+        if save_to_cjar:
+            cookie = [c for c in req[1].cookies if c.name == 'session_id'][0].value
+            self.save_session_id(cookie=cookie)
+        return req[0]['data']['session_id']
+    
+    def save_session_id(self, cookie): self.save_cookies_in_jar(cookie)
+    
+    def login(self, user=None, password=None):
+        session_id = self.get_session_id()
+        login_req = request_json(
+            url='https://api.crunchyroll.com/login.0.json',
             method='post',
             params={
-                'session_id': self.session_id,
-                'locale': 'enUS',
-                'account': self.email,
-                'password': self.password
-            })
-        if self.login_req[0]['error']:
-            vprint(self.lang['extractor']['generals']['login_failure'] % self.login_req[0]['message'], 1, 'crunchyroll', 'error')
-            return False
-        else:
-            vprint(self.lang['extractor']['generals']['login_success'], 1, 'crunchyroll')
-            vprint(self.lang['extractor']['generals']['login_loggedas'] % self.email, 3, 'crunchyroll', 'debug')
-            self.save_cookies_in_jar(self.login_req[1].cookies, ['session_id', 'etp_rt'])
-            return True
-
-
-    def get_series_info(self, series_id=int):
-        self.load_info_template('series')
-        _series_xml = self.request_xml(self._url +
-                                    'syndication/feed?type=episodes&group_id='
-                                    + str(series_id), cookies=self.cjar)[0]['rss']['channel']
-        vprint(self.lang['extractor']['generals']['get_media_info'] % (self.lang['extractor']['generals']['media_types']['series'], _series_xml['image']['title'], series_id), 1, 'crunchyroll')
-        self.info['title'] = _series_xml['image']['title']
-        self.info['synopsis'] = _series_xml['description']
-        self.info['id'] = series_id
-        self.info['total_seasons'] = len(self.get_seasons(series_id))
-        self.info['total_episodes'] = len(self.get_all_episodes(series_id).items())
-        return self.info
-
-    def get_seasons(self, series_id=int):
-        self.seasons = []
-        self.season_list = self.request_json(self.api_url +
-                                          'list_collections.0.json?session_id=%s&series_id=%d'
-                                          % (self.session_id, int(series_id)), cookies=self.cjar)[0]
-        if 'error' in self.season_list and self.season_list['error']:
-            vprint(self.lang['extractor']['generals']['generic_error'] % self.season_list['message'], 1, 'crunchyroll', 'error')
-            vprint(self.lang['crunchyroll']['content_unavailable'], 1, 'crunchyroll', 'error')
-            raise ContentUnavailableError
-        else:
-            self.season_list = self.season_list['data']       
-        for s in self.season_list:
-            for language, value in self._lang_codes.items():
-                if re.search(value[3], s['name']) is not None:
-                    self.language = language
-                    break
-            self.seasons.append({'name': s['name'], 'id': s['collection_id'], 'lang': self.language, 'n': s['season']})
-        if not self.seasons:
-            vprint(self.lang['crunchyroll']['content_unavailable'], 1, 'crunchyroll', 'error')
-            raise ContentUnavailableError
-        return self.seasons
-
-    def get_season_info(self, season_id=int, get_episodes=True):
-        self.season_xml = self.request_xml(self._url +
-                                    'syndication/feed?type=episodes&id='
-                                    + str(season_id), cookies=self.cjar)[0]['rss']['channel']
-        vprint(self.lang['extractor']['generals']['get_media_info'] % (self.lang['extractor']['generals']['media_types']['season'], self.season_xml['image']['title'], season_id), 3, 'crunchyroll')
-        for s in self.get_seasons(self.info['id']):
-            if s['id'] == season_id:
-                self.language = s['lang']
-        self._season_info = {}
-        self.season_episodes = []
-        if type(self.season_xml['item']) == list:
-            try:
-                self._season_info['season_number'] = self.season_xml['item'][0]['crunchyroll:season']
-            except KeyError: 
-                self._season_info['season_number'] = 0
-            self._season_info['total_episodes'] = len(self.season_xml['item'])
-        else:
-            try:
-                self._season_info['season_number'] = self.season_xml['item']['crunchyroll:season']
-            except KeyError: 
-                self._season_info['season_number'] = 0
-            self._season_info['total_episodes'] = 1
-        self._season_info['season_number'] = int(self._season_info['season_number'])
-        if get_episodes:
-            if type(self.season_xml['item']) == list:
-                for e in self.season_xml['item']:
-                    self.episode = self.get_episode_info(e['crunchyroll:mediaId'])
-                    self.season_episodes.append(self.episode)
-            else:
-                self.episode = self.get_episode_info(self.season_xml['item']['crunchyroll:mediaId'])
-                self.season_episodes.append(self.episode)
-        return {
-            **{
-                'title': self.season_xml['image']['title'],
-                'id': season_id,
-                'images': {'tall': [self.season_xml['image']['url']]},
-                'synopsis': self.season_xml['description'] if 'description' in self.season_xml else '',
-                'episodes': self.season_episodes
+                'session_id': session_id,
+                'account': user,
+                'password': password,
             },
-            **self._season_info
-        }
-
-    def get_episode_info(self, episode_id=int, only_json=False):
-        ''
-        def get_json(episode_id=int):
-            tries = 0
-            while True:
-                try:
-                    eps_page = self.request_webpage(self._url +
-                                                        'media-' +
-                                                        str(episode_id), cookies=self.cjar).content.decode()
-                    if 'vilos.config.media' not in eps_page:
-                        tries += 1
-                        if 'beta.crunchyroll.com' in eps_page:
-                            raise NotImplementedError('Crunchyroll Beta is not supported!')
-                        if tries >= 6:
-                            vprint('Skipping episode with id %d, requires a premium account or unavailable in your region' %
-                                int(episode_id), 1, 'crunchyroll', 'warning')
-                            return ('a', 'a')
-                        continue          
-                    # Get episode json from page's content
-                    un_json = re.search(r'vilos.config.media = (?P<json>{.+});', eps_page).group('json')
-                    un_info = re.search(r'{"@context":".+}', eps_page).group(0)
-                    if not hasattr(self, 'series_id'):
-                        self.series_id = re.search(r'group_id="(?P<id>\d+)"', eps_page).group('id')
-                    # General episode info
-                    j = json.loads(un_json)
-                    # Translated episode title and synopsis
-                    e = json.loads(un_info)
-                except AttributeError:
-                    continue
-                else:
-                    break
-            return (j, e)
-        self.json, self.eps_info = get_json(episode_id)
-        if only_json:
-            return self.json
-        if self.json == 'a':
-            return
-        vprint(self.lang['extractor']['generals']['get_media_info'] % (self.lang['extractor']['generals']['media_types']['episode'], self.eps_info['name'], episode_id), 3, 'crunchyroll')
-        self.s = {'streams': {}}
-        if self.json['metadata']['episode_number'] == '' or self.json['metadata']['episode_number'] is None:
-            self.s['type'] = 'movie'
-        else:
-            self.s['type'] = 'episode'
-        # Get adaptive HLS streams
-        self.stream_list = [(s['url'], s['hardsub_lang'])
-                            for s in self.json['streams']
-                            if s['format'] == 'adaptive_hls']
-        if not self.stream_list:
-            self.s['skip_download'] = self.lang['crunchyroll']['fail_to_download_reason_01']
-        else:
-            for uri, lang in self.stream_list:
-                if lang is None:
-                    lang = 'default'
-                self.s['streams'][lang] = uri
-            # Set preferred hardsub stream
-            if self.options['hardsub_language'] == 'none':
-                self.s['stream_preferance'] = 'default'
-            elif self.options['hardsub_language'] in self.s['streams']:
-                self.s['stream_preferance'] = self.options['hardsub_language']
-            else:
-                self.s['stream_preferance'] = 'default'
-            self.s['ffmpeg_args'] = '-map 0:a:0 -metadata:s:a:0 language=%s -metadata:s:a:0 title="%s"' % (
-                self._lang_codes[self.language][1], self._lang_codes[self.language][0]
-            )
-            # Get subtitles
-            self.subs = [{'url': s['url'],
-                        'internal_code': s['language'],
-                        'lang': self._lang_codes[s['language']][1],
-                        'name': self._lang_codes[s['language']][0],
-                        'forced': False}
-                        for s in self.json['subtitles']]
-
-            self.subs = [y for x in self._lang_codes for y in self.subs if x == y['internal_code']]
-            
-            if 'all' in self.options['sub_language']:
-                self.s['subs_preferance'] = [s['lang'] for s in self.subs]
-            else:
-                self.s['subs_preferance'] = [s['lang']
-                                                for s in self.subs
-                                                if s['internal_code']
-                                                in self.options['sub_language']]
-
-            self.s['extra_subs'] = self.subs
-        # Avoid exceptions when using a extractor as an API caller
-        if hasattr(self, 'progress_bar'):
-            self.progress_bar.update(1)
-        return {
-            **{
-                'title': self.eps_info['name'],
-                'id': episode_id,
-                'synopsis': self.eps_info['description'] if 'description' in self.eps_info else '',
-                'episode_number': self.json['metadata']['episode_number'],
-                'image': self.json['thumbnail']['url'],
-            },
-            **self.s
-        }
-
-
-    def get_all_episodes(self, series_id=int):
-        self.all_episodes = {}
-        if not hasattr(self, 'season_list'):
-            self.get_seasons(series_id)
-        for s in self.seasons:
-            self.season_eps = self.request_xml(self._url +
-                                        'syndication/feed?type=episodes&id='
-                                        + s['id'], cookies=self.cjar)[0]['rss']['channel']
-            # Tuple format: episode_id: (season_number, episode_number, language)
-            if type(self.season_eps['item']) == list:
-                for eps in self.season_eps['item']:
-                    self.all_episodes[str(eps['crunchyroll:mediaId'])] = (s['id'], s['lang'])
-            else:
-                eps = self.season_eps['item']
-                # Seasons with a single item, like movies or new series, use season number 1
-                self.all_episodes[str(eps['crunchyroll:mediaId'])] = (s['id'], s['lang'])
-        return self.all_episodes
-
-    def extract(self):
-        # Set a session id
-        self.get_session_id()
-        self.load_info_template('series')
-        try:
-            _base_url = urlparse(self.url).path
-            _series_reg = r'(/[a-z-]{2,5}/|/)([^/]+)(/$|$)'
-            _episode_reg = r'(/[a-z-]{2,5}/|/)([^/]+)/[\w-]+-(?P<id>[\d]{6,})'
-            _ep_id_reg = r'(/[a-z-]{2,5}/|/)media-(?P<id>[\d]{6,})'
-            if re.match(_series_reg, _base_url):
-                _url_type = 'series'
-            elif re.match(_episode_reg, _base_url) or re.match(_ep_id_reg, _base_url):
-                _url_type = 'episode'
-            else:
-                raise ExtractorError('Invalid Crunchyroll url')
-
-            if _url_type == 'series':
-                self._series_page = self.request_webpage(self.url, cookies=self.cjar)
-                if self._series_page.status_code == 404:
-                    raise ExtractorError('Invalid Crunchyroll url')
-                self._series_id = int(re.search(r'ass="show-actions" group_id="(?P<id>\d{5,})"',
-                                    self._series_page.content.decode()).group(1))
-                self.get_series_info(self._series_id)
-
-
-                self.total_episodes = len([s for s in self.all_episodes if self.all_episodes[s][1] in self.options['dub_language'] or 'all' in self.options['dub_language']])
-                self.create_progress_bar(desc=self.info['title'], total=self.total_episodes, leave=False)
-                for s in [s
-                          for s in self.get_seasons(self._series_id)
-                          if s['lang'] in self.options['dub_language'] or 'all' in self.options['dub_language']]:
-                    self.season = self.get_season_info(s['id'])
-                    self.create_season(**self.season)
-                    self.append_season()
-
-            elif _url_type == 'episode':
-                self.episode_id = re.search(r'(\d+)($|/)', self.url).group(1)
-                # Get episode info from selected dub
-                if self.get_episode_info(self.episode_id, True) == 'a':
-                    raise ContentUnavailableError
-                self.get_series_info(self.series_id)
-                self.create_progress_bar(desc=self.info['title'], total=1, leave=False)
-                # Find season and episode dubs
-                self.season_id = self.all_episodes[self.episode_id][0]
-                self._season = self.get_season_info(self.season_id, False)
-                self.create_season(**self._season)
-                # Get actual episode info, with dubs and stuff
-                self._episode = self.get_episode_info(self.episode_id)
-                self.create_episode(**self._episode)
-                self.append_episode()
-                self.append_season()
-
-        except (CloudflareChallengeError,
-                CloudflareCaptchaProvider,
-                CloudflareCaptchaError) as e:
-            # Return in case of Cloudscraper error
-            print(e)
-            vprint('you made too many requests to Crunchyroll.', 1, 'crunchyroll', 'critical')
-            vprint('all processed episodes will be downloaded, try again in 24 hours to download the rest!', 1, 'crunchyroll', 'critical')
-        self.progress_bar.close()
-        return self.info
-
-import base64
-class CrunchyrollBetaExtractor(BaseExtractor):
-    '''
-    TODO:
-    - Login, need to wait until beta period is over.
-    - Actual extracting.
-    - Replace beta mentions when beta period is over
-    - Starting a session
-    '''
-    host = 'beta.crunchyroll.com'
-    def __init__(self, url=str, options=dict):
-
-        _lang_codes = {
-            'en-US': ('English (USA)', 'eng', ''),
-            'es-ES': ('Español (España)', 'spa', 'es-es'),     
-            'es-419': ('Español (América Latina)', 'spa', 'es'),
-            'fr-FR': ('Français (France)', 'fre', 'fr'),
-            'de-DE': ('Deutsch', 'ger', 'de'),
-            'it-IT': ('Italiano', 'ita', 'it'),
-            'pt-BR': ('Português (Brasil)', 'por', 'pt-br'),
-            'ar-ME': ('العربية', 'ara', 'ar'),
-            'ru-RU': ('Русский', 'rus', 'ru'),
-            'jp-JP': ('日本語',  'jpn', ''),
-            }
-            
-        self.token_format = '%s %s' # Token type, token
-        self.api_url = 'https://beta-api.crunchyroll.com/'
-        self.url = url
-        self.defaults = {}
-        self.user_options = options
-        # TODO: move arguments here
-        self.extractor_config('Crunchyroll',
-                              'www.crunchyroll.com',
-                              True,
-                              'Crunchyroll.cjar')
-        self.load_info_template('series')
-
-    def fallback_login(self, user=str, password=str):
-        'Use old login API'
-        self.crunchy = CrunchyrollExtractor(options={'spoof_us_session': True})
-        self.crunchy.login(email=user, password=password)
-        return
-
-
-    def check_if_logged_in(self):
-        pass
-
-    def grab_tokens(self):
-        self.tokens = {}
-        self.bucket_re = r'/(?P<country>\w{2})/(?P<madurity>M[1-3])'
-        # Grab Basic Authorization token from the main page's content and encode it in base64
-        self.contents = self.request_webpage('https://beta.crunchyroll.com', 'get').content.decode()
-        self.uncoded_token = re.search(r'"accountAuthClientId":"(?P<id>\w+)"', self.contents).group('id')
-        self.tokens['basic'] = base64.encodebytes(bytes(self.uncoded_token,'utf-8')).decode().replace('=', '6').replace('\n', '')
-        # Using the Basic Auth token, get the Bearer Auth token
-        self.contents = self.request_json(
-            self.api_url + 'auth/v1/token',
-            method='POST',
-            headers={
-                'Authorization': self.token_format %('Basic', self.tokens['basic']),
-                'Content-Type': 'application/x-www-form-urlencoded'
+            cookies=self.cjar
+        )
+        if not login_req[0]['error']:
+            vprint(lang['extractor']['login_success'])
+            self.save_cookies_in_jar(login_req[1].cookies, ['session_id', 'etp_rt'])
+         
+    def is_logged_in(self): return self.cookie_exists('etp_rt')
+    
+    def region_spoof(self, region_code=str):
+        key = 0
+        while key == 0:
+            uuid = uuid4().hex
+            key_request = request_json(
+                url='https://client.hola.org/client_cgi/background_init',
+                method='post',
+                params={
+                    'uuid': uuid
                 },
-            data={'grant_type': 'etp_rt_cookie'},
-            cookies=self.cjar)[0]
-        # Return if an error happened
-        if 'error' in self.contents:
-            if self.contents['code'] == 'auth.obtain_access_token.oauth2_error':
-                vprint('You need to login before using the beta!', module_name='crunchyroll_beta')
-            print(self.contents)
-            return
-        self.tokens['bearer'] = self.contents['access_token']
-        # Using the Bearer Auth Token, get api stuff
-        self.contents = self.request_json(
-            self.api_url + 'index/v2',
-            method='GET',
-            headers={'Authorization': 'Bearer ' + self.tokens['bearer']},
-            cookies=self.cjar)[0]
-        if 'error' in self.contents:
-            print(self.contents)
-            return
-        # Get bucket, policy, signature and the key pair id
-        self.tokens['bucket'] = self.contents['cms']['bucket']
-        self.tokens['policy'] = self.contents['cms']['policy']
-        self.tokens['signature'] = self.contents['cms']['signature']
-        self.tokens['key_pair_id'] = self.contents['cms']['key_pair_id']
-        self.tokens['cms_api_url'] = self.api_url + 'cms/v2' + self.bucket
-        self.tokens['country'] = re.match(self.bucket_re, self.bucket).group('country')
-        self.tokens['madurity'] = re.match(self.bucket_re, self.bucket).group('madurity')
-        vprint('your country: %s' % self.tokens['country'], 1, 'crunchyroll')
-        return self.tokens
-
-    def grab_series_info(self, series_id=str):
-        self.series_id = series_id
-        self.series_json = self.request_json(
-            self.cms_api_url + '/series/' + series_id,
-            method='get',
-            headers={'Authorization': 'Bearer ' + self.bearer_token},
-            params={'locale': self.options['meta_language'],
-                    'Signature': self.signature,
-                    'Policy': self.policy,
-                    'Key-Pair-Id': self.key_pair_id})[0]
-        self.info['title'] = self.series_json['title']
-        self.info['id'] = series_id
-        self.info['synopsis'] = self.series_json['description']
-        self.info['genres'] = self.series_json['keywords']
-        self.info['images']['tall'].append(
-            self.series_json['images']['poster_tall'][0][-1:][0]['source']
-            )
-        self.info['images']['wide'].append(
-            self.series_json['images']['poster_wide'][0][-1:][0]['source']
-            )
-        if self.series_json['season_tags']:
-            self.info['year'] = re.search(
-                r'(\d+)',
-                self.series_json['season_tags'][0]
-                ).group(0)
-
-    def grab_season_info(self, season_id=str):
-        self.season_json = self.request_json(
-            self.cms_api_url + '/seasons/' + season_id,
-            method='get',
-            headers={'Authorization': 'Bearer ' + self.bearer_token},
-            params={
-                'locale': self.options['meta_language'],
-                'Signature': self.signature,
-                'Policy': self.policy,
-                'Key-Pair-Id': self.key_pair_id
+                data={
+                    'login': '1',
+                    'ver': '1.164.641'
                 }
             )[0]
-        self.create_season(
-            title=self.season_json['title'],
-            id=season_id,
-            synopsis=self.season_json['description'],
-            season_number=self.season_json['season_number']
-        )
+            
+            key = key_request['key']
+            
+            proxy_request = request_json(
+                url='https://client.hola.org/client_cgi/zgettunnels',
+                params={
+                    'country': region_code,
+                    'limit': 3,
+                    'ext_ver': '1.164.641',
+                    'uuid': uuid,
+                    'session_key': key,
+                    'is_premium': 0
+                }
+            )[0]
+        self.spoofed_region = True
+        self.spoofed_country = region_code.upper()
+        self.proxy = {
+            'http': f'http://user-uuid-{uuid}:{proxy_request["agent_key"]}@{list(proxy_request["ip_list"].values())[0]}:{proxy_request["port"]["direct"]}',
+            'https': f'http://user-uuid-{uuid}:{proxy_request["agent_key"]}@{list(proxy_request["ip_list"].values())[0]}:{proxy_request["port"]["direct"]}'
+            }
+        return proxy_request
+    
+    def get_bearer_token(self, spoof_premium=True) -> str:
+        'Grabs Bearer Authorization token'
+        # Set token method
+        # etp_rt -> logged in
+        # client_id -> not logged in
+        if not spoof_premium:
+            vprint(self.extractor_lang['getting_bearer'], 2, 'crunchyroll',)
+            method = 'etp_rt_cookie' if self.cookie_exists('etp_rt') else 'client_id'
+            vprint(self.extractor_lang['using_method'] % method, 3, 'crunchyroll', 'debug')
+            token_req = request_json(
+                url=self.API_URL + 'auth/v1/token',
+                method='post',
+                headers={
+                    'Authorization': self.account_info['basic'],
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                data={'grant_type': method},
+                cookies=self.cjar,
+                proxies=self.proxy
+            )
+            if not 'access_token' in token_req[0]:
+                # TODO: better error message
+                vprint('bearer error', 1, 'cr:unified', 'error')
+        elif spoof_premium:
+            bearer_api = 'http://twili.duckdns.org:32934/crunchyroll/bearer/'
+            if self.spoofed_region:
+                bearer_api += self.spoofed_country.lower()
+            else:
+                bearer_api += get_country_from_ip()
+            token_req = request_json(url=bearer_api)
+            if not 'access_token' in token_req[0]:
+                # Return a normal bearer if premium bearer server fails
+                vprint(self.extractor_lang['spoof_premium_fail'], 2, 'crunchyroll', 'error')
+                return self.get_bearer_token(spoof_premium=False)
+            vprint(self.extractor_lang['spoof_premium_success'], 2, 'crunchyroll')
+        self.account_info['bearer'] = f'Bearer {token_req[0]["access_token"]}'
+        return self.account_info['bearer']
+    
+    def get_cms_tokens(self, ):
+        bucket_re = r'/(?P<country>\w{2})/(?P<madurity>M[1-3])'
+        if self.account_info['bearer'] is None:
+            self.get_bearer_token()
+        vprint(self.extractor_lang['getting_cms'], 2, 'crunchyroll')
+        token_req = request_json(
+            url=self.API_URL + 'index/v2',
+            headers={'Authorization': self.account_info['bearer']},
+            proxies=self.proxy
+        )[0]
+        if self.check_for_error(token_req):
+            raise ExtractorError(self.extractor_lang['getting_cms_fail'])
+        bucket_match = re.match(bucket_re, token_req['cms']['bucket'])
+        self.account_info['policy'] = token_req['cms']['policy']
+        self.account_info['signature'] = token_req['cms']['signature']
+        self.account_info['key_pair_id'] = token_req['cms']['key_pair_id']
+        # Content-availability variables
+        self.account_info['country'] = bucket_match.group('country')
+        self.account_info['madurity'] = bucket_match.group('madurity')
+        self.account_info['bucket'] = token_req['cms']['bucket']
+        self.CMS_API_URL = f'{self.API_URL}cms/v2{self.account_info["bucket"]}'
+        if self.spoofed_region:
+            if self.spoofed_country == bucket_match.group('country'):
+                vprint(self.extractor_lang['spoof_region_success'] % self.spoofed_country, 2, 'crunchyroll')
+            else:
+                vprint(self.extractor_lang['spoof_region_fail'], 2, 'crunchyroll', 'error')
+        return {
+            'policy': self.account_info['policy'],
+            'signature': self.account_info['signature'],
+            'key_pair_id': self.account_info['key_pair_id']
+        }
+        
+    # Legacy Crunchyroll site support
+    def get_etp_guid(self, series_id=None, collection_id=None, episode_id=None):
+        'Grab the etp_guid from a legacy id'
+        # TODO: make this cleaner
+        info_api = 'https://api.crunchyroll.com/info.0.json'
+        if series_id is not None:
+            req = request_json(
+                url=info_api,
+                params={
+                    'session_id': self.get_session_id(),
+                    'series_id': series_id
+                }
+            )
+            if not self.check_for_error(req[0], 'Failed to fetch. Content unavailable'):
+                return {
+                    'series': req[0]['data']['etp_guid']
+                    }
+        if collection_id is not None:
+            req = request_json(
+                url=info_api,
+                params={
+                    'session_id': self.get_session_id(),
+                    'collection_id': series_id
+                }
+            )
+            if not self.check_for_error(req[0], 'Failed to fetch. Content unavailable'):
+                return {
+                    'series': req[0]['data']['series_etp_guid'],
+                    'season': req[0]['data']['etp_guid'],
+                    }
+        if episode_id is not None:
+            req = request_json(
+                url=info_api,
+                params={
+                    'session_id': self.get_session_id(),
+                    'fields': 'media.etp_guid,media.collection_etp_guid,media.series_etp_guid',
+                    'media_id': episode_id
+                }
+            )
+            if not self.check_for_error(req[0], 'Failed to fetch. Content unavailable'):
+                return {
+                    'series': req[0]['data']['series_etp_guid'],
+                    'season': req[0]['data']['collection_etp_guid'],
+                    'episode': req[0]['data']['etp_guid'],
+                    }
+        
+    def get_series_info(self, series_id=str):
+        if self.account_info['bearer'] is None:
+            self.get_cms_tokens()
+        self.set_main_info('series')
+        series_json = request_json(
+            url=self.CMS_API_URL + '/series/' + series_id,
+            headers={'Authorization': self.account_info['bearer']},
+            params={
+                'locale': self.options['meta_language'],
+                'Signature': self.account_info['signature'],
+                'Policy': self.account_info['policy'],
+                'Key-Pair-Id': self.account_info['key_pair_id']}
+        )[0]
+        
+        vprint(lang['extractor']['get_media_info'] % (
+            lang['types']['alt']['series'],
+            series_json['title'],
+            series_id
+        ), 1, 'crunchyroll')
+        
+        self.info.title = series_json['title']
+        self.info.id = series_id
+        self.info.synopsis = series_json['description']
+        self.info.genres = series_json['keywords']
+        self.info.images.append(series_json['images']['poster_tall'][0][-1:][0]['source'])
+        self.info.images.append(series_json['images']['poster_wide'][0][-1:][0]['source'])
+        self.info.total_episodes = series_json['episode_count']
+        self.info.total_seasons = series_json['season_count']
+        if series_json['season_tags']:
+            # Try to get release year from a season tag, i.e "Winter-2019"
+            # Might be inaccurate with older series like Naruto
+            self.info.year = re.search(r'(\d+)', series_json['season_tags'][0]).group(0)
+            
+        return self.info
+    
+    def get_seasons(self, series_guid=str):
+        season_list = []
+        api_season_list = request_json(
+            self.CMS_API_URL + '/seasons',
+            params={
+                'series_id': series_guid,
+                'locale': self.options['meta_language'],
+                'Signature': self.account_info['signature'],
+                'Policy': self.account_info['policy'],
+                'Key-Pair-Id': self.account_info['key_pair_id']
+                }
+        )[0]
+        for season in api_season_list['items']:
+            season_list.append({
+                'name': season['title'],
+                'id': season['id'],
+                'number': season['season_number']
+            })
+        return season_list
+    
+    def get_season_info(self, season_id=str):
+        self.create_season(self.extraction is False)
+        season_json = request_json(
+            self.CMS_API_URL + '/seasons/' + season_id,
+            headers={'Authorization': self.account_info['bearer']},
+            params={
+                'locale': self.options['meta_language'],
+                'Signature': self.account_info['signature'],
+                'Policy': self.account_info['policy'],
+                'Key-Pair-Id': self.account_info['key_pair_id']
+                }
+            )[0]
+        self.season.title = season_json['title']
+        self.season.id = season_id
+        self.season.number = season_json['season_number']
+        return self.season
 
-    def grab_episodes_from_season(self, season_id=str):
-        self.season_episodes = self.request_json(
-            self.cms_api_url + '/episodes/',
-            method='get',
-            headers={'Authorization': 'Bearer ' + self.bearer_token},
+    def get_episodes_from_season(self, season_id=str):
+        episodes_list = request_json(
+            self.CMS_API_URL + '/episodes',
             params={
                 'season_id': season_id,
                 'locale': self.options['meta_language'],
-                'Signature': self.signature,
-                'Policy': self.policy,
-                'Key-Pair-Id': self.key_pair_id
-                }
-            )[0]
-        for episode in self.season_episodes:
-            self.parse_episode_info(episode)
-        
-    def grab_episode_info(self, episode_id=str):
-        self.episode_json = self.request_json(
-            self.cms_api_url + '/episodes/' + episode_id,
-            method='GET',
-            headers={'Authorization': 'Bearer ' + self.bearer_token},
+                'Signature': self.account_info['signature'],
+                'Policy': self.account_info['policy'],
+                'Key-Pair-Id': self.account_info['key_pair_id']
+                }            
+        )[0]
+        if hasattr(self, 'season'):
+            self.season.total_episodes = len(episodes_list['items'])
+            self.season.available_episodes = len([i for i in episodes_list['items'] if 'playback' in i])
+        return [self._parse_episode_info(i) for i in episodes_list['items']]
+    
+    def get_episode_info(self, episode_id=str, return_raw_info=False):
+        episode_info = request_json(
+            self.CMS_API_URL + '/episodes/' + episode_id,
+            headers={'Authorization': self.account_info['bearer']},
             params={
                 'locale': self.options['meta_language'],
-                'Signature': self.signature,
-                'Policy': self.policy,
-                'Key-Pair-Id': self.key_pair_id
+                'Signature': self.account_info['signature'],
+                'Policy': self.account_info['policy'],
+                'Key-Pair-Id': self.account_info['key_pair_id']
                 }
             )[0]
-        if 'error' in self.episode_json:
-            print(self.episode_json)
-            return
-        self.parse_episode_info(self.episode_json)
-
-    def parse_episode_info(self, episode_entry=dict):
-
-        self.create_episode(title=episode_entry['title'],
-                            id=episode_entry['id'],
-                            synopsis=episode_entry['description'])
-        self.episode['images']['wide'].append(
-            episode_entry['images']['thumbnail'][0][-1:][0]['source']
-            )
-        if 'playback' in episode_entry:
-            self.stream_list_url = episode_entry['playback']
-        elif 'streams' in episode_entry['__links__']:
-            self.stream_list_url = episode_entry['__links__']['streams']
-        else:
-            self.episode['skip_download'] = self.lang['crunchyroll']['fail_to_download_reason_01']
-            return
-        self.stream_list = self.request_json(
-            url=self.stream_list_url,
-            method='get'
-        )[0]
-        # Case 1: Disabled hardsubs or desired hardsub language does not exist
-        if self.options['hardsub_language'] == 'none' or self.options['hardsub_language'] not in self.stream_list['adaptive_hls']:
-            self.stream = self.stream_list['adaptive_hls']['']
-        # Case 2: Desired hardsub language exists
-        elif self.options['hardsub_language'] in self.stream_list['adaptive_hls']:
-            self.stream = self.stream_list['adaptive'][self.options['hardsub_language']]
+        if not return_raw_info:
+            return self._parse_episode_info(episode_info)
+        return episode_info
         
-        # Get subtitles
-        if 'all' in self.options['sub_language']:
-            self.subtitles = [
-                s['url']
+    def _parse_episode_info(self, episode_info=dict):
+        'Parses info from an episode\'s JSON'
+        self.create_episode(self.extraction is False)
+        
+        vprint(lang['extractor']['get_media_info'] % (
+            lang['types']['alt']['episode'],
+            episode_info['title'],
+            episode_info['id']
+        ), 3, 'crunchyroll')
+        self.episode.title = episode_info['title']
+        self.episode.id = episode_info['id']
+        self.episode.synopsis = episode_info['description']
+        self.episode.number = episode_info['episode_number']
+        if self.episode.number is None:
+            self.episode.number = 0
+            self.episode.movie = True
+            if episode_info['season_tags']:
+                self.episode.year = re.search(r'(\d+)', episode_info['season_tags'][0]).group(0)
+        if 'playback' in episode_info:
+            streams_json = request_json(
+                url=episode_info['playback']
+            )[0]
+            # Case 1: Disabled hardsubs or desired hardsub language does not exist
+            if self.options['hardsub_language'] == 'none' or self.options['hardsub_language'] not in streams_json['streams']['adaptive_hls']:
+                preferred = 'ja-JP'
+            # Case 2: Desired hardsub language exists
+            elif self.options['hardsub_language'] in streams_json['streams']['adaptive_hls']:
+                preferred = streams_json['streams']['adaptive_hls'][self.options['hardsub_language']]['hardsub_locale']
+            
+            for stream in streams_json['streams']['adaptive_hls'].values():
+                if stream['hardsub_locale'] == '':
+                    stream['hardsub_locale'] = 'ja-JP'
+                self.create_stream(independent=False)
+                self.stream.url = stream['url']
+                self.stream.name = self.LANG_CODES[stream['hardsub_locale']]['name']
+                self.stream.language = self.LANG_CODES[stream['hardsub_locale']]['lang']
+                self.stream.audio_language = self.LANG_CODES[streams_json['audio_locale']]['name']
+                self.stream.audio_name = self.LANG_CODES[streams_json['audio_locale']]['lang']
+                if stream['hardsub_locale'] == preferred:
+                    self.stream.preferred = True
+                    
+            # Get subtitles
+            [
+                self.create_stream(
+                    url=s['url'],
+                    name=self.LANG_CODES[s['locale']]['name'],
+                    language=self.LANG_CODES[s['locale']]['lang'],
+                    preferred='all' in self.options['sub_language'] or s in self.options['sub_language'],
+                    extra_sub=True)
                 for s in
-                order_list(
-                    to_order=self.stream_list['subtitles'],
-                    order_definer=self._SUBTITLE_ORDER
-                    )
+                order_dict(
+                    to_order=streams_json['subtitles'],
+                    order_definer=self.LANG_CODES
+                    ).values()
                 ]
-        elif 'all' not in self.options['sub_language']:
-            self.subtitles = [
-                s['url']
-                for s in
-                order_list(
-                    to_order=self.stream_list['subtitles'],
-                    order_definer=self._SUBTITLE_ORDER
-                    )
-                if s in self.options['sub_language']
-                ]
+        else:
+            self.episode.skip_download = lang['crunchyroll']['skip_download_reason']
+        
+        if hasattr(self, 'progress_bar'):
+            self.progress_bar.update(1)
+        
+        return self.episode
+    
+    def search(self, term=str):
+        search_results = request_json(
+            url=self.API_URL + 'content/v1/search',
+            headers={
+                'Authorization': self.account_info['bearer'],
+            },
+            params={
+                'q': term,
+                'n': 30,
+                'locale': self.options['meta_language']
+            }
+        )
+        print(search_results)
+    
+    def extract(self, ):
+        self.extraction = True
+        if not is_download_id(self.url):
+            url_tuple = self.identify_url(url=self.url)
+            url_type, media_id = url_tuple
+        else:
+            parsed = parse_download_id(id=self.url)
+            url_type = parsed.content_type
+            media_id = parsed.id
+        
+        
+        # if self.options['region_spoof'] not in ('none', None):
+        #     self.region_spoof(region_code=self.options['region_spoof'])
+        
+        # self.get_cms_tokens()
+        
+        if url_type == 'series':
+            # Posible series cases:
+            # Case 1: Legacy URL -> .../series-name - ID-less
+            # Case 2: Legacy URL -> .../series-000000 - has ID
+            # Case 3: New URL -> .../series/AlphaNumID/... - has ID
+            
+            if media_id is None:
+                # Case 1
+                # Request the series' webpage and get id from page's source
+                series_page = request_webpage(
+                    self.url,
+                    cookies=self.cjar
+                )
                 
+                # Raise an Invalid URL error if page doesn't exist
+                if series_page.status_code == 404:
+                    raise InvalidURLError
+                
+                series_content = series_page.content.decode()
+                series_id = re.search(
+                    pattern=r'ass="show-actions" group_id="(?P<id>\d{5,})"',
+                    string=series_content
+                    ).group(1)
+                
+                # Get series GUID from the ID
+                series_guid = self.get_etp_guid(series_id=series_id)['series']
+            else:  
+                # Case 2
+                if media_id.isdigit():
+                    # Get series GUID from the ID
+                    series_guid = self.get_etp_guid(series_id=media_id)['series']
+                else:
+                    series_guid = media_id
+                    
+            self.get_series_info(series_id=series_guid)
+            
+            self.create_progress_bar(desc=self.info.title, total=self.info.total_episodes, leave=False)
+
+            for season in self.get_seasons(series_guid=series_guid):
+                self.get_season_info(season_id=season['id'])
+                self.get_episodes_from_season(season_id=season['id'])
+                
+            self.progress_bar.close()
+        
+        elif url_type == 'episode':
+            if media_id.isdigit():
+                episode_guid = self.get_etp_guid(episode_id=media_id)['episode']
+            else:
+                episode_guid = media_id
+                
+            # Get raw episode info
+            episode_info = self.get_episode_info(episode_id=episode_guid, return_raw_info=True)
+            
+            # Get series and season's guid using regex
+            series_guid = re.search(r'/(\w+)$', episode_info['__links__']['episode/series']['href']).group(1)
+            season_guid = re.search(r'/(\w+)$', episode_info['__links__']['episode/season']['href']).group(1)
+            
+            # Get series and season info
+            self.get_series_info(series_id=series_guid)
+            self.get_season_info(season_id=season_guid)
+            # Parse the raw episode info
+            self._parse_episode_info(episode_info=episode_info)
+            # Link the episode with the season
+            self.season.link_episode(episode=self.episode)
+        
+        return self.info

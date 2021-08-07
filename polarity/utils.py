@@ -1,20 +1,27 @@
 from shutil import which
 from sys import platform
 from threading import Thread, current_thread
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from time import sleep, time
 import colorama
+import requests
+from requests.models import Response
 from tqdm import tqdm
+from json.decoder import JSONDecodeError
+from xml.parsers.expat import ExpatError
 
-import toml
+import cloudscraper
 import json
 import logging
+import os
 import re
 import subprocess
-import os
+import toml
+import xmltodict
 
+colorama.init()
 
-def vprint(message, level=1, module_name='polarity', error_level=None, end='\n', force_new_line=False):
+def vprint(message, level=1, module_name='polarity', error_level=None, end='\n', use_print=False):
     '''
     ### Verbose print
     #### Prints a message based on verbose level
@@ -29,10 +36,12 @@ def vprint(message, level=1, module_name='polarity', error_level=None, end='\n',
     [demo/debug] Hello world!  # Output
     >>>
     '''
-    from polarity.config import verbose_level
+    try:
+        from polarity.config import verbose_level
+    except ImportError:
+        verbose_level = 1
 
     # Colors
-    colorama.init()
     red = colorama.Fore.RED
     blu = colorama.Fore.CYAN
     yel = colorama.Fore.YELLOW
@@ -40,6 +49,8 @@ def vprint(message, level=1, module_name='polarity', error_level=None, end='\n',
     reset = colorama.Fore.RESET
 
     module = f'[{module_name}{f"/{error_level}" if error_level is not None else ""}]'
+    
+    print_method = tqdm.write if not use_print else print
 
     if error_level in ('error', 'critical', 'exception'):
         module = f'{red}{module}{reset}'
@@ -54,7 +65,7 @@ def vprint(message, level=1, module_name='polarity', error_level=None, end='\n',
 
     if level <= int(verbose_level):
         # Print the message
-        tqdm.write(msg, end=end)
+        print_method(msg, end=end)
 
     if error_level is None and level <= 4:
         logging.info(f'[{module_name}] {message}')
@@ -236,18 +247,23 @@ def recurse_merge_dict(main_dict=dict, secondary_dict=dict):
     return secondary_dict
 
 def load_language(lang=None):
-    from polarity.config import config
     'Returns dict containing selected language strings'
+    from polarity.config import config
+    from polarity.paths import LANGUAGES
     if lang is None:
         lang = config['language']
-    base_language = toml.load('polarity/lang/enUS.toml')
-    if os.path.exists('polarity/lang/%s.toml' % lang):
-        loaded_language = toml.load('polarity/lang/%s.toml' % lang)
+    base_language = toml.load(f'{LANGUAGES}enUS.toml')
+    if os.path.exists(f'{LANGUAGES}{lang}.toml'):
+        loaded_language = toml.load(f'{LANGUAGES}{lang}.toml')
         return recurse_merge_dict(base_language, loaded_language)
     else:
         # This string doesn't need to be translated \/
         # vprint('Specified language "%s" doesn\'t exist. Defaulting to english' % lang)
         return base_language
+    
+def language_installed(lang: str) -> bool:
+    from polarity.paths import LANGUAGES
+    return os.path.exists(f'{LANGUAGES}{lang}.toml')
 
 def filename_datetime():
     from datetime import datetime
@@ -319,15 +335,9 @@ def order_list(to_order, index=None, order_definer=list):
         return [y for x in order_definer for y in to_order if x == y]
     else:
         return [y for x in order_definer for y in to_order if x == y[index]]
-
-def urlsjoin(base=str, *urls):
-    'Join multiple urls using urljoin'
-    for url in urls:
-        if url == urls[-1]:
-            base = urljoin(base, url)
-            continue
-        base = urljoin(base, url) + '/'
-    return base
+    
+def order_dict(to_order, order_definer):
+    return {y: z for y, z in to_order.items() for x in order_definer if x == y}
 
 def make_thread(*args, **kwargs):
     from polarity.Polarity import _ALL_THREADS
@@ -384,3 +394,64 @@ def handle_signal():
 def mkfile(path=str, contents=str, ):
     if not os.path.exists(path):
         open(path, 'w').write(contents)
+        
+def request_webpage(url=str, method='get', **kwargs) -> Response:
+    '''
+    Make a HTTP request using cloudscraper
+    `url` url to make the request to
+    `method` http request method
+    `cloudscraper_kwargs` extra cloudscraper arguments, for more info check the `requests wiki`
+    '''
+    # Create a cloudscraper session
+    # Spoof an Android Firefox browser to bypass Captcha v2
+    browser = {
+        'browser': 'firefox',
+        'platform': 'android',
+        'desktop': False,
+    } 
+    r = cloudscraper.create_scraper(browser=browser)
+    response = getattr(r, method.lower())(url, **kwargs)
+    return response
+
+
+
+def request_json(url=str, method='get', **kwargs):
+    'Same as request_webpage, except it returns a tuple with the json as a dict and the response object'
+    response = request_webpage(url, method, **kwargs)
+    try:
+        return (json.loads(response.content.decode()), response)
+    except JSONDecodeError:
+        return ({}, response)
+
+
+
+def request_xml(url=str, method='get', **kwargs):
+    'Same as request_webpage, except it returns a tuple with the xml as a dict and the response object'
+    response = request_webpage(url, method, **kwargs)
+    try:
+        return (xmltodict.parse(response.content.decode()), response)
+    except ExpatError:
+        return ({}, response)
+    
+
+def get_country_from_ip() -> str:
+    return requests.get('http://ipinfo.io/json').json().get('country')
+    
+def get_compatible_extractor(url=str) -> tuple:
+    'Returns a compatible extractor for the inputted url, if it exists'
+    from polarity.extractor import EXTRACTORS
+    if not is_download_id(text=url):
+        url_host = urlparse(url).netloc
+        extractor = [
+            extractor
+            for extractor in EXTRACTORS.values()
+            if re.match(extractor[2], url_host)
+            ]
+        if not extractor:
+            return(None, None)
+        # Return (name, object)
+        return (extractor[0][0], extractor[0][1])
+    else:
+        parsed_id = parse_download_id(id=url)
+        extractor_name = parsed_id.extractor
+        return (EXTRACTORS[extractor_name][0], EXTRACTORS[extractor_name][1])

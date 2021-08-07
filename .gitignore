@@ -143,3 +143,8 @@ ffmpeg.zip
 polarity/extractor/plutotv.py
 polarity/extractor/deezer.py
 windows-install.py
+tests*
+
+# API
+polar-api.py
+fastapi-server.py

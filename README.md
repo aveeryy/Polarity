@@ -6,15 +6,19 @@
 
 
 ## Features
-- **Cross-platform** (Linux, Windows, MacOS, Android, everything that can run Python and FFmpeg)
+- **Cross-platform** (Linux, Windows, MacOS, Android, anything that can run Python and FFmpeg)
 - **Multilanguage**
 ### Download features
 - **Resolution selection**
 - **Subtitles support**
 - **Custom name formatting**
 - **Multi-threaded downloads**
-<!---
 - **External downloader support**
+### Other features
+- **Search in supported extractors**
+- **_(Minimal)_ Live TV support**
+<!---
+
 - **Automatically download new episodes**
 - **Plex and Kodi Metadata support**
 -->
@@ -25,11 +29,10 @@
 - ### [Android Installation <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#android-)
 
 ## Supported websites
-| | Platforms | Premium | Subtitles |
+| | Platforms | Premium support | Subtitles |
 |:-:|:-:|:-:|:-:|
 | Atresplayer | <img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/> <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/> <img src="https://aveeryy.github.io/icons/small/MacOS.png" alt="MacOS" width="16"/> <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/> | ✔️ | ✔️ |
 | Crunchyroll |<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/> <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/> <img src="https://aveeryy.github.io/icons/small/MacOS.png" alt="MacOS" width="16"/> <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/> | ✔️ | ✔️ |
-| Crunchyroll-Beta | 🍝 | 🍝 | 🍝 |
 
 > Note: "🍝" means in progress
 
@@ -50,7 +53,7 @@ Configuration files are found at:
     ~/.Polarity/
 
 ## Testing devices
-<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Linux" width="16"/>  **Windows 11** (idk)
+<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Linux" width="16"/>  **Windows 10** (Ameliorated)
 
 <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/>  **Arch Linux** (latest kernel)
 
@@ -58,32 +61,22 @@ Configuration files are found at:
 
 <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>  **Android 10** (Termux 0.101/4.4.210-Sultan)
 
-## Development roadmap (not in order)
+## Development roadmap (in order)
 - Finish Crunchyroll support ✔
 - Crunchyroll bugfixing ✔
 - Support for movie formatting ✔
-- Igloo redownload ✔
 - Language support ✔
 - Internal downloader ✔
 - Support for external downloaders ✔
-- Crunchyroll Beta support ⚙
-- Automatic synchronization ⚙
-- Search function ❌
-- Downloading by id, (example: crunchyroll/series-912874) ❌
+- Crunchyroll Beta support ✔
+- Search function ✔
+- Downloading by id, (example: crunchyroll/series-912874) ✔
 - Support for Plex and Kodi metadata files ⚙
 - Final bugfixing ❌
 - First release ❌
+- Automatic synchronization ⚙
 - Support for more websites ❌
 - Music support ❌
-
-## TODOs
-
-- Make new metadata format
-- Make new language metadata format
-- ~~(Atresplayer) Move create_** functions to extract~~
-- (Atresplayer) Support for extras
-- ~~(Penguin) Support for resolution selection~~
-- (Polarity) ~~Support for downloader arguments and config~~
 
 ## Legal disclaimer
 This application is not affiliated nor endorsed by any of the sites mentioned above. This application enables downloading videos for *offline viewing* which may be forbidden in your country or cause a violation of the Terms of Service of your Internet Service Provider or streaming provider. Neither I nor this tool are responsible of your actions and therefore, consequences.

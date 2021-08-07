@@ -1,6 +1,9 @@
-from polarity.types import Actor
-from polarity.types import Season
-class Series:
+from .base import PolarType
+
+from .actor import Actor
+from .season import Season
+
+class Series(PolarType):
     def __init__(self) -> None:
         self.title = None
         self.id = None

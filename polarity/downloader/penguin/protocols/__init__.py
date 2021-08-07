@@ -16,3 +16,5 @@ class TestMode:
     SUPPORTED_EXTENSIONS = ('.test_mode')
 
 ALL_PROTOCOLS = [HTTPLiveStream, TestMode]
+
+SUPPORTED = [ext for protocol in ALL_PROTOCOLS for ext in protocol.SUPPORTED_EXTENSIONS]
