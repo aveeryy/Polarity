@@ -105,10 +105,10 @@ class Polarity:
                     # Display login form if login is required for that extractor and not logged in
                     username, password = None, None
                     # See if username and password has been passed as an argument
-                    if 'username' in self.options['extractor'][extractor[0]]:
-                        username = self.options['extractor'][extractor[0]]['username']
-                    if 'password' in self.options['extractor'][extractor[0]]:
-                        password = self.options['extractor'][extractor[0]]['password']
+                    if 'username' in self.options['extractor'][extractor[0].lower()]:
+                        username = self.options['extractor'][extractor[0].lower()]['username']
+                    if 'password' in self.options['extractor'][extractor[0].lower()]:
+                        password = self.options['extractor'][extractor[0].lower()]['password']
                     extractor[1]().login_with_form(username, password)
                 url_pool.append((url, *extractor))
             for i in range(self.options['download']['simultaneous_urls']):
