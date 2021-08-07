@@ -81,7 +81,7 @@ def windows_install() -> None:
 
     hb = humanbytes
 
-    print('[-] Downloading FFmpeg')
+    vprint('Downloading FFmpeg', module_name='update')
     download = get(FFMPEG, stream=True)
     total = int(download.headers["Content-Length"])
     downloaded = 0
