@@ -79,7 +79,7 @@ def argument_parser():
     general = parser.add_argument_group(title=lang_group['general'])
     general.add_argument('-h', '--help', '--ayuda', action='store_true', help=lang_help['help'])
     general.add_argument('--extended-help', help=lang_help['extended_help'], action='store_true')
-    general.add_argument('-v', '--verbose', choices=['1', '2', '3', '4', '5'], help=lang_help['verbose'], metavar=lang_meta['verbose'])
+    general.add_argument('-v', '--verbose', choices=['0', '1', '2', '3', '4', '5'], help=lang_help['verbose'], metavar=lang_meta['verbose'])
     general.add_argument('-m', '--running-mode', '--mode', choices=['download', 'search', 'print', 'live_tv'], default='download')
     general.add_argument('-e', '--search-extractor', help='')
     general.add_argument('--search-strip-names')

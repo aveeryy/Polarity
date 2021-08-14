@@ -1,3 +1,4 @@
+import m3u8
 from polarity.utils import vprint
 import cloudscraper
 from urllib.parse import urljoin
@@ -5,7 +6,7 @@ from m3u8 import parse
 from .base import StreamProtocol
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from polarity.downloader.base import Segment, InitSegment
+from polarity.types.segment import *
 
 class HTTPLiveStream(StreamProtocol):
     SUPPORTED_EXTENSIONS = ('.m3u', '.m3u8')
@@ -36,72 +37,56 @@ class HTTPLiveStream(StreamProtocol):
             
 
     def get_stream_fragments(self, stream=dict, force_type=None):
-        def build_segment_list(media_type=str):
+        def build_segment_pool(media_type=str):
             self.processed_tracks[media_type] += 1
-            return {
-                'segments': [
-                    # Create a Segment object
-                    Segment(
-                        url=urljoin(self.stream_url, s['uri']),
-                        number=self.parsed_stream['segments'].index(s),
-                        type=media_type,
-                        key=s['key']['uri'] if 'key' in s else None,
-                        key_method=s['key']['method'] if 'key' in s else None,
-                        duration=s['duration'],
-                        group=f'{media_type}{self.processed_tracks[media_type]}',
-                        )
-                    for s in self.parsed_stream['segments']],
-                'format': media_type,
-                'id': f'{media_type}{self.processed_tracks[media_type]}'
-            }
+            seg_pool = SegmentPool()
+            seg_pool.segments = [
+                # Create a Segment object
+                Segment(
+                    url=urljoin(self.stream_url, s['uri']),
+                    number=self.parsed_stream['segments'].index(s),
+                    type=media_type,
+                    key=s['key']['uri'] if 'key' in s else None,
+                    key_method=s['key']['method'] if 'key' in s else None,
+                    duration=s['duration'],
+                    group=f'{media_type}{self.processed_tracks[media_type]}',
+                    )
+                for s in self.parsed_stream['segments']
+                ]
+            seg_pool.format = media_type
+            seg_pool.type = M3U8Pool
+            return seg_pool
+        def create_init_segment(pool: str) -> None:
+            self.segment_pool.segments.append(
+                Segment(
+                    url=urljoin(self.stream_url, self.parsed_stream['segment_map']['uri']),
+                    init=True,
+                    type=pool,
+                    group=f'{pool}{self.processed_tracks[pool]}'
+                )                
+            )
         self.stream_url = urljoin(self.url, stream['uri'])
-        vprint('Getting stream data', 1, 'penguin/hls', 'debug')
+        vprint('Getting stream data', 3, 'penguin/hls', 'debug')
         self.stream_data = self.scraper.get(self.stream_url).content
         self.parsed_stream = parse(self.stream_data.decode())
         # Support for legacy m3u8 playlists
         # (Not having video and audio in different streams)
         if force_type is not None:
-            self.segment_set = build_segment_list(force_type)
+            self.segment_pool = build_segment_pool(force_type)
             if 'segment_map' in self.parsed_stream:
-                self.segment_set['segments'].append(
-                    InitSegment(
-                        url=urljoin(self.stream_url, self.parsed_stream['segment_map']['uri']),
-                        number=99999,
-                        type=force_type,
-                        group=f'{force_type}{self.processed_tracks[force_type]}'
-                    )
-                )
-            self.segment_list.append(self.segment_set)
+                create_init_segment(pool=force_type)
+            self.segment_pools.append(self.segment_pool)
             return
 
         if 'audio' not in stream['stream_info']:
-            self.segment_set = build_segment_list('unified')
+            self.segment_pool = build_segment_pool('unified')
             if 'segment_map' in self.parsed_stream:
-                self.segment_set['segments'].append(
-                    InitSegment(
-                        url=urljoin(self.stream_url, self.parsed_stream['segment_map']['uri']),
-                        number=99999,
-                        type='unified',
-                        group=f'{"unified"}{self.processed_tracks["unified"]}'
-                    )
-                )
+                create_init_segment(pool='unified')
         else:
-            self.segment_set = build_segment_list('video')
-        self.segment_list.append(self.segment_set)
+            self.segment_pool = build_segment_pool('video')
+        self.segment_pools.append(self.segment_pool)
         if 'segment_map' in self.parsed_stream:
-            self.segment_set['segments'].append(
-                InitSegment(
-                    url=urljoin(self.stream_url, self.parsed_stream['segment_map']['uri']),
-                    number=99999,
-                    type='video',
-                    group=f'{"video"}{self.processed_tracks["video"]}'
-                )
-            )       
-        # Open extra media
-        if 'audio' in stream['stream_info']:
-            self.audio_group = stream['stream_info']['audio']
-        if 'subtitles' in stream['stream_info']:
-            self.subt_group = stream['stream_info']['subtitles']
+            create_init_segment(pool='video')    
         for media in self.parsed_data['media']:
             if media['type'] == 'AUDIO':
                 self.get_stream_fragments(media, 'audio')
@@ -109,26 +94,26 @@ class HTTPLiveStream(StreamProtocol):
                 if '.m3u' in media['uri']:
                     self.get_stream_fragments(media, 'subtitles')
                 else:
-                    self.subt_contents = self.scraper.get(urljoin(self.url, media['uri'])).content
+                    contents = self.scraper.get(urljoin(self.url, media['uri'])).content
                     # Fuck whoever thought it was a good idea to disguise m3u8 playlists as .vtt subtitles
-                    if b'#EXTM3U' in self.subt_contents:
+                    if b'#EXTM3U' in contents:
                         self.get_stream_fragments(media, 'subtitles')
                         continue
                     self.processed_tracks['subtitles'] += 1
-                    self.subtitle_object = Segment(
+                    subtitles = Segment(
                         url=urljoin(self.url, media['uri']),
                         number=0,
                         type='subtitles',
                         group=f'subtitles{self.processed_tracks["subtitles"]}',
                     )
-                    self.subtitle_set = {
-                        'segments': [self.subtitle_object],
-                        'format': 'subtitles',
-                        'id': f'subtitles{self.processed_tracks["subtitles"]}'
-                    }
-                    self.segment_list.append(self.subtitle_set)    
+                    subtitle_pool = SegmentPool()
+                    subtitle_pool.segments = [subtitles]
+                    subtitle_pool.format = 'subtitles'
+                    subtitle_pool.id = f'subtitles{self.processed_tracks["subtitles"]}'
+                    
+                    self.segment_pools.append(self.subtitle_set)    
 
-    def extract_frags(self):
+    def extract(self):
         self.retries = Retry(total=30, backoff_factor=1, status_forcelist=[502, 503, 504, 403, 404])
         # Spoof a Firefox Android browser to (usually) bypass CaptchaV2
         self.browser = {
@@ -136,9 +121,9 @@ class HTTPLiveStream(StreamProtocol):
             'platform': 'android',
             'desktop': False,
         }
-        vprint('Getting playlist data', module_name='penguin/hls', error_level='debug')
+        vprint('Getting playlist data', 3, module_name='penguin/hls', error_level='debug')
         self.scraper = cloudscraper.create_scraper(browser=self.browser)
         self.scraper.mount('https://', HTTPAdapter(max_retries=self.retries))
         self.open_playlist()
         self.get_stream_fragments(self.stream)
-        return {'segment_lists': self.segment_list, 'tracks': self.processed_tracks}
+        return {'segment_pools': self.segment_pools, 'tracks': self.processed_tracks}

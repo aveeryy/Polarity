@@ -191,7 +191,7 @@ class CrunchyrollExtractor(BaseExtractor):
                 'device_id': '46n8i3b963vch0.95917811',
                 'access_token': 'giKq5eY27ny3cqz'
             },
-            cookies=self.cjar
+            proxies=self.proxy
         )
         self.account_info['session_id'] = req[0]['data']['session_id']
         if save_to_cjar:
@@ -337,7 +337,8 @@ class CrunchyrollExtractor(BaseExtractor):
                 params={
                     'session_id': self.get_session_id(),
                     'series_id': series_id
-                }
+                },
+                proxies=self.proxy
             )
             if not self.check_for_error(req[0], 'Failed to fetch. Content unavailable'):
                 return {
@@ -349,7 +350,8 @@ class CrunchyrollExtractor(BaseExtractor):
                 params={
                     'session_id': self.get_session_id(),
                     'collection_id': series_id
-                }
+                },
+                proxies=self.proxy
             )
             if not self.check_for_error(req[0], 'Failed to fetch. Content unavailable'):
                 return {
@@ -363,7 +365,8 @@ class CrunchyrollExtractor(BaseExtractor):
                     'session_id': self.get_session_id(),
                     'fields': 'media.etp_guid,media.collection_etp_guid,media.series_etp_guid',
                     'media_id': episode_id
-                }
+                },
+                proxies=self.proxy
             )
             if not self.check_for_error(req[0], 'Failed to fetch. Content unavailable'):
                 return {
@@ -511,8 +514,8 @@ class CrunchyrollExtractor(BaseExtractor):
                 self.stream.url = stream['url']
                 self.stream.name = self.LANG_CODES[stream['hardsub_locale']]['name']
                 self.stream.language = self.LANG_CODES[stream['hardsub_locale']]['lang']
-                self.stream.audio_language = self.LANG_CODES[streams_json['audio_locale']]['name']
-                self.stream.audio_name = self.LANG_CODES[streams_json['audio_locale']]['lang']
+                self.stream.audio_language = self.LANG_CODES[streams_json['audio_locale']]['lang']
+                self.stream.audio_name = self.LANG_CODES[streams_json['audio_locale']]['name']
                 if stream['hardsub_locale'] == preferred:
                     self.stream.preferred = True
                     
@@ -520,8 +523,8 @@ class CrunchyrollExtractor(BaseExtractor):
             [
                 self.create_stream(
                     url=s['url'],
-                    name=self.LANG_CODES[s['locale']]['name'],
-                    language=self.LANG_CODES[s['locale']]['lang'],
+                    sub_name=self.LANG_CODES[s['locale']]['name'],
+                    sub_language=self.LANG_CODES[s['locale']]['lang'],
                     preferred='all' in self.options['sub_language'] or s in self.options['sub_language'],
                     extra_sub=True)
                 for s in

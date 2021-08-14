@@ -1,3 +1,4 @@
+from polarity.types.stream import Stream
 import threading
 
 import re
@@ -10,7 +11,7 @@ from colorama import Fore
 from tqdm import tqdm
 
 from polarity.config import config, save_config
-from polarity.paths import TEMP as temporary_dir
+from polarity.paths import TEMP
 from polarity.utils import get_extension, vprint, send_android_notification, recurse_merge_dict
 
 class BaseDownloader:
@@ -23,55 +24,39 @@ class BaseDownloader:
                 self.downloader_config(...)
                 # Stuff to load at init here
     '''
-    def __init__(self, stream=None, extra_audio=None, extra_subs=dict, options=dict, status_list=list, media_metadata=dict, name=str, id=str, output=str):
+    def __init__(self, stream: Stream, extra_audio=None, extra_subs=None, options=dict, status_list=list, media_metadata=dict, name=str, id=str, output=str):
         self.stream = stream
-        self.extra_audio = extra_audio
-        self.extra_subs = extra_subs
+        self.extra_audio = extra_audio if extra_audio is not None else []
+        self.extra_subs = extra_subs if extra_subs is not None else []
         self.user_options = options
-        self.downloader_name = self.return_class()[:-10]
+        self.downloader_name = self.return_class()[:-10].lower()
         if self.downloader_name not in config['download'] and hasattr(self, 'DEFAULTS'):
             config['download'][self.downloader_name] = self.DEFAULTS
             save_config()
         self.options = recurse_merge_dict({self.downloader_name: self.DEFAULTS}, config['download'])
         if options != dict:
             self.options = recurse_merge_dict(self.options, self.user_options)
-        self.status = status_list
+        # self.status = status_list
         self.media_metadata = media_metadata
-        self.content_name = name
-        self.content_id = id
         self.content = f'{name} ({id})'
+        self.content_name = name
+        self.content_sanitized = self.content.strip('?')
         self.output = output
         self.output_path = output.replace(get_extension(output), '')
         self.output_name = os.path.basename(output).replace(get_extension(output), '')
+        self.temp_path = f'{TEMP}{self.content_sanitized}'
 
-        if not os.path.exists(self.output_path.replace(self.output_name, '')):
-            try:
-                os.makedirs(self.output_path.replace(self.output_name, ''))
-            except FileExistsError:
-                pass
-        if not os.path.exists(f'{temporary_dir}{self.output_name}'):
-            os.makedirs(f'{temporary_dir}{self.output_name}')
-        self.segment_list = []
-        self.status = []
-        self.load_at_init()
+        # Create output and temporal paths
+        os.makedirs(self.output_path.replace(self.output_name, ''), exist_ok=True)
+        os.makedirs(self.temp_path, exist_ok=True)
+        if hasattr(self, 'load_at_init'):
+            self.load_at_init()
 
     def write_status_dict(self, status=dict):
         '#### Write to status dict, use this instead of writing directly to `self.status`'
         self.status.clear()
         for j in status:
             self.status.append(j)
-
-    def print_status_thread(self):
-        while True:
-            self.android_notification = ''
-            if 'finished' in self.status:
-                return
-            for item in self.status:
-                vprint(item['str'], item['verbose'], 'polarity/status')
-                self.android_notification += item['str'] + '\n'
-            vprint('=' * 30)
-            send_android_notification(f'Polarity ({threading.current_thread().name})', self.android_notification, 'download_status', threading.current_thread().name)
-            time.sleep(5)
 
     def downloader_config(
         self,
@@ -119,23 +104,3 @@ class BaseDownloader:
             self.subprocess.kill()
             time.sleep(0.5)
             raise
-
-# TODO: create a type for this
-class Segment:
-    '''
-    Defines a segment
-    '''
-    def __init__(self, url=str, number=int, type=str, key=None, key_method=None, duration=float, group=str):
-        self.url = url
-        self.number = number
-        self.media_type = type
-        self.key = key
-        self.key_method = key_method
-        self.duration = duration
-        self.id = f'{group}_{number}'
-        self.group = group
-        self.ext = get_extension(self.url)
-        self.output = f'{self.id}{self.ext}'
-
-class InitSegment(Segment):
-    pass
