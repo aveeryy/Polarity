@@ -135,7 +135,7 @@ def remove_android_notification(id=str):
 # String manipulation stuff
 
 def sanitize_filename(filename=str, directory_replace=False):
-    '''`win32_replace`: replaces forbidden characters for similar looking ones'''
+    '`win32_replace`: replaces forbidden characters for similar looking ones'
     replace_win32 = {
         '|': 'ꟾ',
         '<': '˂',
@@ -168,32 +168,16 @@ def sanitize_filename(filename=str, directory_replace=False):
     return filename
 
 def sanitized_file_exists(file_path=str):
-    '''
-    Check if a Windows sanitized file exists
-    TODO: linux and android support, rework
-    '''
-    sanitized_chars = {
-        '|': 'ꟾ',
-        '<': '˂',
-        '>': '˃',
-        '"': "'",
-        '?': '？',
-        '*': '＊',
-        ':': '',
-        '/': '',
-        '\\': '',
-    }
+
     file_dir = os.path.dirname(file_path) + '/'
     sanitized_path = sanitize_filename(file_dir, directory_replace=True)
-    sanitized_filename = os.path.basename(file_path)
-    for forbidden, shit_looking_character in sanitized_chars.items():
-        sanitized_filename = sanitized_filename.replace(forbidden, shit_looking_character)
+    sanitized_filename = sanitize_filename(os.path.basename(file_path))
+    sanitized = os.path.join(sanitized_path, sanitized_filename)
     if os.path.exists(file_path):
         return True
-    elif os.path.exists(os.path.join(sanitized_path, sanitized_filename)):
+    if os.path.exists(sanitized):
         return True
-    else:
-        return False
+    return False
 
 # Adds a '0' behind any number. Example S1 -> S01
 def normalize_integer(number):
@@ -337,7 +321,7 @@ def order_list(to_order, index=None, order_definer=list):
         return [y for x in order_definer for y in to_order if x == y[index]]
     
 def order_dict(to_order, order_definer):
-    return {y: z for y, z in to_order.items() for x in order_definer if x == y}
+    return {y: z for x in order_definer for y, z in to_order.items()  if x == y}
 
 def make_thread(*args, **kwargs):
     from polarity.Polarity import _ALL_THREADS

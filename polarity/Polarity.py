@@ -4,7 +4,7 @@ from logging import error
 from pprint import pprint
 from time import sleep
 from urllib.parse import urlparse
-from threading import Thread, current_thread
+from threading import Lock, Thread, current_thread
 
 import json
 import os
@@ -26,6 +26,8 @@ _STATS = {
     'tasks': {},
     'threads': _ALL_THREADS
     }
+
+downloader_lock = Lock()
 
 
 class Polarity:
@@ -68,7 +70,7 @@ class Polarity:
                         _lang = toml.load(f=l)
                     print(f'{_lang["name"]} [{_lang["code"]}] - {lang["author"]}')
             else:
-                vprint('no languages found', 1, error_level='critical')
+                vprint('No languages found', 1, error_level='critical')
             os._exit(0)
         elif 'list_languages' in self.options:
             language_list = request_webpage('https://aveeryy.github.io/Polarity-Languages/languages.toml')
@@ -122,7 +124,7 @@ class Polarity:
                     sleep(0.5)
                     continue
                 break
-            vprint('All tasks finished', use_print=True)
+            vprint('All tasks finished')
         elif self.mode == 'search':
             '''
             Search mode
@@ -131,19 +133,18 @@ class Polarity:
             Output: results formatted `type - name (download_id)`
             '''
             if not self.options['search_extractor']:
-                vprint('Search extractor not specified', 1, error_level='error')
+                vprint(lang['polarity']['search_no_extractor'], 1, error_level='error')
                 os._exit(0)
             extractor = EXTRACTORS[self.options['search_extractor']]
             if not hasattr(extractor[1], 'search'):
                 # TODO: better error handling lol
                 raise Exception
             # Join all search terms in a string
-            string = ' '
-            search_term = string.join(self.url_pool)
-            vprint(f'Search term: {search_term}', 3, error_level='debug')
+            search_term = ' '.join(self.url_pool)
+            vprint(lang['polarity']['search_term'] + search_term, 3, error_level='debug')
             results = extractor[1]().search(search_term)
             if not results:
-                vprint('No results found', 1, error_level='error')
+                vprint(lang['polarity']['search_no_results'], 1, error_level='error')
                 os._exit(1)
             for result in results:
                 if 'search_max_length' in self.options and self.options['search_max_length']:
@@ -160,7 +161,6 @@ class Polarity:
             Input: slightly modified download id `extractor/live-name`
             Output: m3u8 playlist `https://example.com/playlist.m3u8`
             '''
-            # TODO: channel checks, 
             channel = self.url_pool[0]
             parsed = parse_download_id(id=channel)
             print(EXTRACTORS[parsed.extractor][1].get_live_stream(parsed.id))
@@ -241,7 +241,7 @@ class Polarity:
                 item = download_pool.pop(0)
                 content_extended_id = f'{extractor_name.lower()}/{type(item).__name__.lower()}-{item.id}'
                 # Skip if output file already exists or id in download log
-                if self.id_in_archive(content_extended_id) or sanitized_file_exists(item.output):  
+                if self.id_in_archive(content_extended_id) or sanitized_file_exists(item.output): 
                     if not self.id_in_archive(content_extended_id):
                         self.add_id_to_archive(content_extended_id)
                     if not self.options['download']['redownload']:
@@ -249,7 +249,7 @@ class Polarity:
                             message=lang['dl']['no_redownload'] % (
                                 lang['types'][type(item).__name__.lower()],
                                 item.title),
-                            level=2,
+                            level=1,
                             error_level='warning'
                         )
                         continue
@@ -265,15 +265,15 @@ class Polarity:
                     continue
 
                 # Set preferred stream as main stream if set else use stream 0
-                if hasattr(item, 'stream_preferance'):
-                    stream = item.get_preferred_stream()
-                else:
+                stream = item.get_preferred_stream()
+                if stream is None:
                     stream = item.streams[0]
 
                 if type(item) == Episode and not item.movie:
                     name = f"{content_info.title} {item.season_id}"
                 elif type(item) == Movie or type(item) == Episode and item.movie:
                     name = f"{item.title} ({item.year})"
+                    
                 vprint(
                     message=lang['dl']['downloading_content']%(
                         lang['types'][type(item).__name__.lower()],
@@ -390,7 +390,7 @@ class Polarity:
                             en=normalize_integer(episode.number))
                         # Sanitize filename
                         episode.season_id = f'S{normalize_integer(season.number)}E{normalize_integer(episode.number)}'
-                        output_name = sanitize_filename(output_name) + '.mkv'
+                        output_name = sanitize_filename(output_name)
                         # Join all paths
                         output_path = os.path.join(
                             self.options['download']['series_directory'],

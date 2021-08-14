@@ -1,3 +1,4 @@
+from polarity.downloader.penguin.protocols.base import StreamProtocol
 from .hls import HTTPLiveStream
 
 class TestMode:
@@ -14,6 +15,7 @@ class TestMode:
         pass
 
     SUPPORTED_EXTENSIONS = ('.test_mode')
+
 
 ALL_PROTOCOLS = [HTTPLiveStream, TestMode]
 

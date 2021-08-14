@@ -18,12 +18,13 @@ class SyncList:
                 
     
 class SyncObject:
-    _sync_new_children = True
-    _finished = False
-    _downloaded = False
-    id = None
-    media_type = None
-    children = []
+    def __init__(self) -> None:
+        self._sync_new_children = True
+        self._finished = False
+        self._downloaded = False
+        self.id = None
+        self.media_type = None
+        self.children = []
     
     def get_all_grandchildren(self):
         all_grandchildren = []

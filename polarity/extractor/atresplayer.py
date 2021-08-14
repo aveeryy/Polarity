@@ -120,7 +120,7 @@ class AtresplayerExtractor(BaseExtractor):
 
     def get_seasons(self):
         vprint(lang['extractor']['get_all_seasons'], 2, 'atresplayer')
-        return [self.get_season_info(season_id=season['link']['href'][-24:]) for season in self.series_json['seasons']]
+        return [season['link']['href'][-24:] for season in self.series_json['seasons']]
             
               
     def get_season_info(self, season_id=str):
@@ -150,9 +150,16 @@ class AtresplayerExtractor(BaseExtractor):
         page = 0
         total_pages = 727  # placeholder variable
         while page < total_pages:
-            page_json = request_json(self.API_URL +
-                                        'client/v1/row/search?entityType=ATPEpisode&formatId=%s \
-                                        &seasonId=%s&size=100&page=%d' %(self.info.id, season_id, self.page))[0]
+            page_json = request_json(
+                url=self.API_URL + 'client/v1/row/search',
+                params={
+                    'entityType': 'ATPEpisode',
+                    'formatId': self.info.id,
+                    'seasonId': season_id,
+                    'size': '100',
+                    'page': page
+                }
+                )[0]
             try:
                 total_episodes = page_json['pageInfo']['totalElements']
                 total_pages = page_json['pageInfo']['totalPages']
@@ -160,10 +167,10 @@ class AtresplayerExtractor(BaseExtractor):
                 total_episodes = 0
                 vprint(self.extractor_lang['no_content_in_season'] %(self.season_json['title'], season_id), 'atresplayer', 'warning')
                 break
-            for episode in self.page_json['itemRows']:
+            for episode in page_json['itemRows']:
                 # Add episode to episodes list
                 episodes.append(self.get_episode_info(episode['contentId']))
-            self.page += 1
+            page += 1
         return episodes
 
     def get_episode_info(self, episode_id=str):
@@ -229,11 +236,13 @@ class AtresplayerExtractor(BaseExtractor):
                             self.stream.set_multilanguage_flag()
                             self.stream.audio_language = ['spa', 'eng']
                             self.stream.audio_name = ['Español', 'English']
-                        if subtitles and stream_type[1] != 'hls_drmless':
-                            if multi_lang:
+                            if subtitles:
                                 self.stream.sub_language = ['spa']
                                 self.stream.sub_name = ['Español']
-                            else:
+                        else:
+                            self.stream.audio_language = 'spa'
+                            self.stream.audio_name = 'Español'
+                            if subtitles:
                                 self.stream.sub_language = 'spa'
                                 self.stream.sub_name = 'Español'
                         
@@ -265,8 +274,10 @@ class AtresplayerExtractor(BaseExtractor):
             
             # Set preferred stream
             self.episode.get_stream_by_id(preferred).preferred = True
-    
-        self.episode.movie = any(i in self.url for i in ('tv-movies', '/movie-'))
+        
+        # TODO: support for this without extraction
+        if self.url not in (None, str):
+            self.episode.movie = any(i in self.url for i in ('tv-movies', '/movie-'))
 
         if hasattr(self, 'progress_bar'):
             self.progress_bar.update(1)
@@ -379,7 +390,8 @@ class AtresplayerExtractor(BaseExtractor):
         if self.url_type == 'series':
             # Gets information from all seasons
             for season in self.get_seasons():
-                self.create_season(False, **season)
+                self.get_season_info(season)
+                self.get_episodes_from_season(season)
             
         elif self.url_type == 'season':
             if not download_id:
@@ -390,8 +402,7 @@ class AtresplayerExtractor(BaseExtractor):
             vprint(lang['extractor']['obtained_media_id']
                    %(lang['types']['season'], self.season_id), 2, 'atresplayer')
             # Gets single season information
-            season = self.get_season_info(self.season_id)
-            self.create_season(False, season)
+            self.get_season_info(self.season_id)
 
         elif self.url_type in ('episode', 'movie'):
             if not download_id:
