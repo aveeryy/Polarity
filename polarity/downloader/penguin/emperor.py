@@ -1,9 +1,8 @@
-import subprocess
-from polarity.paths import TEMP
 import cloudscraper
 import os
 import pickle
 import re
+import subprocess
 import threading
 
 from requests.adapters import HTTPAdapter
@@ -15,11 +14,13 @@ from urllib3.util.retry import Retry
 from polarity.config import lang
 from polarity.downloader.base import BaseDownloader
 from polarity.downloader.penguin.protocols import *
+from polarity.paths import TEMP
 from polarity.types import Stream
 from polarity.types.ffmpeg import *
 from polarity.types.segment import *
 from polarity.utils import get_extension, vprint, threaded_vprint
 from polarity.version import __version__
+
 
 class PenguinDownloader(BaseDownloader):
     
