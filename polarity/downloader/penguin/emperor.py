@@ -6,24 +6,24 @@ import pickle
 import re
 import threading
 
-
 from requests.adapters import HTTPAdapter
 from shutil import move
 from time import sleep
 from urllib.parse import unquote
 from urllib3.util.retry import Retry
 
+from polarity.config import lang
 from polarity.downloader.base import BaseDownloader
 from polarity.downloader.penguin.protocols import *
 from polarity.types import Stream
 from polarity.types.ffmpeg import *
 from polarity.types.segment import *
-from polarity.utils import get_extension, request_webpage, vprint, threaded_vprint
+from polarity.utils import get_extension, vprint, threaded_vprint
 from polarity.version import __version__
 
 class PenguinDownloader(BaseDownloader):
     
-    __penguin_version__ = '2021.08.12-emperor'
+    __penguin_version__ = '2021.08.15-emperor'
     
     # Set retry config
     retry_config = Retry(total=10, backoff_factor=1, status_forcelist=[502, 503, 504, 403, 404])
@@ -35,6 +35,16 @@ class PenguinDownloader(BaseDownloader):
         }
     
     thread_lock = threading.Lock()
+    
+    ARGUMENTS = [
+        {
+            'args': ['--penguin-segment-downloaders'],
+            'attrib': {
+                'help': lang['penguin']['args']['segment_downloaders']
+            },
+            'variable': 'segment_downloaders'
+        }
+    ]
     
     DEFAULTS = {
         'segment_downloaders': 10,   
@@ -92,7 +102,7 @@ class PenguinDownloader(BaseDownloader):
             with open(f'{self.temp_path}.stats', 'rb') as f:
                 self.stats = pickle.load(f)
         # Create segment downloaders
-        for i in range(self.DEFAULTS['segment_downloaders']):
+        for i in range(self.options['penguin']['segment_downloaders']):
             sdl_name = f'{threading.current_thread().name}/sdl{i}'
             sdl = threading.Thread(target=self.segment_downloader, name=sdl_name, daemon=True)
             self.segment_downloaders.append(sdl)
