@@ -399,8 +399,6 @@ class AtresplayerExtractor(BaseExtractor):
                 self.season_id = re.search(r'seasonId=(?P<season_id>[0-9a-f]{24})',self.web).group(1)  # Season ID
             else:
                 self.season_id = parsed.id
-            vprint(lang['extractor']['obtained_media_id']
-                   %(lang['types']['season'], self.season_id), 2, 'atresplayer')
             # Gets single season information
             self.get_season_info(self.season_id)
 
@@ -415,12 +413,8 @@ class AtresplayerExtractor(BaseExtractor):
             self.web = request_webpage(self.json['partOfSeason']['@id']).content.decode()
             # Get the series identifier
             self.info.id = re.search(r'u002Fpage\\u002Fformat\\u002F(?P<id>[0-9a-f]{24})', self.web).group(1)  # Series ID
-            vprint(lang['extractor']['obtained_media_id']
-                   %(lang['types']['series'], self.info.id), 2, 'atresplayer')
             self.get_series_info()
             self.season_id = re.search(r'seasonId=(?P<season_id>[0-9a-f]{24})', self.web).group(1)  # Season ID
-            vprint(lang['extractor']['obtained_media_id']
-                   %(lang['types']['season'], self.season_id), 2, 'atresplayer')
             self.get_season_info(self.season_id)
             self.get_episode_info(self.episode_id)
         return self.info
