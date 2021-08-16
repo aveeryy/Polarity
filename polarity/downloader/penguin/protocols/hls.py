@@ -1,12 +1,14 @@
-import m3u8
-from polarity.utils import vprint
 import cloudscraper
-from urllib.parse import urljoin
+
 from m3u8 import parse
-from .base import StreamProtocol
 from requests.adapters import HTTPAdapter
+from urllib.parse import urljoin
 from urllib3.util.retry import Retry
+
+from polarity.config import lang
+from polarity.downloader.penguin.protocols.base import StreamProtocol
 from polarity.types.segment import *
+from polarity.utils import vprint
 
 class HTTPLiveStream(StreamProtocol):
     SUPPORTED_EXTENSIONS = ('.m3u', '.m3u8')
@@ -66,7 +68,7 @@ class HTTPLiveStream(StreamProtocol):
                 )                
             )
         self.stream_url = urljoin(self.url, stream['uri'])
-        vprint('Getting stream data', 3, 'penguin/hls', 'debug')
+        vprint(lang['penguin']['protocols']['getting_stream'], 3, 'penguin/hls', 'debug')
         self.stream_data = self.scraper.get(self.stream_url).content
         self.parsed_stream = parse(self.stream_data.decode())
         # Support for legacy m3u8 playlists
@@ -121,7 +123,7 @@ class HTTPLiveStream(StreamProtocol):
             'platform': 'android',
             'desktop': False,
         }
-        vprint('Getting playlist data', 3, module_name='penguin/hls', error_level='debug')
+        vprint(lang['penguin']['protocols']['getting_playlist'], 3, module_name='penguin/hls', error_level='debug')
         self.scraper = cloudscraper.create_scraper(browser=self.browser)
         self.scraper.mount('https://', HTTPAdapter(max_retries=self.retries))
         self.open_playlist()

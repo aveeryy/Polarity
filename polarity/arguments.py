@@ -27,12 +27,12 @@ FORMATTER = MinimalHelpFormatter if '--extended-help' not in sys.argv else Exten
 
 def argument_parser():
 
-    def add_option(arg, opts_path=dict, opts_entry=str):
+    def add_option(arg, opts_path: dict, opts_entry: str):
         'Adds an argument value to the options dict, if it\'s type isn\'t NoneType'
         if arg not in (None, False):
             opts_path[opts_entry] = arg
 
-    def parse_arg_group(group=dict, dest=dict, dest_name=str):
+    def parse_arg_group(group: dict, dest: dict, dest_name: str):
         'Convert an ARGUMENTS object to argparse arguments'
         z = parser.add_argument_group(lang['args']['groups']['extractor'] % dest_name)
         dest[dest_name.lower()] = {}

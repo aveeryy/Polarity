@@ -5,10 +5,12 @@ from pprint import pprint
 from time import sleep
 from urllib.parse import urlparse
 from threading import Lock, Thread, current_thread
+from tqdm import TqdmWarning
 
 import json
 import os
 import toml
+import warnings
 
 from polarity.config import config, ConfigError, verbose_level, USAGE, lang, reload_language
 from polarity.downloader import DOWNLOADERS
@@ -29,6 +31,7 @@ _STATS = {
 
 downloader_lock = Lock()
 
+warnings.filterwarnings('ignore', category=TqdmWarning)
 
 class Polarity:
     
@@ -102,6 +105,8 @@ class Polarity:
             self.workers = []
             for url in self.url_pool:
                 extractor = get_compatible_extractor(url=url)
+                if extractor[0] is None:
+                    continue
                 if extractor[1].LOGIN_REQUIRED and not extractor[1]().is_logged_in():
                     vprint(f'Extractor {extractor[0]} requires to be logged in')
                     # Display login form if login is required for that extractor and not logged in
@@ -124,7 +129,7 @@ class Polarity:
                     sleep(0.5)
                     continue
                 break
-            vprint('All tasks finished')
+            vprint(lang['polarity']['all_tasks_finished'])
         elif self.mode == 'search':
             '''
             Search mode
@@ -321,7 +326,13 @@ class Polarity:
             extractor_tupl = get_compatible_extractor(thread_url)
             # Skip if there's not an extractor available
             if extractor_tupl[0] is None:
-                vprint(f'Skipping URL {thread_url}. No extractor available.', error_level='error')
+                vprint(
+                    lang['dl']['no_extractor_available'] % (
+                        lang['dl']['url'] if not is_download_id(thread_url) else lang['dl']['download_id'],
+                        thread_url
+                        ),
+                    error_level='error'
+                    )
                 return
             extractor_name, extractor = extractor_tupl
             content_info = info_extract()
@@ -352,7 +363,7 @@ class Polarity:
         pass
 
 
-    def build_download_list(self, extractor_name=str, content_info=None):
+    def build_download_list(self, extractor_name: str, content_info: PolarType):
         'Build a download list out of an extractor output'
         download_list = []
         if type(content_info) == Series:

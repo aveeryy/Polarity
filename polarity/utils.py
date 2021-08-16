@@ -438,4 +438,6 @@ def get_compatible_extractor(url=str) -> tuple:
     else:
         parsed_id = parse_download_id(id=url)
         extractor_name = parsed_id.extractor
+        if not extractor_name in EXTRACTORS:
+            return (None, None)
         return (EXTRACTORS[extractor_name][0], EXTRACTORS[extractor_name][1])

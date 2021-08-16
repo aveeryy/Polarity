@@ -22,6 +22,9 @@ class SegmentPool(PolarType):
         self.format = None
         self.id = None
         self.type = None
+        self._finished = False
+        self._reserved = False
+        self._reserved_by = None
     
     def get_ext_from_segment(self, segment=0) -> str:
         if not self.segments:
