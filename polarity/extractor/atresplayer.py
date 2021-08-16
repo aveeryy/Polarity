@@ -68,11 +68,11 @@ class AtresplayerExtractor(BaseExtractor):
                                data={'username': user, 'password': password},
                                cookies=self.cjar)
         if self.res[1].status_code == 200:
-            vprint('Login successful', 1, 'atresplayer')
+            vprint(lang['extractor']['login_success'], 1, 'atresplayer')
             vprint('Logged in as %s' % user, 3, 'atresplayer', 'debug')
             self.save_cookies_in_jar(self.res[1].cookies, ['A3PSID'])
             return True
-        vprint('Login failed. error code: %s'
+        vprint(lang['extractor']['login_success']
             % self.res[0]['error'], 1, 'atresplayer', 'error')
         return False
     
@@ -104,9 +104,15 @@ class AtresplayerExtractor(BaseExtractor):
         self.info.title = self.series_json['title']
         if self.info.title[-1] == ' ':
             self.info.title = self.info.title[:-1]
-        vprint(lang['extractor']['get_media_info']
-               %(lang['types']['alt']['series'], self.info.title, self.info.id) 
-               , 1, 'atresplayer')
+        vprint(
+            lang['extractor']['get_media_info'] % (
+                lang['types']['alt']['series'],
+                self.info.title,
+                self.info.id
+                ),
+            level=1,
+            module_name='atresplayer'
+            )
         self.info.synopsis = self.series_json['description'] or ''
         self.info.images.append(self.series_json['image']['pathHorizontal'] + '0')
         self.info.images.append(self.series_json['image']['pathVertical'] + '0')
@@ -129,11 +135,14 @@ class AtresplayerExtractor(BaseExtractor):
         self.season_json = request_json(self.API_URL +
                                              'client/v1/page/format/%s?seasonId=%s'
                                              %(self.info.id, season_id))[0]
-        vprint(lang['extractor']['get_media_info'] 
-               % (lang['types']['alt']['season'],
-                  self.season_json['title'],
-                  season_id),
-               3, 'atresplayer')
+        vprint(
+            lang['extractor']['get_media_info'] % (
+                lang['types']['alt']['season'],
+                self.season_json['title'],
+                season_id),
+            level=2,
+            module_name='atresplayer'
+            )
         self.season.title = self.season_json['title']
         self.season.id = season_id
         self.season.synopsis = self.season_json['description'] if 'description' in self.season_json else '' 

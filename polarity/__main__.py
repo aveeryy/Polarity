@@ -29,7 +29,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         vprint(lang['main']['exit_msg'], 1)
         os._exit(0)
-    except Exception as e:
+    except Exception:
         exception_filename = LOGS + f'exception_{filename_datetime()}.log'
         with open(exception_filename, 'w', encoding='utf-8') as log:
             log.write('Polarity version: %s\nOS: %s %s\nPython %s\n%s' %(

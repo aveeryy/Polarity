@@ -202,6 +202,8 @@ class CrunchyrollExtractor(BaseExtractor):
     def save_session_id(self, cookie): self.save_cookies_in_jar(cookie)
     
     def login(self, user=None, password=None):
+        #if self.options['premium_spoof']:
+        #    vprint('TEMP/ You cannot log in while spoofing a premium account', 1, 'crunchyroll', 'warning')
         session_id = self.get_session_id()
         login_req = request_json(
             url='https://api.crunchyroll.com/login.0.json',
@@ -214,8 +216,20 @@ class CrunchyrollExtractor(BaseExtractor):
             cookies=self.cjar
         )
         if not login_req[0]['error']:
-            vprint(lang['extractor']['login_success'])
+            vprint(
+                lang['extractor']['login_success'],
+                module_name='crunchyroll',
+                )
             self.save_cookies_in_jar(login_req[1].cookies, ['session_id', 'etp_rt'])
+        else:
+            vprint(
+                lang['extractor']['login_failure'] % (
+                    login_req[0]['message']
+                    ),
+                module_name='crunchyroll',
+                error_level='error'
+                )
+            return login_req[0]
          
     def is_logged_in(self): return self.cookie_exists('etp_rt')
     
@@ -262,7 +276,7 @@ class CrunchyrollExtractor(BaseExtractor):
         # etp_rt -> logged in
         # client_id -> not logged in
         if not spoof_premium:
-            vprint(self.extractor_lang['getting_bearer'], 2, 'crunchyroll',)
+            vprint(self.extractor_lang['getting_bearer'], 3, 'crunchyroll',)
             method = 'etp_rt_cookie' if self.cookie_exists('etp_rt') else 'client_id'
             vprint(self.extractor_lang['using_method'] % method, 3, 'crunchyroll', 'debug')
             token_req = request_json(
@@ -298,7 +312,7 @@ class CrunchyrollExtractor(BaseExtractor):
         bucket_re = r'/(?P<country>\w{2})/(?P<madurity>M[1-3])'
         if self.account_info['bearer'] is None:
             self.get_bearer_token()
-        vprint(self.extractor_lang['getting_cms'], 2, 'crunchyroll')
+        vprint(self.extractor_lang['getting_cms'], 3, 'crunchyroll', 'debug')
         token_req = request_json(
             url=self.API_URL + 'index/v2',
             headers={'Authorization': self.account_info['bearer']},
@@ -412,6 +426,7 @@ class CrunchyrollExtractor(BaseExtractor):
     
     def get_seasons(self, series_guid=str):
         season_list = []
+        vprint(lang['extractor']['get_all_seasons'], 2, 'crunchyroll')
         api_season_list = request_json(
             self.CMS_API_URL + '/seasons',
             params={
@@ -442,6 +457,14 @@ class CrunchyrollExtractor(BaseExtractor):
                 'Key-Pair-Id': self.account_info['key_pair_id']
                 }
             )[0]
+        vprint(
+            lang['extractor']['get_media_info'] % (
+                lang['types']['alt']['season'],
+                season_json['title'],
+                season_id),
+            level=2,
+            module_name='crunchyroll'
+            )
         self.season.title = season_json['title']
         self.season.id = season_id
         self.season.number = season_json['season_number']

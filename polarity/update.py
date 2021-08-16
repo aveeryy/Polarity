@@ -56,17 +56,17 @@ def download_languages(language_list: list):
             url=LANGUAGE_URL % lang
             )
         if response.status_code == 404:
-            vprint(f'Language "{lang}" not found in server', 2, 'update', 'warning')
+            vprint(f'Language "{lang}" not found in server', 4, 'update', 'warning')
             failed += 1
             continue
-        vprint(f'Installing language {lang}', 2, 'update')
+        vprint(f'Installing language {lang}', 4, 'update')
         with open(LANGUAGES + f'{lang}.toml', 'wb') as f:
             f.write(response.content)
-        vprint(f'Language {lang} written to file', 3, 'update', 'debug')
+        vprint(f'Language {lang} written to file', 4, 'update', 'debug')
     if failed:
         vprint('Language installer finished with warnings', 2, 'update', 'warning')
     else:
-        vprint('All languages installed successfully', 2, 'update')
+        vprint('All languages installed successfully', 4, 'update')
 
 def windows_install() -> None:
     'User-friendly install-finisher for Windows users'

@@ -13,11 +13,11 @@ import sys
 
 class BaseExtractor:
     
-    def __init__(self, url=str, options=dict, external=False):
+    def __init__(self, url=None, options=None, external=False):
         self.url = url
         self.extractor_name = self.return_class()[:-9]
         self.info = None
-        if options != dict:
+        if options is not None:
             self.options = {**self.DEFAULTS, **config['extractor'][self.extractor_name.lower()], **options}
         else:
             self.options = {**self.DEFAULTS, **config['extractor'][self.extractor_name.lower()]}
@@ -39,13 +39,12 @@ class BaseExtractor:
         if 'username' in self.options and 'password' in self.options:
             self.login(self.options['username'], self.options['password'])
 
-    def set_main_info(self, media_type=str):
+    def set_main_info(self, media_type: str):
         if media_type == 'series':
             self.info = Series()
 
         elif media_type == 'movie':
-            # self.info = Movie()
-            pass
+            self.info = Movie()
 
 
     def create_progress_bar(self, *args, **kwargs):
@@ -65,14 +64,14 @@ class BaseExtractor:
             password = password
         self.login(user=user, password=password)
 
-    def save_cookies_in_jar(self, cookies, filter_list=list):
+    def save_cookies_in_jar(self, cookies: list, filter_list=None):
         for cookie in cookies:
             if cookie.name not in filter_list:
                 continue
             self.cjar.set_cookie(cookie)
         self.cjar.save(ignore_discard=True, ignore_expires=True)
 
-    def cookie_exists(self, cookie_name=str):
+    def cookie_exists(self, cookie_name: str):
         return bool([c for c in self.cjar if c.name == cookie_name])
 
 

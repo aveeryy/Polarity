@@ -48,9 +48,12 @@ class PenguinDownloader(BaseDownloader):
     ]
     
     DEFAULTS = {
-        'segment_downloaders': 10,   
+        'segment_downloaders': 10,
+        # 'tweaks': {
+        #     'atresplayer_subtitle_fix': True,
+        #     'convert_webvtt_to_srt': True,
+        # }
     }
- 
  
     @classmethod
     def return_class(self): return __class__.__name__ 
@@ -103,6 +106,11 @@ class PenguinDownloader(BaseDownloader):
             with open(f'{self.temp_path}.stats', 'rb') as f:
                 self.stats = pickle.load(f)
         # Create segment downloaders
+        vprint(
+            lang['penguin']['threads_started'] % (self.options['penguin']['segment_downloaders']),
+            level=3,
+            module_name='penguin'
+            )
         for i in range(self.options['penguin']['segment_downloaders']):
             sdl_name = f'{threading.current_thread().name}/sdl{i}'
             sdl = threading.Thread(target=self.segment_downloader, name=sdl_name, daemon=True)
@@ -250,6 +258,24 @@ class PenguinDownloader(BaseDownloader):
         
     def segment_downloader(self):
         
+        def get_unfinished_pools() -> list[SegmentPool]:
+            return [p for p in self.segment_pools if not p._finished]
+        
+        def get_unreserved_pools() -> list[SegmentPool]:
+            return [p for p in self.segment_pools if not p._reserved]
+        
+        def get_pool() -> SegmentPool:
+            unfinished = get_unfinished_pools()
+            pools = get_unreserved_pools()
+            if not unfinished:
+                return
+            if not pools:
+                vprint(f'Assisting {unfinished[0]._reserved_by} with pool {unfinished[0].id}', 4, thread_name)
+                return unfinished[0]
+            pools[0]._reserved = True
+            pools[0]._reserved_by = thread_name
+            return pools[0]
+        
         thread_name = threading.current_thread().name
         
         threaded_vprint(
@@ -259,7 +285,14 @@ class PenguinDownloader(BaseDownloader):
             error_level='debug',
             lock=self.thread_lock
             )
-        for pool in self.segment_pools:
+        
+        while True:
+            
+            pool = get_pool()
+            
+            if pool is None:
+                return
+            
             threaded_vprint(
                 'Current pool: ' + pool.id,
                 level=4,
@@ -268,6 +301,10 @@ class PenguinDownloader(BaseDownloader):
                 )
             while True:
                 if not pool.segments:
+                    if not pool._finished:
+                        pool._finished = True
+                        # TODO: actual message
+                        # vprint('painful ' + pool.id, 5)
                     break
                 
                 segment = pool.segments.pop(0)
@@ -290,6 +327,7 @@ class PenguinDownloader(BaseDownloader):
                         lock=self.thread_lock
                     )
                     continue
+                # Segment download
                 while True:
                     # Create a cloudscraper session
                     with cloudscraper.create_scraper(browser=self.browser) as session:
@@ -327,7 +365,7 @@ class PenguinDownloader(BaseDownloader):
                             f.write(segment_contents)
 
                         threaded_vprint(
-                            f'Successfully downloaded segment {segment.id}',
+                            lang['penguin']['segment_downloaded'] % (segment.id),
                             level=5,
                             module_name='penguin',
                             error_level='debug',
