@@ -62,7 +62,6 @@ class AtresplayerExtractor(BaseExtractor):
     def return_class(self): return __class__.__name__
 
     def login(self, user: str, password: str):
-        print(user, password)
         self.account_url = 'https://account.atresplayer.com/'
         self.res = request_json(self.account_url + 'auth/v1/login', 'POST',
                                data={'username': user, 'password': password},
@@ -102,8 +101,7 @@ class AtresplayerExtractor(BaseExtractor):
         self._episodes = request_json(self.API_URL + 'client/v1/row/search',
                                            params={'entityType': 'ATPEpisode', 'formatId': self.info.id, 'size': 1})
         self.info.title = self.series_json['title']
-        if self.info.title[-1] == ' ':
-            self.info.title = self.info.title[:-1]
+        self.info.title = self.info.title.strip()
         vprint(
             lang['extractor']['get_media_info'] % (
                 lang['types']['alt']['series'],
@@ -257,7 +255,7 @@ class AtresplayerExtractor(BaseExtractor):
                         
                         if 'drm' in stream and not drm:
                             drm = True
-                        streams.append(stream_type)
+                        streams.append(stream_type[1])
 
             if drm and 'hls_hevc' not in streams or drm and self.options['codec'].lower() == 'avc':
                 # Case 1.1: DRM stream and not HEVC stream
