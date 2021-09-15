@@ -1,3 +1,4 @@
+from polarity.types.stream import Stream
 from polarity.types.movie import Movie
 from polarity.types import Series, Season, Episode
 from polarity.extractor.base import BaseExtractor
@@ -228,24 +229,25 @@ class AtresplayerExtractor(BaseExtractor):
                 # HLS stream (may have DRM)
                 for stream_type in stream_map:
                     if stream['type'] == stream_type[0]:
-                        self.create_stream()
-                        self.stream.name = 'Español'
-                        self.stream.language = 'spa'
-                        self.stream.url = stream['src']
-                        self.stream.id = stream_type[1]
+                        self.stream = Stream(
+                            url=stream['src'],
+                            name={
+                                'audio': 'Español'
+                            },
+                            language={
+                                'audio': 'spa'
+                            },
+                            id=stream_type[1],
+                            preferred=True,
+                            key=None
+                        )
+                        self.episode.link_stream(self.stream)
                         if multi_lang:
-                            self.stream.set_multilanguage_flag()
-                            self.stream.audio_language = ['spa', 'eng']
-                            self.stream.audio_name = ['Español', 'English']
-                            if subtitles:
-                                self.stream.sub_language = ['spa']
-                                self.stream.sub_name = ['Español']
-                        else:
-                            self.stream.audio_language = 'spa'
-                            self.stream.audio_name = 'Español'
-                            if subtitles:
-                                self.stream.sub_language = 'spa'
-                                self.stream.sub_name = 'Español'
+                            self.stream.language = {'audio': ['spa', 'eng']}
+                            self.stream.name = {'audio': ['Español', 'English']}
+                        if subtitles:
+                            self.stream.language['subtitles'] = 'spa'
+                            self.stream.name['subtitles'] = 'Español'
                         
                         if 'drm' in stream and not drm:
                             drm = True
@@ -256,13 +258,16 @@ class AtresplayerExtractor(BaseExtractor):
                 # Case 1.2: DRM stream and HEVC stream but codec preferance is AVC
                 preferred = 'hls_drmless'
                 # Get subtitles from the DRM-HLS stream
-                self.create_stream()
-                self.stream.url = self.episode.get_stream_by_id('hls').url
-                self.stream.id = 'hls_drmless_subs'
-                self.stream.sub_name = 'Español'
-                self.stream.sub_language = 'spa'
+                self.stream = Stream(
+                    url=self.episode.get_stream_by_id('hls').url,
+                    id='hls_drmless_subs',
+                    name='Español',
+                    language='spa',
+                    preferred=True,
+                    key=None
+                )
+                self.episode.link_stream(self.stream)
                 self.stream.extra_sub = True
-                self.stream.preferred = True
             elif 'hls_hevc' in streams and self.options['codec'].lower() == 'hevc':
                 # Case 2: HEVC stream and preferred codec is HEVC
                 preferred = 'hls_hevc'

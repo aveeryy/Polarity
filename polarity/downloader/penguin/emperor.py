@@ -358,8 +358,8 @@ class PenguinDownloader(BaseDownloader):
                 }
             else:
                 ff_input.metadata[VIDEO] = {
-                    'title': stream.name[pool.track_id] if pool.track_id in stream.name else '',
-                    'language': stream.language[pool.track_id] if pool.track_id in stream.language else ''
+                    'title': stream.name[pool.track_id] if pool.track_id in stream.name else 'video',
+                    'language': stream.language[pool.track_id] if pool.track_id in stream.language else 'video'
                 }     
             self.indexes['video'] += 1
         if pool.format in ('audio', 'unified'):
@@ -371,8 +371,8 @@ class PenguinDownloader(BaseDownloader):
                 }
             else:
                 ff_input.metadata[AUDIO] = {
-                    'title': stream.name[pool.track_id] if pool.track_id in stream.name else '',
-                    'language': stream.language[pool.track_id] if pool.track_id in stream.language else ''
+                    'title': stream.name[pool.track_id] if pool.track_id in stream.name else 'audio',
+                    'language': stream.language[pool.track_id] if pool.track_id in stream.language else 'audio'
                 }                
         if pool.format == 'subtitles':
             self.indexes['subtitles'] += 1
@@ -383,8 +383,8 @@ class PenguinDownloader(BaseDownloader):
                 }
             else:
                 ff_input.metadata[SUBTITLES] = {
-                    'title': stream.name[pool.track_id] if pool.track_id in stream.name else '',
-                    'language': stream.language[pool.track_id] if pool.track_id in stream.language else ''
+                    'title': stream.name[pool.track_id] if pool.track_id in stream.name else 'subtitles',
+                    'language': stream.language[pool.track_id] if pool.track_id in stream.language else 'subtitles'
                 }     
         ff_input.hls_stream = '.m3u' in stream.url
         return ff_input
