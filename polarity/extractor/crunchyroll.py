@@ -1,4 +1,5 @@
 
+from polarity.types.stream import Stream
 from .base import BaseExtractor, ExtractorError, InvalidURLError
 
 from polarity.config import lang
@@ -527,31 +528,37 @@ class CrunchyrollExtractor(BaseExtractor):
             )[0]
             # Case 1: Disabled hardsubs or desired hardsub language does not exist
             if self.options['hardsub_language'] == 'none' or self.options['hardsub_language'] not in streams_json['streams']['adaptive_hls']:
-                preferred = 'ja-JP'
+                is_preferred = 'ja-JP'
             # Case 2: Desired hardsub language exists
             elif self.options['hardsub_language'] in streams_json['streams']['adaptive_hls']:
-                preferred = streams_json['streams']['adaptive_hls'][self.options['hardsub_language']]['hardsub_locale']
+                is_preferred = streams_json['streams']['adaptive_hls'][self.options['hardsub_language']]['hardsub_locale']
             
             for stream in streams_json['streams']['adaptive_hls'].values():
                 if stream['hardsub_locale'] == '':
                     stream['hardsub_locale'] = 'ja-JP'
-                self.create_stream(independent=False)
-                self.stream.url = stream['url']
-                self.stream.name = self.LANG_CODES[stream['hardsub_locale']]['name']
-                self.stream.language = self.LANG_CODES[stream['hardsub_locale']]['lang']
-                self.stream.audio_language = self.LANG_CODES[streams_json['audio_locale']]['lang']
-                self.stream.audio_name = self.LANG_CODES[streams_json['audio_locale']]['name']
-                if stream['hardsub_locale'] == preferred:
-                    self.stream.preferred = True
-                    
+                self.stream = Stream(
+                    url=stream['url'],
+                    id='video',
+                    preferred=stream['hardsub_locale'] == is_preferred,
+                    name={
+                        'video': self.LANG_CODES[stream['hardsub_locale']]['name'],
+                        'audio': self.LANG_CODES[streams_json['audio_locale']]['name'],
+                    },
+                    language={
+                        'video': self.LANG_CODES[stream['hardsub_locale']]['lang'],
+                        'audio': self.LANG_CODES[streams_json['audio_locale']]['lang']
+                    }
+                )
+                self.episode.link_stream(self.stream)
+                
             # Get subtitles
-            [
-                self.create_stream(
+            subtitles = [
+                Stream(
                     url=s['url'],
-                    sub_name=self.LANG_CODES[s['locale']]['name'],
-                    sub_language=self.LANG_CODES[s['locale']]['lang'],
+                    name=self.LANG_CODES[s['locale']]['name'],
+                    language=self.LANG_CODES[s['locale']]['lang'],
                     preferred='all' in self.options['sub_language'] or s in self.options['sub_language'],
-                    extra_sub=True)
+                    )
                 for s in
                 order_dict(
                     to_order=streams_json['subtitles'],
