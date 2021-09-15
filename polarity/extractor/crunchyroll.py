@@ -565,6 +565,9 @@ class CrunchyrollExtractor(BaseExtractor):
                     order_definer=self.LANG_CODES
                     ).values()
                 ]
+            for subtitle in subtitles:
+                subtitle.extra_sub = True
+                self.episode.link_stream(subtitle)
         else:
             self.episode.skip_download = lang['crunchyroll']['skip_download_reason']
         
