@@ -34,7 +34,6 @@ class Stream(PolarType):
     name: dict
     language: dict
     key: dict
-
     extra_audio = False
     extra_sub = False
 
@@ -45,6 +44,7 @@ class Segment:
     media_type: type
     key: ContentKey
     group: str
+    duration: float
     init: bool
     ext: str
     mpd_range: None

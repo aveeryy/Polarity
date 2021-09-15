@@ -42,28 +42,34 @@ class HTTPLiveStream(StreamProtocol):
     def get_stream_fragments(self, stream=dict, force_type=None):
         def build_segment_pool(media_type=str):
             self.processed_tracks[media_type] += 1
-            seg_pool = SegmentPool()
-            seg_pool.segments = [
+            segments = [
                 # Create a Segment object
                 Segment(
                     url=urljoin(self.stream_url, s['uri']),
                     number=self.parsed_stream['segments'].index(s),
                     media_type=media_type,
-                    key=ContentKey(s['key']['uri'], None, s['key']['method']),
+                    key=ContentKey(s['key']['uri'] if 'key' in s else None, None, s['key']['method'] if 'key' in s else None),
                     group=f'{media_type}{self.processed_tracks[media_type]}',
+                    duration=s['duration'],
+                    init=False,
+                    ext=get_extension(s['uri']),
+                    mpd_range=None
                     )
                 for s in self.parsed_stream['segments']
                 ]
-            seg_pool.format = media_type
-            seg_pool.type = M3U8Pool
+            seg_pool = SegmentPool(segments, media_type, f'{media_type}{self.processed_tracks[media_type]}', None, M3U8Pool)
             return seg_pool
         def create_init_segment(pool: str) -> None:
             self.segment_pool.segments.append(
                 Segment(
                     url=urljoin(self.stream_url, self.parsed_stream['segment_map']['uri']),
+                    number=-1,
                     init=True,
-                    type=pool,
-                    group=f'{pool}{self.processed_tracks[pool]}'
+                    media_type=pool,
+                    duration=None,
+                    group=f'{pool}{self.processed_tracks[pool]}',
+                    ext=get_extension(self.parsed_stream['segment_map']['uri']),
+                    mpd_range=None
                 )                
             )
         self.stream_url = urljoin(self.url, stream['uri'])

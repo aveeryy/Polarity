@@ -88,11 +88,12 @@ class BaseDownloader:
             self.a = self.a.replace('"', '')
             self.launch_args.append(self.a)
 
-    def create_progress_bar(self, *args, **kwargs):
+    def create_progress_bar(self, head='download', *args, **kwargs) -> tqdm:
         color = Fore.MAGENTA if sys.platform != 'win32' else ''
-        self.progress_bar = tqdm(*args, **kwargs)
-        self.progress_bar.desc = f'{color}[download]{Fore.RESET} {self.progress_bar.desc}'
-        self.progress_bar.update(0)
+        progress_bar = tqdm(*args, **kwargs)
+        progress_bar.desc = f'{color}[{head}]{Fore.RESET} {progress_bar.desc}'
+        progress_bar.update(0)
+        return progress_bar
 
     def start(self):
  
