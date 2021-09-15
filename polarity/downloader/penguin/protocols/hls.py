@@ -48,7 +48,17 @@ class HTTPLiveStream(StreamProtocol):
                     url=urljoin(self.stream_url, s['uri']),
                     number=self.parsed_stream['segments'].index(s),
                     media_type=media_type,
-                    key=ContentKey(s['key']['uri'] if 'key' in s else None, None, s['key']['method'] if 'key' in s else None),
+                    key={
+                        'video': ContentKey(
+                            s['key']['uri'] if 'key' in s else None,
+                            None,
+                            s['key']['method'] if 'key' in s else None
+                            ),
+                        'audio': ContentKey(
+                            s['key']['uri'] if 'key' in s else None,
+                            None,
+                            s['key']['method'] if 'key' in s else None
+                            ),},
                     group=f'{media_type}{self.processed_tracks[media_type]}',
                     duration=s['duration'],
                     init=False,
