@@ -527,16 +527,16 @@ class PenguinDownloader(BaseDownloader):
         first_segment = pool.segments[0]
         playlist = '#EXTM3U\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-MEDIA-SEQUENCE:0\n'
         # Handle initialization segments
-        init_segment = [f for f in pool.segments if f.is_init]
+        init_segment = [f for f in pool.segments if f.init]
         if init_segment:
             playlist += f'#EXT-X-MAP:URI="{init_segment[0].output}"'
         # Handle decryption keys
-        if first_segment.key is not None:
-            playlist += f'#EXT-X-KEY:METHOD={first_segment.key_method},URI={pool.id}.key\n'
+        if first_segment.key is not None and first_segment.key.url is not None:
+            playlist += f'#EXT-X-KEY:METHOD={first_segment.key.method},URI={pool.id}.key\n'
             # Download the key
             with cloudscraper.create_scraper(browser=self.browser) as session:
                 session.mount('https://', HTTPAdapter(max_retries=self.retry_config))
-                key_contents = session.get(unquote(first_segment.key))
+                key_contents = session.get(unquote(first_segment.key.url))
                 # Write key to file
                 with open(f'{self.temp_path}/{pool.id}.key', 'wb') as key_file:
                     key_file.write(key_contents.content)

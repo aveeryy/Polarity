@@ -66,8 +66,7 @@ class MPEGDASHStream(StreamProtocol):
     def get_stream_fragments(self, representation: dict, track_id: str, force_type=None):
         def build_segment_pool(media_type=str):
             self.processed_tracks[media_type] += 1
-            seg_pool = SegmentPool([], media_type, f'{media_type}{self.processed_tracks[media_type]}', track_id, DASHPool)
-            seg_pool.segments = [
+            segments = [
                 # Create a Segment object
                 Segment(
                     url=self.stream_url,
@@ -76,11 +75,14 @@ class MPEGDASHStream(StreamProtocol):
                     key=None,
                     group=f'{media_type}{self.processed_tracks[media_type]}',
                     init=False,
+                    duration=None,
                     ext=get_extension(self.stream_url),
                     mpd_range=s['@mediaRange']
                     )
                 for s in representation['SegmentList']['SegmentURL']
                 ]
+            seg_pool = SegmentPool(segments, media_type, f'{media_type}{self.processed_tracks[media_type]}', track_id, DASHPool)
+            
             return seg_pool
         def create_init_segment(pool: str) -> None:
             self.segment_pool.segments.append(
@@ -92,6 +94,7 @@ class MPEGDASHStream(StreamProtocol):
                     key=None,
                     group=f'{pool}{self.processed_tracks[pool]}',
                     ext=get_extension(self.stream_url),
+                    duration=None,
                     mpd_range=representation['SegmentList']['Initialization']['@range']
                 )                
             )
