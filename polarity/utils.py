@@ -441,3 +441,15 @@ def get_compatible_extractor(url=str) -> tuple:
         if not extractor_name in EXTRACTORS:
             return (None, None)
         return (EXTRACTORS[extractor_name][0], EXTRACTORS[extractor_name][1])
+
+def format_language_code(code: str) -> str:
+    '''
+    Returns a correctly formatted language code
+    
+    Example:
+    >>> format_language_code('EnuS')
+    'enUS'
+    '''
+    lang = code[0:2]
+    country = code[2:4]
+    return f'{lang.lower()}{country.upper()}'

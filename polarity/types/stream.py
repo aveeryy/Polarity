@@ -1,5 +1,20 @@
 from .base import PolarType
+from dataclasses import dataclass
+from polarity.utils import get_extension
 
+@dataclass
+class ContentKey(PolarType):
+    '''
+    Available key methods:
+    
+    - `AES-128`
+    - `Widevine` (Only on Singularity)
+    '''
+    url: str
+    raw_key: str
+    method: str
+
+@dataclass
 class Stream(PolarType):
     '''
     ### Stream guidelines:
@@ -13,34 +28,50 @@ class Stream(PolarType):
     - Languages' codes must be [ISO 639-2 codes](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes)
     - On extra_* streams 
     '''
-    def __init__(self) -> None:
+    url: str
+    id: str
+    preferred: bool
+    name: dict
+    language: dict
+    key: dict
 
-        self.url = None
-        self.id = None
-        self.preferred = False
-        self.name = None
-        self.language = None
-        self.audio_name = None
-        self.audio_language = None
-        self.sub_name = None
-        self.sub_language = None
-        self.extra_audio = False
-        self.extra_sub = False
+    extra_audio = False
+    extra_sub = False
+
+@dataclass   
+class Segment:
+    url: str
+    number: int
+    media_type: type
+    key: ContentKey
+    group: str
+    init: bool
+    ext: str
+    mpd_range: None
+    _finished = False
         
-    def set_multilanguage_flag(self) -> None:
-        '''
-        Set a multiaudio flag if the main stream has more than one audio / subtitle stream
-        
-        This makes the *_language and *_name variables an iterable
-        
-        Values of these must be in order, i.e:
-        - Audio stream 0 is English, stream 1 is Spanish
-        
-        >>> self.stream.audio_language = ['eng', 'spa']
-        >>> self.stream.audio_name = ['English', 'Español']
-        '''
-        self.multi_lang = True
-        self.audio_name = []
-        self.audio_language = []
-        self.sub_name = []
-        self.sub_language = []
+@dataclass
+class SegmentPool:
+    segments: list
+    format: str
+    id: str
+    track_id: str
+    pool_type: str
+    _finished = False
+    _reserved = False
+    _reserved_by = None
+    
+    def get_ext_from_segment(self, segment=0) -> str:
+        if not self.segments:
+            return
+        return self.segments[segment].ext
+    
+    def get_init_segment(self) -> Segment:
+        return [s for s in self.segments if s.init]
+    
+    
+class M3U8Pool:
+    ext = '.m3u8'
+    
+class DASHPool:
+    ext = '.mp4'

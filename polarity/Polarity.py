@@ -1,9 +1,7 @@
 from copy import deepcopy
 from datetime import datetime
-from logging import error
 from pprint import pprint
 from time import sleep
-from urllib.parse import urlparse
 from threading import Lock, Thread, current_thread
 from tqdm import TqdmWarning
 
@@ -12,7 +10,7 @@ import os
 import toml
 import warnings
 
-from polarity.config import config, ConfigError, verbose_level, USAGE, lang, reload_language
+from polarity.config import config, ConfigError, verbose_level, USAGE, lang
 from polarity.downloader import DOWNLOADERS
 from polarity.extractor import EXTRACTORS
 from polarity.paths import DOWNLOAD_LOG, LANGUAGES
@@ -119,11 +117,10 @@ class Polarity:
                     extractor[1]().login_with_form(username, password)
                 url_pool.append((url, *extractor))
             for i in range(self.options['download']['simultaneous_urls']):
-                self.workers.append(Thread(target=self.worker, daemon=True))
-            for i in self.workers:
-                i.start()
-            for i in self.workers:
-                i.join()
+                worker = Thread(target=self.worker, daemon=True, name=f'worker{i}')
+                self.workers.append(worker)
+                worker.start()
+
             while True:
                 if [t for t in self.workers if t.is_alive()]:
                     sleep(0.5)

@@ -13,16 +13,6 @@ class AtresplayerExtractor(BaseExtractor):
     `www.atresplayer.com`
     ### Region lock
     Stuff is region locked to Spain, some content is available worldwide with a premium account
-    ### Fun stuff I found in the API:
-    #### Smart TV interface on web
-    `Any of these links work`
-    - https://smarttv.atresplayer.com/_pruebas/DEVOPS/cmp_legacy/
-    - https://smarttv.atresplayer.com/_pruebas/LAST_DEVELOP/
-    - https://smarttv.atresplayer.com/_pruebas/startOver/
-    - https://smarttv.atresplayer.com/_pruebas/samsung_sin_fix_2020/
-    - https://smarttv.atresplayer.com/_pruebas/samsung_vjs7/
-    - https://smarttv.atresplayer.com/_pruebas/DEVOPS/TRSLPR2021-1986_Multiaudio2020/
-    - https://smarttv.atresplayer.com/_pruebas/DEVOPS/AVISO_PAGO_PRE/ `Will log you out!!`
     '''
 
     HOST = r'(?:http(?:s://|://|)|)(?:www.|)atresplayer.com'
@@ -57,6 +47,10 @@ class AtresplayerExtractor(BaseExtractor):
         #    'variable': 'fetch_extras'
         #}
     ]
+    
+    FLAGS = {
+        'REQUIRES_LOGIN'
+    }
     
     @classmethod
     def return_class(self): return __class__.__name__

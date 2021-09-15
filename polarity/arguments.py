@@ -70,7 +70,7 @@ def argument_parser():
     from polarity.downloader import DOWNLOADERS, __DOWNLOADERS__
 
     # Print Polarity version
-    vprint(lang['main']['using_version'] % _version, 3, 'polarity', 'debug')
+    vprint(lang['polarity']['using_version'] % _version, 3, 'polarity', 'debug')
 
     parser = argparse.ArgumentParser(usage=USAGE, description='Polarity %s | https://github.com/Aveeryy/Polarity/' %(_version), prog='Polarity', add_help=False, formatter_class=FORMATTER)
     parser.add_argument('url', help=argparse.SUPPRESS, nargs='*')
