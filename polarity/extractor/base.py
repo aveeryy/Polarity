@@ -1,3 +1,4 @@
+import json
 from polarity.config import config, save_config, lang
 from polarity.paths import ACCOUNTS
 from polarity.types import * 
@@ -24,13 +25,24 @@ class BaseExtractor:
         self.external_tool = external
         if self.extractor_name.lower() in lang:
             self.extractor_lang = lang[self.extractor_name.lower()]
-        # Create a cookiejar for the extractor
-        if not os.path.exists(ACCOUNTS + f'{self.extractor_name}.cjar'):
-            with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
-                c.write('#LWP-Cookies-2.0\n')
-        # Open that cookiejar
-        self.cjar = LWPCookieJar(ACCOUNTS + f'{self.extractor_name}.cjar')
-        self.cjar.load(ignore_discard=True, ignore_expires=True)
+
+        if hasattr(self, 'FLAGS') and 'JSON_COOKIE_JAR' in self.FLAGS:
+            self.cjar = {}
+            # Create a cookiejar for the extractor
+            if not os.path.exists(ACCOUNTS + f'{self.extractor_name}.cjar'):
+                with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
+                    json.dump(self.cjar, c)
+            #with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'r', encoding='utf-8') as c:
+            #    self.cjar = json.load(c)
+        else:
+            # Create a cookiejar for the extractor
+            if not os.path.exists(ACCOUNTS + f'{self.extractor_name}.cjar'):
+                with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
+                    c.write('#LWP-Cookies-2.0\n')
+            # Open that cookiejar
+            self.cjar = LWPCookieJar(ACCOUNTS + f'{self.extractor_name}.cjar')
+            self.cjar.load(ignore_discard=True, ignore_expires=True)
+
         self.extraction = False
         self.search_results = []
         if hasattr(self, 'load_at_init'):
@@ -52,19 +64,19 @@ class BaseExtractor:
         self.progress_bar = tqdm(*args, **kwargs)
         self.progress_bar.desc = f'{color}[extraction]{Fore.RESET} {self.progress_bar.desc}'
         self.progress_bar.update(0)
+        
 
-    def login_with_form(self, user: str, password: str):
-        if not user:
+    def login_with_form(self, user=None, password=None):
+        if user is None:
             user = input(lang['extractor']['base']['login_email_prompt'])
-        else:
-            user = user
-        if not password:
+        if password is None:
             password = getpass(lang['extractor']['base']['login_password_prompt'])
-        else:
-            password = password
         self.login(user=user, password=password)
 
+
     def save_cookies_in_jar(self, cookies: list, filter_list=None):
+        if 'JSON_COOKIE_JAR' in self.FLAGS:
+            raise ExtractorCodingError
         for cookie in cookies:
             if cookie.name not in filter_list:
                 continue
@@ -72,13 +84,18 @@ class BaseExtractor:
         self.cjar.save(ignore_discard=True, ignore_expires=True)
 
     def cookie_exists(self, cookie_name: str):
-        return bool([c for c in self.cjar if c.name == cookie_name])
+        if 'JSON_COOKIE_JAR' in self.FLAGS:
+            return bool([c for c in self.cjar if c['name' == cookie_name]])
+        else:
+            return bool([c for c in self.cjar if c.name == cookie_name])
+
+    def save_json_jar(self):
+        with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
+            json.dump(self.cjar, c)
 
 
     def create_season(self, independent=False, **metadata):
-        '''
-        Metadata parameter is optional
-        '''
+        'Metadata parameter is optional'
         if not independent and type(self.info) != Series:
             raise ExtractorCodingError
         self.season = Season()

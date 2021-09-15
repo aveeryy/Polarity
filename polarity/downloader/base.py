@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from polarity.config import config, save_config
 from polarity.paths import TEMP
-from polarity.utils import get_extension, vprint, send_android_notification, recurse_merge_dict
+from polarity.utils import get_extension, sanitize_filename, vprint, send_android_notification, recurse_merge_dict
 
 class BaseDownloader:
     '''
@@ -40,7 +40,7 @@ class BaseDownloader:
         self.media_metadata = media_metadata
         self.content = f'{name} ({id})'
         self.content_name = name
-        self.content_sanitized = self.content.strip('?')
+        self.content_sanitized = sanitize_filename(self.content).strip('?')
         self.output = output
         self.output_path = output.replace(get_extension(output), '')
         self.output_name = os.path.basename(output).replace(get_extension(output), '')

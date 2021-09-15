@@ -106,6 +106,8 @@ class CrunchyrollExtractor(BaseExtractor):
     
     API_URL = 'https://beta-api.crunchyroll.com/'
     
+    FLAGS = {}
+    
     LANG_CODES = {
         'en-US': {'meta': '', 'lang': 'eng', 'name': 'English (USA)'},
         'es-ES': {'meta': 'es-es', 'lang': 'spa', 'name': 'Español (España)'},
@@ -149,7 +151,7 @@ class CrunchyrollExtractor(BaseExtractor):
         if not re.match(r'(?:www\.|beta\.|)crunchyroll\.com', url_host):
             raise ExtractorError
         # Identify if the url is a legacy one
-        if url_host in ('www.crunchyroll.com', 'crunchyroll.com'):
+        if url_host in ('www.crunchyroll.com', 'crunchyroll.com') and not '/watch/' in url:
             is_legacy = True
         if is_legacy:
             regexes = {

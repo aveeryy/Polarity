@@ -53,7 +53,6 @@ def save_config():
 def reload_language():
     global lang, language
     lang = load_language(lang=language)
-    
 
 # Create configuration paths
 try:
@@ -79,6 +78,8 @@ mkfile(SYNC_LIST, contents='[]')
 # Download base language
 if not language_installed(lang='enUS'):
     download_languages(['enUS'])
+
+
 
 try:
     # Load configuration from file

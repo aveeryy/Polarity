@@ -6,6 +6,7 @@ class Season(PolarType):
         self.id = None
         self.synopsis = None
         self.number = 0
+        self.year = 1970
         self.images = []
         self.total_episodes = 0
         self.available_episodes = 0

@@ -3,6 +3,5 @@ pretty_errors>=1.2.21
 toml>=0.10.2
 cloudscraper>=1.2.58
 requests>=2.25.1
-m3u8
-tqdm
-# TODO: add m3u8 and tqdm versions
+m3u8>=0.9.0
+tqdm>=4.61.1

@@ -1,5 +1,4 @@
 from .penguin import PenguinDownloader
-from .ffmpeg import FFMPEGDownloader
 
 DOWNLOADERS = {
     name.replace('Downloader', '').lower():

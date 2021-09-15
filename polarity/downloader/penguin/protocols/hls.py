@@ -7,7 +7,7 @@ from urllib3.util.retry import Retry
 
 from polarity.config import lang
 from polarity.downloader.penguin.protocols.base import StreamProtocol
-from polarity.types.segment import *
+from polarity.types.stream import *
 from polarity.utils import vprint
 
 class HTTPLiveStream(StreamProtocol):
@@ -22,13 +22,14 @@ class HTTPLiveStream(StreamProtocol):
             'subtitles': -1
         }
         if self.parsed_data['is_variant']:
-            # get preferred resolution stream
+            # Get preferred resolution stream
             self.resolutions = [
                 (s, int(s['stream_info']['resolution'].split('x')[1] if 'resolution' in s['stream_info'] else 0))
                 for s in self.parsed_data['playlists']
                 ]
             self.resolution = min(self.resolutions, key=lambda x:abs(x[1]-self.options['resolution']))
             self.streams = [s for s in self.resolutions if s[1] == self.resolution[1]]
+            # Pick higher bitrate stream
             if len(self.streams) > 1:
                 self.bandwidth_values = [s[0]['stream_info']['bandwidth'] for s in self.streams]
                 self.stream = self.streams[self.bandwidth_values.index(max(self.bandwidth_values))][0]
@@ -47,10 +48,8 @@ class HTTPLiveStream(StreamProtocol):
                 Segment(
                     url=urljoin(self.stream_url, s['uri']),
                     number=self.parsed_stream['segments'].index(s),
-                    type=media_type,
-                    key=s['key']['uri'] if 'key' in s else None,
-                    key_method=s['key']['method'] if 'key' in s else None,
-                    duration=s['duration'],
+                    media_type=media_type,
+                    key=ContentKey(s['key']['uri'], None, s['key']['method']),
                     group=f'{media_type}{self.processed_tracks[media_type]}',
                     )
                 for s in self.parsed_stream['segments']
