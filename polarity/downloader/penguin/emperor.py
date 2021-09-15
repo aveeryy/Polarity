@@ -206,7 +206,7 @@ class PenguinDownloader(BaseDownloader):
                         
         # Widevine L3 decryption
         # TODO: update strings
-        if self.stream.key['video'].method == 'Widevine':
+        if self.stream.key and self.stream.key['video'].method == 'Widevine':
             for pool in self.copy_of_segment_pools:
                 if pool.format == 'subtitles':
                     continue
@@ -531,12 +531,12 @@ class PenguinDownloader(BaseDownloader):
         if init_segment:
             playlist += f'#EXT-X-MAP:URI="{init_segment[0].output}"'
         # Handle decryption keys
-        if first_segment.key is not None and first_segment.key.url is not None:
-            playlist += f'#EXT-X-KEY:METHOD={first_segment.key.method},URI={pool.id}.key\n'
+        if first_segment.key is not None and first_segment.key['video'].url is not None:
+            playlist += f'#EXT-X-KEY:METHOD={first_segment.key["video"].method},URI={pool.id}.key\n'
             # Download the key
             with cloudscraper.create_scraper(browser=self.browser) as session:
                 session.mount('https://', HTTPAdapter(max_retries=self.retry_config))
-                key_contents = session.get(unquote(first_segment.key.url))
+                key_contents = session.get(unquote(first_segment.key['video'].url))
                 # Write key to file
                 with open(f'{self.temp_path}/{pool.id}.key', 'wb') as key_file:
                     key_file.write(key_contents.content)
