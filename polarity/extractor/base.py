@@ -85,7 +85,7 @@ class BaseExtractor:
 
     def cookie_exists(self, cookie_name: str):
         if 'JSON_COOKIE_JAR' in self.FLAGS:
-            return bool([c for c in self.cjar if c['name' == cookie_name]])
+            return bool([c for c in self.cjar if c['name'] == cookie_name])
         else:
             return bool([c for c in self.cjar if c.name == cookie_name])
 
