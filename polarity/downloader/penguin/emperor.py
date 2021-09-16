@@ -501,6 +501,7 @@ class PenguinDownloader(BaseDownloader):
                                 begin = re.search(r'begin="([\d:.]+)"', p).group(1).replace('.', ',')
                                 end = re.search(r'end="([\d:.]+)"', p).group(1).replace('.', ',')
                                 contents = re.search(r'>(.+)</p>', p).group(1).replace('<br />', '\n')
+                                contents = re.sub(r'<(|/)span>', '', p)
                                 subrip_contents += f'{i}\n{begin} --> {end}\n{contents}\n\n'
                                 i += 1
                             segment_contents = subrip_contents.encode()
@@ -521,6 +522,8 @@ class PenguinDownloader(BaseDownloader):
                         break
             
     def create_m3u8_playlist(self, pool: SegmentPool):
+        # TODO: support for multi-key
+        keys = []
         if os.path.exists(f'{self.temp_path}/{pool.id}.m3u8'):
             return
         # Set first segment from list
