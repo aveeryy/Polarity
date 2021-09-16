@@ -21,7 +21,6 @@ class CrunchyrollExtractor(BaseExtractor):
         'dub_language': ['all'],
         'meta_language': 'en-US',
         'hardsub_language': 'none',
-        'premium_spoof': False,
         'region_spoof': 'none'
         }
     
@@ -66,14 +65,6 @@ class CrunchyrollExtractor(BaseExtractor):
                 'help': lang['crunchyroll']['args']['region']
                 },
             'variable': 'region_spoof'
-        },
-        {
-            'args': ['--crunchyroll-spoof-premium'],
-            'attrib': {
-                'action': 'store_true',
-                'help': lang['crunchyroll']['args']['premium']
-                },
-            'variable': 'premium_spoof'
         },
         {
             'args': ['--crunchyroll-email'],
@@ -131,7 +122,7 @@ class CrunchyrollExtractor(BaseExtractor):
         self.proxy = {}
         if self.options['region_spoof'] not in ('none', None):
             self.region_spoof(region_code=self.options['region_spoof'])
-        self.get_bearer_token(spoof_premium=self.options['premium_spoof'])
+        self.get_bearer_token()
         self.get_cms_tokens()
     
     @staticmethod
@@ -205,8 +196,6 @@ class CrunchyrollExtractor(BaseExtractor):
     def save_session_id(self, cookie): self.save_cookies_in_jar(cookie)
     
     def login(self, user=None, password=None):
-        #if self.options['premium_spoof']:
-        #    vprint('TEMP/ You cannot log in while spoofing a premium account', 1, 'crunchyroll', 'warning')
         session_id = self.get_session_id()
         login_req = request_json(
             url='https://api.crunchyroll.com/login.0.json',
@@ -273,41 +262,28 @@ class CrunchyrollExtractor(BaseExtractor):
             }
         return proxy_request
     
-    def get_bearer_token(self, spoof_premium=True) -> str:
+    def get_bearer_token(self) -> str:
         'Grabs Bearer Authorization token'
         # Set token method
         # etp_rt -> logged in
         # client_id -> not logged in
-        if not spoof_premium:
-            vprint(self.extractor_lang['getting_bearer'], 3, 'crunchyroll',)
-            method = 'etp_rt_cookie' if self.cookie_exists('etp_rt') else 'client_id'
-            vprint(self.extractor_lang['using_method'] % method, 3, 'crunchyroll', 'debug')
-            token_req = request_json(
-                url=self.API_URL + 'auth/v1/token',
-                method='post',
-                headers={
-                    'Authorization': self.account_info['basic'],
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                data={'grant_type': method},
-                cookies=self.cjar,
-                proxies=self.proxy
-            )
-            if not 'access_token' in token_req[0]:
-                # TODO: better error message
-                vprint('bearer error', 1, 'cr:unified', 'error')
-        elif spoof_premium:
-            bearer_api = 'http://twili.duckdns.org:32934/crunchyroll/bearer/'
-            if self.spoofed_region:
-                bearer_api += self.spoofed_country.lower()
-            else:
-                bearer_api += get_country_from_ip()
-            token_req = request_json(url=bearer_api)
-            if not 'access_token' in token_req[0]:
-                # Return a normal bearer if premium bearer server fails
-                vprint(self.extractor_lang['spoof_premium_fail'], 2, 'crunchyroll', 'error')
-                return self.get_bearer_token(spoof_premium=False)
-            vprint(self.extractor_lang['spoof_premium_success'], 2, 'crunchyroll')
+        vprint(self.extractor_lang['getting_bearer'], 3, 'crunchyroll',)
+        method = 'etp_rt_cookie' if self.cookie_exists('etp_rt') else 'client_id'
+        vprint(self.extractor_lang['using_method'] % method, 3, 'crunchyroll', 'debug')
+        token_req = request_json(
+            url=self.API_URL + 'auth/v1/token',
+            method='post',
+            headers={
+                'Authorization': self.account_info['basic'],
+                'Content-Type': 'application/x-www-form-urlencoded'
+                },
+            data={'grant_type': method},
+            cookies=self.cjar,
+            proxies=self.proxy
+        )
+        if not 'access_token' in token_req[0]:
+            # TODO: better error message
+            vprint('bearer error', 1, 'cr:unified', 'error')
         self.account_info['bearer'] = f'Bearer {token_req[0]["access_token"]}'
         return self.account_info['bearer']
     
@@ -577,6 +553,7 @@ class CrunchyrollExtractor(BaseExtractor):
         return self.episode
     
     def search(self, term=str):
+        # TODO: search
         search_results = request_json(
             url=self.API_URL + 'content/v1/search',
             headers={
