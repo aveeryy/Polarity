@@ -15,7 +15,7 @@ USAGE = 'Polarity [OPTIONS] <url(s)>'
 DEFAULTS = {
     'verbose': 1,
     'language': 'enUS',
-    'update_languages': False,
+    'update_languages': True,
     'download': {
         'downloader': 'penguin',
         'simultaneous_urls': 3,
@@ -31,6 +31,7 @@ DEFAULTS = {
         'redownload': False,
     },
     'extractor': {},
+    'flags': []
 }
 
 class ConfigError(Exception):
