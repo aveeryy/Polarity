@@ -140,10 +140,8 @@ out.txt
 ffmpeg.zip
 
 # Unfinished stuff
-polarity/extractor/plutotv.py
-polarity/extractor/deezer.py
+polarity/extractor/crunchy.py
 windows-install.py
-tests*
 
 # API
 polar-api.py
