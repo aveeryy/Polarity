@@ -49,7 +49,7 @@ class MPEGDASHStream(StreamProtocol):
                     bandwidth_values = [int(s[0]['@bandwidth']) for s in streams]
                     stream = streams[bandwidth_values.index(max(bandwidth_values))][0]
                 else:
-                    stream = self.streams[0][0]
+                    stream = streams[0][0]
                 vprint(lang['penguin']['protocols']['selected_stream'] % stream['BaseURL'], 3, 'penguin/dash', 'debug')
                 self.get_stream_fragments(stream, 'video', 'video')
             elif adap_set['@contentType'] == 'audio':
