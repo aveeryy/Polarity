@@ -9,6 +9,9 @@ from requests.models import Response
 from tqdm import tqdm
 from json.decoder import JSONDecodeError
 from xml.parsers.expat import ExpatError
+from urllib3.util.retry import Retry
+
+from dataclasses import asdict, dataclass, field, is_dataclass
 
 import cloudscraper
 import json
@@ -20,6 +23,14 @@ import toml
 import xmltodict
 
 colorama.init()
+
+browser = {
+    'browser': 'firefox',
+    'platform': 'windows',
+    'mobile': False
+}
+
+retry_config = Retry(total=10, backoff_factor=1, status_forcelist=[502, 503, 504, 403, 404])
 
 def vprint(message, level=1, module_name='polarity', error_level=None, end='\n', use_print=False):
     '''
@@ -134,7 +145,7 @@ def remove_android_notification(id=str):
 
 # String manipulation stuff
 
-def sanitize_filename(filename=str, directory_replace=False):
+def sanitize_filename(filename=str, directory_replace=False, test_force_win32=False, test_force_android=False):
     '`win32_replace`: replaces forbidden characters for similar looking ones'
     replace_win32 = {
         '|': 'ꟾ',
@@ -143,16 +154,17 @@ def sanitize_filename(filename=str, directory_replace=False):
         '"': "'",
         '?': '？',
         '*': '＊',
-        ':': '',
-        '/': '/',
-        '\\': '\\',
+        ':': '-',
+        '/': '-',
+        '\\': '-',
     }
-    if platform == 'win32':
+    if platform == 'win32' or test_force_win32:
         # Windows forbidden characters
         for forbidden, shit_looking_character in replace_win32.items():
             if forbidden == '\\' and directory_replace or forbidden == '/' and directory_replace:
                 continue
             filename = filename.replace(forbidden, shit_looking_character)
+        filename = filename.replace('-\\', ':\\').replace('-/', ':/')
     else:
         # Android forbidden characters
         if running_on_android():
@@ -168,7 +180,6 @@ def sanitize_filename(filename=str, directory_replace=False):
     return filename
 
 def sanitized_file_exists(file_path=str):
-
     file_dir = os.path.dirname(file_path) + '/'
     sanitized_path = sanitize_filename(file_dir, directory_replace=True)
     sanitized_filename = sanitize_filename(os.path.basename(file_path))
@@ -197,7 +208,10 @@ def normalize_integer(number):
 
 # Returns extension from url
 def get_extension(url):
-    return re.search(r'(?P<ext>\.\w+)($|[^/.\w\s,])', url).group('ext')
+    result = re.search(r'(?P<ext>\.\w+)($|[^/.\w\s,])', url)
+    if result is None:
+        return
+    return result.group('ext')
 
 def humanbytes(B):
    'Return the given bytes as a human friendly KB, MB, GB, or TB string\nhttps://stackoverflow.com/a/31631711'
@@ -276,31 +290,29 @@ def run_ffprobe(input, show_programs=True, extra_params=''):
             continue
     return _json
 
-'Download ID stuff'
+@dataclass(frozen=True)
+class ContentIdentifier:
+    extractor: str
+    content_type: str
+    content_id: str
 
-class DownloadIdentifier:
-    def __init__(self, extractor=str, content_type=str, id=str):
-        self.extractor = extractor
-        self.content_type = content_type
-        self.id = id
+content_id_regex = r'(?P<extractor>[\w]+)/(?P<type>[\w]+)-(?P<id>[\S]+)'
 
-download_id_regex = r'(?P<extractor>[\w]+)/(?P<type>[\w]+)-(?P<id>[\S]+)'
-
-def is_download_id(text=str):
+def is_content_id(text=str):
     '''
     #### Checks if inputted text is a download id
-    >>> is_download_id('crunchyroll/series-000000')
+    >>> is_content_id('crunchyroll/series-000000')
         True
-    >>> is_download_id('man')
+    >>> is_content_id('man')
         False
     '''
-    return bool(re.match(download_id_regex, text))
+    return bool(re.match(content_id_regex, text))
 
-def parse_download_id(id=str):
+def parse_content_id(id=str):
     '''
-    #### Returns a `DownloadIdentifier` object with all attributes
-    >>> from polarity.utils import parse_download_id
-    >>> a = parse_download_id('crunchyroll/series-320430')
+    #### Returns a `ContentIdentifier` object with all attributes
+    >>> from polarity.utils import parse_content_id
+    >>> a = parse_content_id('crunchyroll/series-320430')
     >>> a.extractor
         'crunchyroll'
     >>> a.content_type
@@ -308,11 +320,11 @@ def parse_download_id(id=str):
     >>> a.id
         '320430'
     '''
-    if not is_download_id(id):
-        vprint('Failed to parse id', 1, 'utils/parse_download_id', 'error')
+    if not is_content_id(id):
+        vprint('Failed to parse id', 1, 'utils/parse_content_id', 'error')
         return
-    parsed_id = re.match(download_id_regex, id)
-    return DownloadIdentifier(*parsed_id.groups())
+    parsed_id = re.match(content_id_regex, id)
+    return ContentIdentifier(*parsed_id.groups())
 
 def order_list(to_order, index=None, order_definer=list):
     if index is None:
@@ -351,16 +363,16 @@ def send_signal(self, thread=str, signal=str):
     from polarity.Polarity import _ALL_THREADS
     valid_signals = ['PAUSE', 'STOP', 'RESUME']
     if thread not in _ALL_THREADS:
-        vprint('Failed to send signal, Thread does not exist', 5, 'penguin', 'error')
+        vprint('Failed to send signal, Thread does not exist', 5, 'polarity', 'error')
         return 1
     elif self.segment_downloaders[thread]['signal'] == signal:
-        vprint('Signal is already sent!', 5, 'penguin', 'error')
+        vprint('Signal is already sent!', 5, 'polarity', 'error')
         return 2
     elif signal not in valid_signals:
-        vprint('Invalid signal', 5, 'penguin', 'error')
+        vprint('Invalid signal', 5, 'polarity', 'error')
         return 3
     self.segment_downloaders[thread]['signal'] = signal
-    vprint('Signal sent!', 3, 'penguin')
+    vprint('Signal sent!', 3, 'polarity')
     return 0
 
 def handle_signal():
@@ -408,7 +420,6 @@ def request_json(url=str, method='get', **kwargs):
         return ({}, response)
 
 
-
 def request_xml(url=str, method='get', **kwargs):
     'Same as request_webpage, except it returns a tuple with the xml as a dict and the response object'
     response = request_webpage(url, method, **kwargs)
@@ -421,10 +432,10 @@ def request_xml(url=str, method='get', **kwargs):
 def get_country_from_ip() -> str:
     return requests.get('http://ipinfo.io/json').json().get('country')
     
-def get_compatible_extractor(url=str) -> tuple:
+def get_compatible_extractor(url: str) -> tuple[str, object]:
     'Returns a compatible extractor for the inputted url, if it exists'
     from polarity.extractor import EXTRACTORS
-    if not is_download_id(text=url):
+    if not is_content_id(text=url):
         url_host = urlparse(url).netloc
         extractor = [
             extractor
@@ -436,7 +447,7 @@ def get_compatible_extractor(url=str) -> tuple:
         # Return (name, object)
         return (extractor[0][0], extractor[0][1])
     else:
-        parsed_id = parse_download_id(id=url)
+        parsed_id = parse_content_id(id=url)
         extractor_name = parsed_id.extractor
         if not extractor_name in EXTRACTORS:
             return (None, None)
@@ -450,6 +461,7 @@ def format_language_code(code: str) -> str:
     >>> format_language_code('EnuS')
     'enUS'
     '''
+    code = code.strip('_')
     lang = code[0:2]
     country = code[2:4]
     return f'{lang.lower()}{country.upper()}'
