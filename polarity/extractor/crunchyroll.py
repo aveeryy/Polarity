@@ -554,7 +554,7 @@ class CrunchyrollExtractor(BaseExtractor):
         )[0]
         if hasattr(self, 'season'):
             self.season.episode_count = len(episodes_list['items'])
-        return [i for i in episodes_list['items']]
+        return episodes_list['items']
     
     def get_episode_info(self, episode_id=str, return_raw_info=False):
         episode_info = request_json(
