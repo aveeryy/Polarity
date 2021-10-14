@@ -8,7 +8,7 @@ from urllib3.util.retry import Retry
 from polarity.config import lang
 from polarity.downloader.penguin.protocols.base import StreamProtocol
 from polarity.types.stream import *
-from polarity.utils import vprint
+from polarity.utils import vprint, get_extension
 
 class HTTPLiveStream(StreamProtocol):
     SUPPORTED_EXTENSIONS = ('.m3u', '.m3u8')
@@ -77,6 +77,7 @@ class HTTPLiveStream(StreamProtocol):
                     init=True,
                     media_type=pool,
                     duration=None,
+                    key=None,
                     group=f'{pool}{self.processed_tracks[pool]}',
                     ext=get_extension(self.parsed_stream['segment_map']['uri']),
                     mpd_range=None
