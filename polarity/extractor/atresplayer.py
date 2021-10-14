@@ -1,12 +1,12 @@
-from polarity.types.stream import Stream
-from polarity.types.movie import Movie
-from polarity.types import Series, Season, Episode
+from polarity.types import Series, Season, Episode, Movie, Stream
+from polarity.types.ffmpeg import VIDEO, AUDIO, SUBTITLES
 from polarity.extractor.base import BaseExtractor
 from polarity.config import ConfigError, lang
-from polarity.utils import is_download_id, parse_download_id, vprint, request_json, request_webpage
+from polarity.utils import is_content_id, parse_content_id, vprint, request_json, request_webpage
 from urllib.parse import urlparse
 import re
 import os
+
 
 class AtresplayerExtractor(BaseExtractor):
     '''
@@ -17,18 +17,13 @@ class AtresplayerExtractor(BaseExtractor):
     '''
 
     HOST = r'(?:http(?:s://|://|)|)(?:www.|)atresplayer.com'
-    
-    LOGIN_REQUIRED = True
-
     DEFAULTS = {
         'codec': 'hevc',
         # 'fetch_extras': False,
         }
-
     API_URL = 'https://api.atresplayer.com/'
-    
+    ACCOUNT_URL = 'https://account.atresplayer.com/'
     LIVE_CHANNELS = ['antena3', 'lasexta', 'neox', 'nova', 'mega', 'atreseries']
-
     ARGUMENTS = [
         {
             'args': ['--atresplayer-codec'],
@@ -57,10 +52,13 @@ class AtresplayerExtractor(BaseExtractor):
     def return_class(self): return __class__.__name__
 
     def login(self, user: str, password: str):
-        self.account_url = 'https://account.atresplayer.com/'
-        self.res = request_json(self.account_url + 'auth/v1/login', 'POST',
-                               data={'username': user, 'password': password},
-                               cookies=self.cjar)
+
+        res = request_json(
+            url=self.account_url + 'auth/v1/login',
+            method='POST',
+            data={'username': user, 'password': password},
+            cookies=self.cjar
+            )
         if self.res[1].status_code == 200:
             vprint(lang['extractor']['login_success'], 1, 'atresplayer')
             vprint('Logged in as %s' % user, 3, 'atresplayer', 'debug')
@@ -88,32 +86,39 @@ class AtresplayerExtractor(BaseExtractor):
                 return utype
         return
 
-    def get_series_info(self):
-        # self.set_main_info('series')
-        self.series_json = request_json(self.API_URL +
-                                            'client/v1/page/format/' +
-                                            self.info.id)[0]
-        self._episodes = request_json(self.API_URL + 'client/v1/row/search',
-                                           params={'entityType': 'ATPEpisode', 'formatId': self.info.id, 'size': 1})
-        self.info.title = self.series_json['title']
-        self.info.title = self.info.title.strip()
+    def get_series_info(self, identifier: str):
+        series_json = request_json(self.API_URL +'client/v1/page/format/' + identifier)[0]
+        _episodes = request_json(
+            self.API_URL + 'client/v1/row/search',
+            params={
+                'entityType': 'ATPEpisode',
+                'formatId': identifier,
+                'size': 1
+            })
+
         vprint(
             lang['extractor']['get_media_info'] % (
                 lang['types']['alt']['series'],
-                self.info.title,
-                self.info.id
+                series_json['title'].strip(),
+                identifier
                 ),
             level=1,
             module_name='atresplayer'
             )
-        self.info.synopsis = self.series_json['description'] or ''
-        self.info.images.append(self.series_json['image']['pathHorizontal'] + '0')
-        self.info.images.append(self.series_json['image']['pathVertical'] + '0')
-
-        self.info.total_episodes = self._episodes[0]['pageInfo']['totalElements']
-
-        for genre in self.series_json['tags']:
-            self.info.genres.append(genre['title'])
+        
+        self.info = Series(
+            title=series_json['title'].strip(),
+            id=identifier,
+            synopsis=series_json['description'] if 'description' in series_json else '',
+            genres=[genre['title'] for genre in series_json['tags']],
+            images=[
+                series_json['image']['pathHorizontal'] + '0',
+                series_json['image']['pathVertical'] + '0',
+            ],
+            season_count=None,
+            episode_count=_episodes[0]['pageInfo']['totalElements'],
+            year=1970,
+        )
 
         return self.info
 
@@ -123,31 +128,37 @@ class AtresplayerExtractor(BaseExtractor):
             
               
     def get_season_info(self, season_id=str):
-        self.create_season(independent=self.extraction is False)
         # Download season info json
-        self.season_json = request_json(self.API_URL +
-                                             'client/v1/page/format/%s?seasonId=%s'
-                                             %(self.info.id, season_id))[0]
+        season_json = request_json(self.API_URL + 'client/v1/page/format/%s?seasonId=%s' %(self.info.id, season_id))[0]
+        
         vprint(
-            lang['extractor']['get_media_info'] % (
+            message=lang['extractor']['get_media_info'] % (
                 lang['types']['alt']['season'],
-                self.season_json['title'],
+                season_json['title'],
                 season_id),
             level=2,
             module_name='atresplayer'
             )
-        self.season.title = self.season_json['title']
-        self.season.id = season_id
-        self.season.synopsis = self.season_json['description'] if 'description' in self.season_json else '' 
-        self.season.number = request_json(
+         
+        season_jsonld = request_json(
             url=self.API_URL + 'client/v1/jsonld/format/%s' % self.info.id,
             params={'seasonId': season_id}
-            )[0]['seasonNumber']
-        self.season.images.append(self.season_json['image']['pathHorizontal'] + '0')
-
-        return self.season
+            )
         
-    def get_episodes_from_season(self, season_id: str):
+        season = Season(
+            title=season_json['title'],
+            id=season_id,
+            synopsis=season_json['description'] if 'description' in season_json else '',
+            number=season_jsonld[0]['seasonNumber'],
+            year=1970,
+            images=[season_json['image']['pathHorizontal'] + '0'],
+            episode_count=len(season_jsonld[0]['episode']),
+            finished=False
+        )
+
+        return season
+        
+    def get_episodes_from_season(self, season_id: str) -> list[Episode]:
         episodes = []
         page = 0
         total_pages = 727  # placeholder variable
@@ -162,26 +173,24 @@ class AtresplayerExtractor(BaseExtractor):
                     'page': page
                 }
                 )[0]
-            try:
-                total_episodes = page_json['pageInfo']['totalElements']
-                total_pages = page_json['pageInfo']['totalPages']
-            except KeyError:
-                total_episodes = 0
-                vprint(self.extractor_lang['no_content_in_season'] %(self.season_json['title'], season_id), 'atresplayer', 'warning')
+            
+            if 'pageInfo' not in page_json:
+                vprint(self.extractor_lang['no_content_in_season'] %(page_json['title'], season_id), 1, 'atresplayer', 'warning')
                 break
+            
+            total_pages = page_json['pageInfo']['totalPages']
             for episode in page_json['itemRows']:
                 # Add episode to episodes list
                 episodes.append(self.get_episode_info(episode['contentId']))
             page += 1
         return episodes
 
-    def get_episode_info(self, episode_id=str):
+    def get_episode_info(self, episode_id=str) -> Episode:
         if not self.cookie_exists('A3PSID'):
             self.login()
             
         drm = False
 
-        self.create_episode(independent=self.extraction is False)
 
         # Download episode info json
         episode_info = request_json(
@@ -196,12 +205,15 @@ class AtresplayerExtractor(BaseExtractor):
             level=3,
             module_name='atresplayer'
             )
+        self.episode = Episode()
 
         self.episode.title = episode_info['title']
         self.episode.id = episode_id
         self.episode.synopsis = episode_info['description'] if 'description' in episode_info else ''
         self.episode.number = episode_info['numberOfEpisode']
         self.episode.images.append(episode_info['image']['pathHorizontal'] + '0')
+        
+       
         
         multi_lang = 'languages' in episode_info and 'VO' in episode_info['languages']
         subtitles = 'languages' in episode_info and 'SUBTITLES' in episode_info['languages']
@@ -232,26 +244,27 @@ class AtresplayerExtractor(BaseExtractor):
                         self.stream = Stream(
                             url=stream['src'],
                             name={
-                                'audio': 'Español'
+                                AUDIO: 'Español'
                             },
                             language={
-                                'audio': 'spa'
+                                AUDIO: 'spa'
                             },
                             id=stream_type[1],
-                            preferred=True,
+                            preferred=False,
                             key=None
                         )
                         self.episode.link_stream(self.stream)
                         if multi_lang:
-                            self.stream.language = {'audio': ['spa', 'eng']}
-                            self.stream.name = {'audio': ['Español', 'English']}
+                            self.stream.language = {AUDIO: ['spa', 'eng']}
+                            self.stream.name = {AUDIO: ['Español', 'English']}
                         if subtitles:
-                            self.stream.language['subtitles'] = 'spa'
-                            self.stream.name['subtitles'] = 'Español'
+                            self.stream.language[SUBTITLES] = 'spa'
+                            self.stream.name[SUBTITLES] = 'Español'
                         
                         if 'drm' in stream and not drm:
                             drm = True
                         streams.append(stream_type[1])
+                        
 
             if drm and 'hls_hevc' not in streams or drm and self.options['codec'].lower() == 'avc':
                 # Case 1.1: DRM stream and not HEVC stream
@@ -367,60 +380,73 @@ class AtresplayerExtractor(BaseExtractor):
             vprint(f'No results found in category EPISODE using term "{term}"', 2, 'atresplayer', 'warning')
         return self.search_results
 
-    # extractor
-    #def extract(self, url=str):
     def extract(self):
         self.extraction = True
-        self.set_main_info('series')
         
-        download_id = is_download_id(self.url)
+        download_id = is_content_id(self.url)
         
         if not download_id:
             # Gets url's content type
             self.url_type = self.identify_url(self.url)
         else:
-            parsed = parse_download_id(self.url)
+            parsed = parse_content_id(self.url)
             self.url_type = parsed.content_type
         
         # Gets series id if the content isn't an episode
         if self.url_type not in ('episode', 'movie'):
             if not download_id:
                 self.web = request_webpage(self.url).content.decode()
-                self.info.id = re.search(r'u002Fpage\\u002Fformat\\u002F(?P<id>[0-9a-f]{24})', self.web).group(1)  # Series ID
+                identifier = re.search(r'u002Fpage\\u002Fformat\\u002F(?P<id>[0-9a-f]{24})', self.web).group(1)  # Series ID
             elif download_id:
-                self.info.id = parsed.id
+                identifier = parsed.id
                 # Gets series information
-            self.get_series_info()
-            self.create_progress_bar(desc=self.info.title, total=self.info.total_episodes, leave=False)
+            self.get_series_info(identifier)
+            
 
         if self.url_type == 'series':
             # Gets information from all seasons
+            self.create_progress_bar(desc=self.info.title, total=self.info.episode_count, leave=False)
             for season in self.get_seasons():
-                self.get_season_info(season)
-                self.get_episodes_from_season(season)
+                season = self.get_season_info(season)
+                episodes = self.get_episodes_from_season(season.id)
+                self.info.link_season(season=season)
+                for episode in episodes:
+                    season.link_episode(episode=episode)
+            self.progress_bar.close()
+                
             
         elif self.url_type == 'season':
             if not download_id:
                 # Get season id from the page's html
-                self.season_id = re.search(r'seasonId=(?P<season_id>[0-9a-f]{24})',self.web).group(1)  # Season ID
+                identifier = re.search(r'seasonId=(?P<season_id>[0-9a-f]{24})',self.web).group(1)  # Season ID
             else:
-                self.season_id = parsed.id
+                identifier = parsed.id
             # Gets single season information
-            self.get_season_info(self.season_id)
+            season = self.get_season_info(identifier)
+            self.create_progress_bar(desc=self.info.title, total=season.episode_count, leave=False)
+            episodes = self.get_episodes_from_season(season.id)
+            self.info.link_season(season=season)
+            for episode in episodes:
+                season.link_episode(episode=episode)
+            self.progress_bar.close()
 
         elif self.url_type in ('episode', 'movie'):
             if not download_id:
                 # Get episode ID from the inputted url
-                self.episode_id = re.search(r'(?P<id>[0-9a-f]{24})', self.url).group(1)
+                episode_identifier = re.search(r'(?P<id>[0-9a-f]{24})', self.url).group(1)
             else:
-                self.episode_id = parsed.id
+                episode_identifier = parsed.id
             # Get season page from jsonld API
-            self.json = request_json(self.API_URL + 'client/v1/jsonld/episode/' + self.episode_id)[0]
-            self.web = request_webpage(self.json['partOfSeason']['@id']).content.decode()
+            json = request_json(self.API_URL + 'client/v1/jsonld/episode/' + episode_identifier)[0]
+            web = request_webpage(json['partOfSeason']['@id']).content.decode()
             # Get the series identifier
-            self.info.id = re.search(r'u002Fpage\\u002Fformat\\u002F(?P<id>[0-9a-f]{24})', self.web).group(1)  # Series ID
-            self.get_series_info()
-            self.season_id = re.search(r'seasonId=(?P<season_id>[0-9a-f]{24})', self.web).group(1)  # Season ID
-            self.get_season_info(self.season_id)
-            self.get_episode_info(self.episode_id)
+            identifier = re.search(r'u002Fpage\\u002Fformat\\u002F(?P<id>[0-9a-f]{24})', web).group(1)  # Series ID
+            self.get_series_info(identifier)
+            season_identifier = re.search(r'seasonId=(?P<season_id>[0-9a-f]{24})', web).group(1)  # Season ID
+            season = self.get_season_info(season_identifier)
+            episode = self.get_episode_info(episode_identifier)
+            
+            self.info.link_season(season)
+            season.link_episode(episode=episode)
+            
         return self.info

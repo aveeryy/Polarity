@@ -1,6 +1,5 @@
 from .base import PolarType
 from dataclasses import dataclass
-from polarity.utils import get_extension
 
 @dataclass
 class ContentKey(PolarType):
@@ -29,13 +28,15 @@ class Stream(PolarType):
     - On extra_* streams 
     '''
     url: str
-    id: str
     preferred: bool
     name: dict
     language: dict
-    key: dict
+    id: str = None
+    key: dict = None
+    content_type: str = None
     extra_audio = False
     extra_sub = False
+
 
 @dataclass   
 class Segment:

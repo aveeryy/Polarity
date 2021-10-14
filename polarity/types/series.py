@@ -1,30 +1,26 @@
 from .base import PolarType
-
-from .actor import Actor
+from .person import Person, Actor
 from .season import Season
+from dataclasses import dataclass
 
+@dataclass
 class Series(PolarType):
-    def __init__(self) -> None:
-        self.title = None
-        self.id = None
-        self.synopsis = None
-        self.actors = []
-        self.genres = []
-        self.year = 1970
-        self.images = []
-        self.total_seasons = 0
-        self.total_episodes = 0
-        self.available_episodes = 0
-        self.seasons = []
+    title: str
+    id: str
+    synopsis: str
+    genres: list
+    year: int
+    images: list
+    season_count: int
+    episode_count: int
+    people = []
+    seasons = []
 
-    def __str__(self) -> str:
-        return self.title
+    def link_person(self, person: Person) -> None:
+        if person not in self.actors:
+            self.actors.append(person)
 
-    def link_actor(self, actor=Actor) -> None:
-        if actor not in self.actors:
-            self.actors.append(actor)
-
-    def link_season(self, season=Season) -> None:
+    def link_season(self, season: Season) -> None:
         if season not in self.seasons:
             season._parent = self
             self.seasons.append(season)

@@ -1,17 +1,20 @@
 from .base import PolarType
 from .stream import Stream
 
+from dataclasses import dataclass, field
+
+@dataclass
 class Episode(PolarType):
-    def __init__(self) -> None:
-        self.title = None
-        self.id = None
-        self.synopsis = None
-        self.number = 0
-        self.images = []
-        self.streams = []
-        self.movie = False
-        self.year = 0  # Only used in movies
-        self._parent = None
+    # TODO: finish this
+    title: str
+    id: str
+    synopsis: str = ''
+    number: int = 0
+    images: list = field(default_factory=list)
+    streams = []
+    movie: bool = False
+    year: int = 1970  # Only used in movies
+    _parent = None
 
     def link_stream(self, stream=Stream) -> None:
         if not stream in self.streams:

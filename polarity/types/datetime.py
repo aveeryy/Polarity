@@ -1,3 +1,5 @@
+from polarity.utils import normalize_integer
+
 import re
 
 class Time:
@@ -9,20 +11,25 @@ class Time:
         self.milisec = 0
 
     def __str__(self) -> str:
-        return f'{self.hours}:{self.minutes}:{self.seconds}.{self.milisec}'
+        hours = normalize_integer(self.hours)
+        minutes = normalize_integer(self.minutes)
+        seconds = normalize_integer(self.seconds)
+        milisec = normalize_integer(self.milisec)
+        return f'{(hours)}:{minutes}:{seconds}.{milisec}'
 
-    def parse_human_time(self, time=str) -> bool:
+    def from_human_time(self, time=str):
         self.__time = re.match(self.human_time, time)
         if self.__time is None:
-            return False
+            return
         if self.__time.groupdict()['h'] is not None:
             self.hours = int(self.__time.group('h'))
         self.minutes = int(self.__time.group('m'))
         self.seconds = int(self.__time.group('s'))
         self.milisec = int(self.__time.group('ms'))
-        return True
+        return self
 
+    @classmethod
     def time_to_unix(self, time=str) -> float:
-        self.parse_human_time(time=time)
+        self.from_human_time(time=time)
         self.__milisec = int(str(self.milisec)[0:2]) / 100
         return self.hours * 3600 + self.minutes * 60 + self.seconds + self.__milisec

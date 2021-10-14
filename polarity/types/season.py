@@ -1,20 +1,21 @@
 from .base import PolarType
 from .episode import Episode
-class Season(PolarType):
-    def __init__(self) -> None:
-        self.title = None
-        self.id = None
-        self.synopsis = None
-        self.number = 0
-        self.year = 1970
-        self.images = []
-        self.total_episodes = 0
-        self.available_episodes = 0
-        self.finished = False
-        self.episodes = []
-        self._parent = None
+from dataclasses import dataclass, field
 
-    def link_episode(self, episode=Episode):
+@dataclass
+class Season(PolarType):
+    title: str
+    id: str
+    number: int
+    year: int = 1970
+    images: list[str] = field(default_factory=list)
+    episode_count: int = 0
+    finished: bool = True
+    synopsis: str = ''
+    episodes = []
+    _parent = None
+
+    def link_episode(self, episode: Episode):
         if episode not in self.episodes:
             episode._parent = self
             self.episodes.append(episode)

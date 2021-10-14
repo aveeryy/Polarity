@@ -4,9 +4,9 @@ import os
 import re
 import sys
 
-from polarity.config import lang, USAGE
+from polarity.config import config, lang, USAGE
 from polarity.paths import LOGS
-from polarity.utils import filename_datetime, vprint
+from polarity.utils import filename_datetime, recurse_merge_dict, vprint
 from polarity.version import __version__ as _version
 
 # Argument parsing
@@ -24,8 +24,8 @@ class ExtendedHelpFormatter(argparse.HelpFormatter):
 
 FORMATTER = MinimalHelpFormatter if '--extended-help' not in sys.argv else ExtendedHelpFormatter
 
-
 def argument_parser():
+    global options
 
     def add_option(arg, opts_path: dict, opts_entry: str):
         'Adds an argument value to the options dict, if it\'s type isn\'t NoneType'
@@ -76,6 +76,7 @@ def argument_parser():
     parser.add_argument('url', help=argparse.SUPPRESS, nargs='*')
     # Windows install finisher
     parser.add_argument('--install-windows', help=argparse.SUPPRESS, action='store_true')
+    
     general = parser.add_argument_group(title=lang_group['general'])
     general.add_argument('-h', '--help', '--ayuda', action='store_true', help=lang_help['help'])
     general.add_argument('--extended-help', help=lang_help['extended_help'], action='store_true')
@@ -101,6 +102,12 @@ def argument_parser():
     download.add_argument('--episode-format', help=lang_help['format_episode'])
     download.add_argument('--movie-format', help=lang_help['format_movie'])
     download.add_argument('-d', '--downloader', choices=DOWNLOADERS.keys(), help='Downloader to use')
+
+    # Download rules
+    download_rules = parser.add_argument_group(title='')
+    download_rules.add_argument('--download-filter', action='append', nargs='+')
+    download_rules.add_argument('--download-matching', action='append', nargs='+')
+    download_rules.add_argument('--download-non-matching', action='append', nargs='+')
 
     # Gets all extractors with an ARGUMENTS object and converts their arguments to
     # argparse equivalents.
@@ -152,5 +159,7 @@ def argument_parser():
     add_option(args.printer, opts, 'printer')
     # Process downloader and extractor options
     process_arguments()
+    
+    options = recurse_merge_dict(config, opts)
 
-    return (args.url, opts)
+    return (args.url, options)

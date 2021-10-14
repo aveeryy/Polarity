@@ -11,7 +11,7 @@ from json.decoder import JSONDecodeError
 from xml.parsers.expat import ExpatError
 from urllib3.util.retry import Retry
 
-from dataclasses import asdict, dataclass, field, is_dataclass
+from dataclasses import dataclass
 
 import cloudscraper
 import json

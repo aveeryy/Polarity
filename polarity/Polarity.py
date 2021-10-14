@@ -15,17 +15,11 @@ from polarity.downloader import DOWNLOADERS
 from polarity.extractor import EXTRACTORS
 from polarity.paths import DOWNLOAD_LOG, LANGUAGES
 from polarity.types import *
-from polarity.utils import filename_datetime, get_compatible_extractor, is_download_id, parse_download_id, request_webpage, sanitize_filename, sanitized_file_exists, send_android_notification, vprint, recurse_merge_dict, normalize_integer
+from polarity.utils import filename_datetime, get_compatible_extractor, is_content_id, parse_content_id, request_webpage, sanitize_filename, sanitized_file_exists, send_android_notification, vprint, recurse_merge_dict, normalize_integer
 from polarity.update import windows_install, download_languages
 from polarity.version import __version__
 
-_ALL_THREADS = {}
-_STATS = {
-    'version': __version__,
-    'url_queue': None,
-    'tasks': {},
-    'threads': _ALL_THREADS
-    }
+_ALL_PROCESSES = []
 
 downloader_lock = Lock()
 
@@ -35,7 +29,7 @@ class Polarity:
     
     def __init__(self, urls: list, options: dict):
         self.url_pool = urls
-        _STATS['url_queue'] = self.url_pool
+        # _STATS['url_queue'] = self.url_pool
         if not options:
             options = {'mode': {}}
         if verbose_level < 0 or verbose_level > 5:
@@ -82,9 +76,9 @@ class Polarity:
             os._exit(0)
         elif 'install_languages' in self.options:
             download_languages(self.options['install_languages'])
-            os._exit(0)
 
         self.mode = self.options['mode']
+        
         if self.mode == 'download':
             '''
             Download mode
@@ -105,7 +99,7 @@ class Polarity:
                 extractor = get_compatible_extractor(url=url)
                 if extractor[0] is None:
                     continue
-                if extractor[1].LOGIN_REQUIRED and not extractor[1]().is_logged_in():
+                if 'REQUIRES_LOGIN' in extractor[1].FLAGS and not extractor[1]().is_logged_in():
                     vprint(f'Extractor {extractor[0]} requires to be logged in')
                     # Display login form if login is required for that extractor and not logged in
                     username, password = None, None
@@ -164,7 +158,7 @@ class Polarity:
             Output: m3u8 playlist `https://example.com/playlist.m3u8`
             '''
             channel = self.url_pool[0]
-            parsed = parse_download_id(id=channel)
+            parsed = parse_content_id(id=channel)
             print(EXTRACTORS[parsed.extractor][1].get_live_stream(parsed.id))
             os._exit(0)
         elif self.mode == 'print':
@@ -236,6 +230,7 @@ class Polarity:
             # Call extractor's extract function
             worker_stats['current_tasks']['extract']['finished'] = True
             return extract_function.extract()
+        
         def download_task():
             while True:
                 if not download_pool:
@@ -290,7 +285,6 @@ class Polarity:
                     extra_subs=item.get_extra_subs(),
                     name=name,
                     id=item.id,
-                    #media_metadata=item['metadata'],
                     output=item.output
                     )
                 downloader.start()
@@ -325,7 +319,7 @@ class Polarity:
             if extractor_tupl[0] is None:
                 vprint(
                     lang['dl']['no_extractor_available'] % (
-                        lang['dl']['url'] if not is_download_id(thread_url) else lang['dl']['download_id'],
+                        lang['dl']['url'] if not is_content_id(thread_url) else lang['dl']['download_id'],
                         thread_url
                         ),
                     error_level='error'
@@ -446,11 +440,11 @@ class Polarity:
     def id_in_archive(id=str):
         return id in open(DOWNLOAD_LOG, 'r').read()
 
-    def write_status_file(self):
+    '''def write_status_file(self):
         global _STATS
         with open(self.status_file_path, 'w') as status:
             json.dump(_STATS, status)
-
+    '''
     def search(self, extractor=str, search_term=str):
         pass
 

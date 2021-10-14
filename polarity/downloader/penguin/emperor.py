@@ -4,38 +4,27 @@ import pickle
 import re
 import subprocess
 import threading
-import xmltodict
 
 from copy import deepcopy
+from random import choice, randrange
 from requests.adapters import HTTPAdapter
 from shutil import move, copyfileobj
 from time import sleep
 from urllib.parse import unquote
-from urllib3.util.retry import Retry
 
 from polarity.config import lang
 from polarity.downloader.base import BaseDownloader
 from polarity.downloader.penguin.protocols import *
 from polarity.paths import TEMP
-from polarity.types import Stream
 from polarity.types.ffmpeg import *
 from polarity.types.stream import *
-from polarity.utils import get_extension, vprint, threaded_vprint
+from polarity.utils import get_extension, vprint, threaded_vprint, browser, retry_config
 from polarity.version import __version__
 
 
 class PenguinDownloader(BaseDownloader):
     
     __penguin_version__ = '2021.09.15'
-    
-    # Set retry config
-    retry_config = Retry(total=10, backoff_factor=1, status_forcelist=[502, 503, 504, 403, 404])
-
-    browser = {
-        'browser': 'firefox',
-        'platform': 'windows',
-        'mobile': False
-        }
     
     thread_lock = threading.Lock()
     
@@ -74,7 +63,7 @@ class PenguinDownloader(BaseDownloader):
         self.stats = {
             'bytes_downloaded': 0,
             'estimated_total_bytes': 0,
-            'segments_downloaded': 0,
+            'segments_downloaded': [],
             'total_segments': 0,
             'inputs': [],
             'pools': {
@@ -105,6 +94,7 @@ class PenguinDownloader(BaseDownloader):
         vprint('Item: ' + self.content, 4, threading.current_thread().name)
         if os.path.exists(f'{self.temp_path}.pools'):
             vprint(lang['penguin']['resuming'] % self.content_name)
+            # Open resume file
             with open(f'{self.temp_path}.pools', 'rb') as f:
                 self.segment_pools = pickle.load(f)
                 self.copy_of_segment_pools = deepcopy(self.segment_pools)
@@ -114,6 +104,7 @@ class PenguinDownloader(BaseDownloader):
                 self.process_stream(stream=stream)
             for stream in self.extra_subs:
                 self.process_stream(stream=stream)
+            # Make a copy of the segment pools 
             self.copy_of_segment_pools = deepcopy(self.segment_pools)
             # Save pools to file
             with open(f'{self.temp_path}.pools', 'wb') as f:  
@@ -145,7 +136,7 @@ class PenguinDownloader(BaseDownloader):
         # Wait until threads stop
         while True:
             try:
-                self.stats['estimated_total_bytes'] = self.stats['bytes_downloaded'] / self.stats['segments_downloaded'] * self.stats['total_segments']
+                self.stats['estimated_total_bytes'] = self.stats['bytes_downloaded'] / len(self.stats['segments_downloaded']) * self.stats['total_segments']
             except ZeroDivisionError:
                 pass
             # Dump statistics to file
@@ -161,6 +152,7 @@ class PenguinDownloader(BaseDownloader):
             if [sdl for sdl in self.segment_downloaders if sdl.is_alive()]:
                 sleep(0.5)
                 continue
+            
             self.progress_bar.close()
             break
         # Binary concating
@@ -237,6 +229,7 @@ class PenguinDownloader(BaseDownloader):
         os.remove(f'{TEMP}{self.content_sanitized}.stats')
         os.remove(f'{TEMP}{self.content_sanitized}.pools')
         
+    # TODO: finish threaded binary concat
     def binary_concat(self, pool: SegmentPool):
         vprint(f'Doing binary concat: {pool.id}', 3, 'penguin', 'debug')
         init_segment = pool.get_init_segment()
@@ -286,7 +279,9 @@ class PenguinDownloader(BaseDownloader):
         for _command in commands:
             command.extend(_command[1])
         command.extend([
-            '-c',
+            '-c:v',
+            'copy',
+            '-c:a',
             'copy',
             '-metadata',
             'encoding_tool=Polarity %s | Penguin %s' % (
@@ -318,7 +313,7 @@ class PenguinDownloader(BaseDownloader):
                 self.stats['inputs'].append(self.create_input(pool=pool, stream=stream))
             return
         if not stream.extra_sub:
-            vprint('stream incompatible error', 1, 'emperor', 'error')
+            vprint('Stream incompatible error', 1, 'emperor', 'error')
             return
         subtitle_pool_id = self.generate_pool_id('subtitles')
         subtitle_pool = SegmentPool([], 'subtitles', subtitle_pool_id, None, None)
@@ -328,6 +323,7 @@ class PenguinDownloader(BaseDownloader):
             media_type='subtitles',
             group=subtitle_pool_id,
             key=None,
+            duration=None,
             init=False,
             ext=get_extension(stream.url),
             mpd_range=None
@@ -339,56 +335,50 @@ class PenguinDownloader(BaseDownloader):
         self.stats['inputs'].append(ff_input)
                     
     def create_input(self, pool: SegmentPool, stream: Stream) -> FFmpegInput:
+        
+        def set_metadata(parent: str, child: str, value: str):
+            if parent not in ff_input.metadata:
+                ff_input.metadata[parent] = {}
+            if value is None or not value:
+                return
+            elif type(value) == dict:
+                if parent in value:
+                    value = value[parent]
+                elif pool.track_id in value:
+                    value = value[pool.track_id]
+                else:
+                    return
+            ff_input.metadata[parent][child] = value
+        
         pool_extension = pool.pool_type.ext if pool.pool_type is not None else pool.get_ext_from_segment()
         ff_input = FFmpegInput()
         ff_input.file_path = f'{self.temp_path}/{pool.id}{pool_extension}'.replace('.ttml2', '.srt')
         ff_input.indexes = {
             'file': self.indexes['files'],
-            'v': self.indexes['video'],
-            'a': self.indexes['audio'],
-            's': self.indexes['subtitles'],
+            VIDEO: self.indexes['video'],
+            AUDIO: self.indexes['audio'],
+            SUBTITLES: self.indexes['subtitles'],
         }
         
+        if pool.get_ext_from_segment(0) == '.vtt':
+            ff_input.convert_to_srt = True
+        
         self.indexes['files'] += 1
-        if pool.format in ('video', 'unified'):
-            if type(stream.name) != dict:
-                ff_input.metadata[VIDEO] = {
-                    'title': stream.name,
-                    'language': stream.language
-                }
-            else:
-                ff_input.metadata[VIDEO] = {
-                    'title': stream.name[pool.track_id] if pool.track_id in stream.name else 'video',
-                    'language': stream.language[pool.track_id] if pool.track_id in stream.language else 'video'
-                }     
-            self.indexes['video'] += 1
+        if pool.format in ('video', 'unified'):      
+            self.indexes['video'] += 1      
+            set_metadata(VIDEO, 'title', stream.name)
+            set_metadata(VIDEO, 'language', stream.language)
         if pool.format in ('audio', 'unified'):
             self.indexes['audio'] += 1
-            if type(stream.name) != dict:
-                ff_input.metadata[AUDIO] = {
-                    'title': stream.name,
-                    'language': stream.language
-                }
-            else:
-                ff_input.metadata[AUDIO] = {
-                    'title': stream.name[pool.track_id] if pool.track_id in stream.name else 'audio',
-                    'language': stream.language[pool.track_id] if pool.track_id in stream.language else 'audio'
-                }                
+            set_metadata(AUDIO, 'title', stream.name)
+            set_metadata(AUDIO, 'language', stream.language)            
         if pool.format == 'subtitles':
             self.indexes['subtitles'] += 1
-            if type(stream.name) != dict:
-                ff_input.metadata[SUBTITLES] = {
-                    'title': stream.name,
-                    'language': stream.language
-                }
-            else:
-                ff_input.metadata[SUBTITLES] = {
-                    'title': stream.name[pool.track_id] if pool.track_id in stream.name else 'subtitles',
-                    'language': stream.language[pool.track_id] if pool.track_id in stream.language else 'subtitles'
-                }     
+            set_metadata(SUBTITLES, 'title', stream.name)
+            set_metadata(SUBTITLES, 'language', stream.language)
         ff_input.hls_stream = '.m3u' in stream.url
         return ff_input
-        
+
     def segment_downloader(self):
         
         def get_unfinished_pools() -> list[SegmentPool]:
@@ -403,15 +393,17 @@ class PenguinDownloader(BaseDownloader):
 
             if not unfinished:
                 return
+            
             if not pools:
-                vprint(f'Assisting {unfinished[0]._reserved_by} with pool {unfinished[0].id}', 4, thread_name)
-                return unfinished[0]
+                pool = choice(unfinished)
+                vprint(f'Assisting {pool._reserved_by} with pool {pool.id}', 4, thread_name)
+                return pool
             pools[0]._reserved = True
             pools[0]._reserved_by = thread_name
             return pools[0]
-        
+
         thread_name = threading.current_thread().name
-        
+
         threaded_vprint(
             message=f'Started segment downloader {thread_name}',
             level=4,
@@ -419,14 +411,14 @@ class PenguinDownloader(BaseDownloader):
             error_level='debug',
             lock=self.thread_lock
             )
-        
+
         while True:
-            
+
             pool = get_pool()
             
             if pool is None:
                 return
-            
+
             threaded_vprint(
                 'Current pool: ' + pool.id,
                 level=4,
@@ -440,9 +432,9 @@ class PenguinDownloader(BaseDownloader):
                         # TODO: actual message
                         # vprint('painful ' + pool.id, 5)
                     break
-                
+
                 segment = pool.segments.pop(0)
-                
+
                 threaded_vprint(
                     message=f'Took segment {segment.group}_{segment.number}',
                     level=5,
@@ -450,9 +442,9 @@ class PenguinDownloader(BaseDownloader):
                     error_level='debug',
                     lock=self.thread_lock
                 )
-                
+
                 segment_path = f'{self.temp_path}/{segment.group}_{segment.number}{segment.ext}'
-                if os.path.exists(segment_path):
+                if f'{segment.group}_{segment.number}' in self.stats['segments_downloaded']:
                     threaded_vprint(
                         message=f'Skipping already downloaded segment {segment.group}_{segment.number}',
                         level=5,
@@ -464,10 +456,10 @@ class PenguinDownloader(BaseDownloader):
                 # Segment download
                 while True:
                     # Create a cloudscraper session
-                    with cloudscraper.create_scraper(browser=self.browser) as session:
+                    with cloudscraper.create_scraper(browser=browser) as session:
             
-                        session.mount('https://', HTTPAdapter(max_retries=self.retry_config))
-                        session.mount('http://', HTTPAdapter(max_retries=self.retry_config))
+                        session.mount('https://', HTTPAdapter(max_retries=retry_config))
+                        session.mount('http://', HTTPAdapter(max_retries=retry_config))
                         try:
                             segment_data = session.get(segment.url, timeout=15, headers={'range': f'bytes={segment.mpd_range}'} if segment.mpd_range is not None else {})
                         except BaseException as e:
@@ -483,7 +475,7 @@ class PenguinDownloader(BaseDownloader):
                         if 'Content-Length' in segment_data.headers:
                             self.stats['bytes_downloaded'] += int(segment_data.headers['Content-Length'])
                         segment_contents = segment_data.content
-                        
+
                         if segment.ext == '.vtt':
                             # Workarounds for Atresplayer subtitles
                             # Fix italic characters
@@ -502,6 +494,8 @@ class PenguinDownloader(BaseDownloader):
                                 end = re.search(r'end="([\d:.]+)"', p).group(1).replace('.', ',')
                                 contents = re.search(r'>(.+)</p>', p).group(1).replace('<br />', '\n')
                                 contents = re.sub(r'<(|/)span>', '', p)
+                                contents = contents.replace('&gt;', '')
+                                contents = contents.strip()
                                 subrip_contents += f'{i}\n{begin} --> {end}\n{contents}\n\n'
                                 i += 1
                             segment_contents = subrip_contents.encode()
@@ -518,7 +512,10 @@ class PenguinDownloader(BaseDownloader):
                             error_level='debug',
                             lock=self.thread_lock
                             )
-                        self.stats['segments_downloaded'] += 1
+                        
+                        segment._finished = True
+                        
+                        self.stats['segments_downloaded'].append(f'{segment.group}_{segment.number}')
                         break
             
     def create_m3u8_playlist(self, pool: SegmentPool):
@@ -532,20 +529,21 @@ class PenguinDownloader(BaseDownloader):
         # Handle initialization segments
         init_segment = [f for f in pool.segments if f.init]
         if init_segment:
-            playlist += f'#EXT-X-MAP:URI="{init_segment[0].output}"'
+            init_segment = init_segment[0]
+            playlist += f'#EXT-X-MAP:URI="{init_segment.group}_{init_segment.number}{init_segment.ext}"\n'
         # Handle decryption keys
         if first_segment.key is not None and first_segment.key['video'].url is not None:
-            playlist += f'#EXT-X-KEY:METHOD={first_segment.key["video"].method},URI={pool.id}.key\n'
+            playlist += f'#EXT-X-KEY:METHOD={first_segment.key["video"].method},URI="{self.temp_path}/{pool.id}.key"\n'
             # Download the key
-            with cloudscraper.create_scraper(browser=self.browser) as session:
-                session.mount('https://', HTTPAdapter(max_retries=self.retry_config))
+            with cloudscraper.create_scraper(browser=browser) as session:
+                session.mount('https://', HTTPAdapter(max_retries=retry_config))
                 key_contents = session.get(unquote(first_segment.key['video'].url))
                 # Write key to file
                 with open(f'{self.temp_path}/{pool.id}.key', 'wb') as key_file:
                     key_file.write(key_contents.content)
         # Add segments to playlist
         for segment in pool.segments:
-            playlist += f'#EXTINF:{segment.duration},\n{segment.group}_{segment.number}{segment.ext}\n'
+            playlist += f'#EXTINF:{segment.duration},\n{self.temp_path}/{segment.group}_{segment.number}{segment.ext}\n'
         # Write end of file 
         playlist += '#EXT-X-ENDLIST\n'
         # Write playlist to file
