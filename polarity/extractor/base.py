@@ -2,7 +2,7 @@ import json
 from polarity.config import config, save_config, lang
 from polarity.paths import ACCOUNTS
 from polarity.types import * 
-from polarity.utils import vprint, is_download_id
+from polarity.utils import vprint, is_content_id
 from getpass import getpass
 from http.cookiejar import LWPCookieJar
 from tqdm.std import tqdm
@@ -92,39 +92,6 @@ class BaseExtractor:
     def save_json_jar(self):
         with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
             json.dump(self.cjar, c)
-
-
-    def create_season(self, independent=False, **metadata):
-        'Metadata parameter is optional'
-        if not independent and type(self.info) != Series:
-            raise ExtractorCodingError
-        self.season = Season()
-        if not independent:
-            # Link season to series
-            self.info.link_season(season=self.season)
-        if metadata:
-            self.season.set_metadata(**metadata)
-
-    def create_episode(self, independent=False, **metadata):
-        if not independent and type(self.info) != Series:
-            raise ExtractorCodingError('You can only create an episode with a series')
-        if not independent and not hasattr(self, 'season'):
-            raise ExtractorCodingError('You need to create a season before creating an episode!')
-        self.episode = Episode()
-        if not independent:
-            self.season.link_episode(episode=self.episode)
-        if metadata:
-            self.episode.set_metadata(**metadata)
-            
-    def create_stream(self, independent=False, **metadata):
-        self.stream = Stream()
-        if not independent and type(self.info) == Series:
-            self.episode.link_stream(stream=self.stream)
-        elif not independent and type(self.info) == Movie:
-            self.info.link_stream(stream=self.stream)
-        elif not independent and self.info is None:
-            self.episode.link_stream(stream=self.stream)
-        self.stream.set_metadata(**metadata)
 
     def create_search_result(self, name: str, media_type: PolarType, low_id: str, url: str):
         self.search_result = SearchResult()

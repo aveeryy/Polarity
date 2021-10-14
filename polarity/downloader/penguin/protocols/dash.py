@@ -53,7 +53,7 @@ class MPEGDASHStream(StreamProtocol):
                 vprint(lang['penguin']['protocols']['selected_stream'] % stream['BaseURL'], 3, 'penguin/dash', 'debug')
                 self.get_stream_fragments(stream, 'video', 'video')
             elif adap_set['@contentType'] == 'audio':
-                vprint(lang['penguin']['protocols']['picking_best_stream_3'], 3, 'penguin/dash', 'debug')
+                vprint(lang['penguin']['protocols']['picking_best_stream_2'], 3, 'penguin/dash', 'debug')
                 if type(adap_set['Representation']) == list:
                     for repr in adap_set['Representation']:
                         process_audio_repr(repr)

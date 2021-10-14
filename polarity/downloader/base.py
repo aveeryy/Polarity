@@ -30,17 +30,13 @@ class BaseDownloader:
         self.extra_subs = extra_subs if extra_subs is not None else []
         self.user_options = options
         self.downloader_name = self.return_class()[:-10].lower()
-        if self.downloader_name not in config['download'] and hasattr(self, 'DEFAULTS'):
-            config['download'][self.downloader_name] = self.DEFAULTS
-            save_config()
         self.options = recurse_merge_dict({self.downloader_name: self.DEFAULTS}, config['download'])
         if options != dict:
             self.options = recurse_merge_dict(self.options, self.user_options)
-        # self.status = status_list
-        self.media_metadata = media_metadata
+
         self.content = f'{name} ({id})'
         self.content_name = name
-        self.content_sanitized = sanitize_filename(self.content).strip('?')
+        self.content_sanitized = sanitize_filename(self.content).strip('?#')
         self.output = output
         self.output_path = output.replace(get_extension(output), '')
         self.output_name = os.path.basename(output).replace(get_extension(output), '')
