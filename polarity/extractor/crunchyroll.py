@@ -1,27 +1,25 @@
-
-from polarity.types.stream import Stream
 from .base import BaseExtractor, ExtractorError, InvalidURLError
-
 from polarity.config import lang
-from polarity.utils import get_country_from_ip, is_download_id, order_dict, parse_download_id, vprint, request_json, request_webpage
-
-import re
+from polarity.utils import get_country_from_ip, is_content_id, order_dict, parse_content_id, vprint, request_json, request_webpage
+from polarity.types import Series, Season, Episode, Stream
 
 from urllib.parse import urlparse
 from uuid import uuid4
 
+import re
+
 class CrunchyrollExtractor(BaseExtractor):
     
     HOST = r'(?:http(?:s://|://|)|)(?:www\.|beta\.|)crunchyroll\.com'
-    
-    LOGIN_REQUIRED = False
     
     DEFAULTS = {
         'sub_language': ['all'],
         'dub_language': ['all'],
         'meta_language': 'en-US',
         'hardsub_language': 'none',
-        'region_spoof': 'none'
+        'region_spoof': 'none',
+        'use_alt_bearer': False,
+        'alt_bearer_server': ''
         }
     
     ARGUMENTS = [
@@ -37,7 +35,7 @@ class CrunchyrollExtractor(BaseExtractor):
         {
             'args': ['--crunchyroll-dubs'],
             'attrib': {
-                'choices': ['all', 'jp-JP', 'en-US', 'es-LA', 'fr-FR', 'pt-BR', 'it-IT', 'de-DE', 'ru-RU'],
+                'choices': ['all', 'ja-JP', 'en-US', 'es-LA', 'fr-FR', 'pt-BR', 'it-IT', 'de-DE', 'ru-RU'],
                 'help': lang['crunchyroll']['args']['dubs'],
                 'nargs': '+',
             },
@@ -65,6 +63,21 @@ class CrunchyrollExtractor(BaseExtractor):
                 'help': lang['crunchyroll']['args']['region']
                 },
             'variable': 'region_spoof'
+        },
+        {
+            'args': ['--crunchyroll-use-alt-bearer-server'],
+            'attrib': {
+                'action': 'store_true',
+                'help': lang['crunchyroll']['args']['use_alt_bearer']
+                },
+            'variable': 'use_alt_bearer'
+        },
+        {
+            'args': ['--crunchyroll-alt-bearer-server'],
+            'attrib': {
+                'help': lang['crunchyroll']['args']['alt_bearer_server']
+                },
+            'variable': 'alt_bearer_server'
         },
         {
             'args': ['--crunchyroll-email'],
@@ -101,20 +114,67 @@ class CrunchyrollExtractor(BaseExtractor):
     FLAGS = {}
     
     LANG_CODES = {
-        'en-US': {'meta': '', 'lang': 'eng', 'name': 'English (USA)'},
-        'es-ES': {'meta': 'es-es', 'lang': 'spa', 'name': 'Español (España)'},
-        'es-LA': {'meta': 'es', 'lang': 'spa', 'name': 'Español (América Latina)'},
-        'fr-FR': {'meta': 'fr', 'lang': 'fre', 'name': 'Français (France)'},
-        'pt-BR': {'meta': 'pt-br', 'lang': 'por', 'name': 'Português (Brasil)'},
-        'de-DE': {'meta': 'de', 'lang': 'ger', 'name': 'Deutsch'},
-        'it-IT': {'meta': 'it', 'lang': 'ita', 'name': 'Italiano'},
-        'ar-ME': {'meta': 'ar', 'lang': 'ara', 'name': 'العربية'},
-        'ru-RU': {'meta': 'ru', 'lang': 'rus', 'name': 'Русский'},
-        'ja-JP': {'meta': '', 'lang': 'jpn', 'name': '日本語'},
+        'en-US': {
+            'meta': '',
+            'lang': 'eng',
+            'name': 'English (USA)',
+            'dub': r'\(English Dub\)'
+            },
+        'es-ES': {
+            'meta': 'es-es',
+            'lang': 'spa',
+            'name': 'Español (España)',
+            },
+        'es-LA': {
+            'meta': 'es',
+            'lang': 'spa',
+            'name': 'Español (América Latina)',
+            'dub': r'\(Spanish Dub\)'
+            },
+        'fr-FR': {
+            'meta': 'fr',
+            'lang': 'fre',
+            'name': 'Français (France)',
+            'dub': r'\(French Dub\)'
+            },
+        'pt-BR': {
+            'meta': 'pt-br',
+            'lang': 'por',
+            'name': 'Português (Brasil)',
+            'dub': r'\(Portuguese Dub\)'
+            },
+        'de-DE': {
+            'meta': 'de',
+            'lang': 'ger',
+            'name': 'Deutsch',
+            'dub': r'\(German Dub\)'
+            },
+        'it-IT': {
+            'meta': 'it',
+            'lang': 'ita',
+            'name': 'Italiano',
+            'dub': r'\(Italian Dub\)'
+            },
+        'ar-ME': {
+            'meta': 'ar',
+            'lang': 'ara',
+            'name': 'العربية'
+            },
+        'ru-RU': {
+            'meta': 'ru',
+            'lang': 'rus',
+            'name': 'Русский',
+            'dub': r'\(Russian\)'
+            },
+        'ja-JP': {
+            'meta': '',
+            'lang': 'jpn',
+            'name': '日本語',
+            'dub': r'[^()]'
+            },
     }
 
     @classmethod
-    # def return_class(self): return __class__.__name__.lower()
     def return_class(self): return __class__.__name__
 
     def load_at_init(self):
@@ -122,13 +182,13 @@ class CrunchyrollExtractor(BaseExtractor):
         self.proxy = {}
         if self.options['region_spoof'] not in ('none', None):
             self.region_spoof(region_code=self.options['region_spoof'])
-        self.get_bearer_token()
+        self.get_bearer_token(alt_bearer_server=self.options['use_alt_bearer'])
         self.get_cms_tokens()
     
     @staticmethod
     def check_for_error(contents=dict, error_msg=None) -> bool:
         if 'error' in contents and contents['error']:
-            vprint(message=error_msg, module_name='cr:unified', error_level='error')
+            vprint(message=error_msg, module_name='crunchyroll', error_level='error')
             return True
         return False
     
@@ -262,28 +322,48 @@ class CrunchyrollExtractor(BaseExtractor):
             }
         return proxy_request
     
-    def get_bearer_token(self) -> str:
+    def get_bearer_token(self, force_client_id=False, alt_bearer_server=False) -> str:
         'Grabs Bearer Authorization token'
         # Set token method
         # etp_rt -> logged in
         # client_id -> not logged in
-        vprint(self.extractor_lang['getting_bearer'], 3, 'crunchyroll',)
-        method = 'etp_rt_cookie' if self.cookie_exists('etp_rt') else 'client_id'
-        vprint(self.extractor_lang['using_method'] % method, 3, 'crunchyroll', 'debug')
-        token_req = request_json(
-            url=self.API_URL + 'auth/v1/token',
-            method='post',
-            headers={
-                'Authorization': self.account_info['basic'],
-                'Content-Type': 'application/x-www-form-urlencoded'
-                },
-            data={'grant_type': method},
-            cookies=self.cjar,
-            proxies=self.proxy
-        )
-        if not 'access_token' in token_req[0]:
-            # TODO: better error message
-            vprint('bearer error', 1, 'cr:unified', 'error')
+        if not alt_bearer_server:
+            # Use Crunchyroll's bearer server
+            vprint(self.extractor_lang['getting_bearer'], 3, 'crunchyroll',)
+            method = 'etp_rt_cookie' if self.cookie_exists('etp_rt') and not force_client_id else 'client_id'
+            vprint(self.extractor_lang['using_method'] % method, 3, 'crunchyroll', 'debug')
+            token_req = request_json(
+                url=self.API_URL + 'auth/v1/token',
+                method='post',
+                headers={
+                    'Authorization': self.account_info['basic'],
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                data={'grant_type': method},
+                cookies=self.cjar,
+                proxies=self.proxy
+            )
+            if not 'access_token' in token_req[0]:
+                # TODO: better error message
+                vprint('Failed to get Bearer', 1, 'crunchyroll', 'error')
+                if method == 'etp_rt_cookie':
+                    vprint('Login expired, cleaning cookie jar', 1, 'crunchyroll', 'warning')
+                    self.cjar.clear()
+                    return self.get_bearer_token(True)
+        elif alt_bearer_server:
+            bearer_api = self.options['alt_bearer_server']
+            if not bearer_api:
+                vprint(self.extractor_lang['alt_bearer_no_server'], 1, 'crunchyroll', 'error')
+            if self.spoofed_region:
+                bearer_api += self.spoofed_country.lower()
+            else:
+                bearer_api += get_country_from_ip()
+            token_req = request_json(url=bearer_api)
+            if not 'access_token' in token_req[0]:
+                # Return a normal bearer if alt bearer server fails
+                vprint(self.extractor_lang['alt_bearer_fail'], 1, 'crunchyroll', 'error')
+                return self.get_bearer_token(alt_bearer_server=False)
+            vprint(self.extractor_lang['alt_bearer_success'], 2, 'crunchyroll')
         self.account_info['bearer'] = f'Bearer {token_req[0]["access_token"]}'
         return self.account_info['bearer']
     
@@ -371,7 +451,6 @@ class CrunchyrollExtractor(BaseExtractor):
     def get_series_info(self, series_id=str):
         if self.account_info['bearer'] is None:
             self.get_cms_tokens()
-        self.set_main_info('series')
         series_json = request_json(
             url=self.CMS_API_URL + '/series/' + series_id,
             headers={'Authorization': self.account_info['bearer']},
@@ -388,22 +467,23 @@ class CrunchyrollExtractor(BaseExtractor):
             series_id
         ), 1, 'crunchyroll')
         
-        self.info.title = series_json['title']
-        self.info.id = series_id
-        self.info.synopsis = series_json['description']
-        self.info.genres = series_json['keywords']
-        self.info.images.append(series_json['images']['poster_tall'][0][-1:][0]['source'])
-        self.info.images.append(series_json['images']['poster_wide'][0][-1:][0]['source'])
-        self.info.total_episodes = series_json['episode_count']
-        self.info.total_seasons = series_json['season_count']
-        if series_json['season_tags']:
-            # Try to get release year from a season tag, i.e "Winter-2019"
-            # Might be inaccurate with older series like Naruto
-            self.info.year = re.search(r'(\d+)', series_json['season_tags'][0]).group(0)
-            
+        self.info = Series(
+            title=series_json['title'],
+            id=series_id,
+            synopsis=series_json['description'],
+            genres=series_json['keywords'],
+            images=[
+                series_json['images']['poster_tall'][0][-1:][0]['source'],
+                series_json['images']['poster_wide'][0][-1:][0]['source']
+            ],
+            episode_count=series_json['episode_count'],
+            season_count=series_json['season_count'],
+            year=re.search(r'(\d+)', series_json['season_tags'][0]).group(0) if series_json['season_tags'] else 1970
+        )
+        
         return self.info
     
-    def get_seasons(self, series_guid=str):
+    def get_seasons(self, series_guid=str) -> list[dict]:
         season_list = []
         vprint(lang['extractor']['get_all_seasons'], 2, 'crunchyroll')
         api_season_list = request_json(
@@ -416,16 +496,25 @@ class CrunchyrollExtractor(BaseExtractor):
                 'Key-Pair-Id': self.account_info['key_pair_id']
                 }
         )[0]
+
         for season in api_season_list['items']:
+            # Get dub language from the title using regex
+            for _lang, values in self.LANG_CODES.items():
+                if 'dub' not in values:
+                    continue
+                elif re.search(values['dub'], season['title']):
+                    language = _lang
+                    break
+            print(season)
             season_list.append({
                 'name': season['title'],
                 'id': season['id'],
-                'number': season['season_number']
+                'number': season['season_number'],
+                'dub': language
             })
         return season_list
     
     def get_season_info(self, season_id=str):
-        self.create_season(self.extraction is False)
         season_json = request_json(
             self.CMS_API_URL + '/seasons/' + season_id,
             headers={'Authorization': self.account_info['bearer']},
@@ -444,9 +533,12 @@ class CrunchyrollExtractor(BaseExtractor):
             level=2,
             module_name='crunchyroll'
             )
-        self.season.title = season_json['title']
-        self.season.id = season_id
-        self.season.number = season_json['season_number']
+
+        self.season = Season(
+            title=season_json['title'],
+            id=season_id,
+            number=season_json['season_number'],
+        )
         return self.season
 
     def get_episodes_from_season(self, season_id=str):
@@ -461,9 +553,8 @@ class CrunchyrollExtractor(BaseExtractor):
                 }            
         )[0]
         if hasattr(self, 'season'):
-            self.season.total_episodes = len(episodes_list['items'])
-            self.season.available_episodes = len([i for i in episodes_list['items'] if 'playback' in i])
-        return [self._parse_episode_info(i) for i in episodes_list['items']]
+            self.season.episode_count = len(episodes_list['items'])
+        return [i for i in episodes_list['items']]
     
     def get_episode_info(self, episode_id=str, return_raw_info=False):
         episode_info = request_json(
@@ -482,22 +573,24 @@ class CrunchyrollExtractor(BaseExtractor):
         
     def _parse_episode_info(self, episode_info=dict):
         'Parses info from an episode\'s JSON'
-        self.create_episode(self.extraction is False)
-        
         vprint(lang['extractor']['get_media_info'] % (
             lang['types']['alt']['episode'],
             episode_info['title'],
             episode_info['id']
         ), 3, 'crunchyroll')
-        self.episode.title = episode_info['title']
-        self.episode.id = episode_info['id']
-        self.episode.synopsis = episode_info['description']
-        self.episode.number = episode_info['episode_number']
+        self.episode = Episode(
+            title=episode_info['title'],
+            id=episode_info['id'],
+            synopsis=episode_info['description'],
+            number=episode_info['episode_number']
+        )
+        # If content does not have an episode number, assume it's a movie
         if self.episode.number is None:
             self.episode.number = 0
             self.episode.movie = True
             if episode_info['season_tags']:
                 self.episode.year = re.search(r'(\d+)', episode_info['season_tags'][0]).group(0)
+        
         if 'playback' in episode_info:
             streams_json = request_json(
                 url=episode_info['playback']
@@ -569,11 +662,11 @@ class CrunchyrollExtractor(BaseExtractor):
     
     def extract(self, ):
         self.extraction = True
-        if not is_download_id(self.url):
+        if not is_content_id(self.url):
             url_tuple = self.identify_url(url=self.url)
             url_type, media_id = url_tuple
         else:
-            parsed = parse_download_id(id=self.url)
+            parsed = parse_content_id(id=self.url)
             url_type = parsed.content_type
             media_id = parsed.id
         
@@ -619,11 +712,16 @@ class CrunchyrollExtractor(BaseExtractor):
                     
             self.get_series_info(series_id=series_guid)
             
-            self.create_progress_bar(desc=self.info.title, total=self.info.total_episodes, leave=False)
+            self.create_progress_bar(desc=self.info.title, total=self.info.episode_count, leave=False)
 
             for season in self.get_seasons(series_guid=series_guid):
-                self.get_season_info(season_id=season['id'])
-                self.get_episodes_from_season(season_id=season['id'])
+                if not any(s in ('all', season['dub']) for s in self.options['dub_language']):
+                    continue
+                _season = self.get_season_info(season_id=season['id'])
+                self.info.link_season(season=_season)
+                for episode in self.get_episodes_from_season(season_id=season['id']):
+                    _episode = self._parse_episode_info(episode_info=episode)
+                    _season.link_episode(episode=_episode)
                 
             self.progress_bar.close()
         
@@ -642,10 +740,11 @@ class CrunchyrollExtractor(BaseExtractor):
             
             # Get series and season info
             self.get_series_info(series_id=series_guid)
-            self.get_season_info(season_id=season_guid)
+            self.season = self.get_season_info(season_id=season_guid)
+            self.info.link_season(season=self.season)
             # Parse the raw episode info
-            self._parse_episode_info(episode_info=episode_info)
+            episode = self._parse_episode_info(episode_info=episode_info)
             # Link the episode with the season
-            self.season.link_episode(episode=self.episode)
+            self.season.link_episode(episode=episode)
         
         return self.info
