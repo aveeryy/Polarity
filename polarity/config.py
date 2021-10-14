@@ -10,7 +10,7 @@ from polarity.paths import *
 from polarity.utils import filename_datetime, load_language, mkfile, recurse_merge_dict, running_on_android, vprint, language_installed
 import traceback
 
-USAGE = 'Polarity [OPTIONS] <url(s)>'
+USAGE = 'Polarity <url(s)> [OPTIONS]'
 
 DEFAULTS = {
     'verbose': 1,
@@ -20,8 +20,8 @@ DEFAULTS = {
         'downloader': 'penguin',
         'simultaneous_urls': 3,
         'simultaneous_downloads_per_url': 3,
-        'series_directory': f'{DOWNLOADS + "Series/"}'.replace("\\", "/"),
-        'movies_directory': f'{DOWNLOADS + "Movies/"}'.replace("\\", "/"),
+        'series_directory': f'{DOWNLOADS}{"Series/"}'.replace("\\", "/"),
+        'movies_directory': f'{DOWNLOADS}{"Movies/"}'.replace("\\", "/"),
         'series_format': '{W}/{S} ({y})',
         'season_format': 'Season {sn} - {i}',
         'episode_format': '{S} S{sn}E{en} - {E}',
