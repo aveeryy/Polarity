@@ -9,6 +9,10 @@ from copy import deepcopy
 from polarity.utils import filename_datetime, load_language, mkfile, recurse_merge_dict, running_on_android, vprint, language_installed
 import traceback
 
+# Configuration rework
+# TODO:
+# - Move argument parsing here
+
 USAGE = 'Polarity <url(s)> [OPTIONS]'
 
 HOME = os.path.expanduser('~') if not 'ANDROID_ROOT' in os.environ else '/storage/emulated/0'
@@ -53,7 +57,8 @@ DEFAULTS = {
     'update_languages': True,
     'simultaneous_urls': 3,
     'download': {
-        'downloader': 'penguin',
+        # Disabled: no custom downloader has been made yet
+        # 'downloader': 'penguin',
         'downloads_per_url': 3,
         'series_directory': f'{DOWNLOAD_DEFAULT_BASE}{"Series/"}'.replace("\\", "/"),
         'movies_directory': f'{DOWNLOAD_DEFAULT_BASE}{"Movies/"}'.replace("\\", "/"),
@@ -61,11 +66,12 @@ DEFAULTS = {
         'season_format': 'Season {sn} - {i}',
         'episode_format': '{S} S{sn}E{en} - {E}',
         'movie_format': '{E} ({Y})',
-        'video_extension': 'mkv',
+        # 'video_extension': 'mkv',
         'resolution': 4320,
         'redownload': False,
     },
     'extractor': {},
+    # TODO: remember what the fuck was this for lmao
     'flags': []
 }
 
@@ -77,6 +83,7 @@ def create_config():
         toml.dump(DEFAULTS, f)   
         
 def load_config() -> dict:
+    'Loads configuration from file'
     with open(CONFIGURATION_FILE, 'r') as f:
         return toml.load(f)
 
@@ -126,24 +133,28 @@ else:
 language = sys.argv[sys.argv.index('--language') + 1] if '--language' in sys.argv else config['language']
 lang = load_language(lang=language)
 
-# Add new entries to file
+# Add new configuration entries to file
+# Merges the default configuration dict with the user's configuration file
+# while not changing the user's configuration, only adding new entris
+# Also adds changes from extractors and downloaders
 config = recurse_merge_dict(DEFAULTS, config)
 from polarity.extractor import EXTRACTORS
 from polarity.downloader import DOWNLOADERS
-for extractor in EXTRACTORS.values():
-    extractor_name = extractor[0].lower()
-    if extractor_name in config['extractor']:
-        a = recurse_merge_dict(extractor[1].DEFAULTS, config['extractor'][extractor_name])
-    else:
-        a = extractor[1].DEFAULTS
-    config['extractor'][extractor_name] = a
-for downloader in DOWNLOADERS.items():
-    downloader_name = downloader[0].lower()
-    if downloader_name in config['download']:
-        a = recurse_merge_dict(downloader[1].DEFAULTS, config['download'][downloader_name])
-    else:
-        a = downloader[1].DEFAULTS
-    config['download'][downloader_name] = a
-save_config()
 
-options = deepcopy(config)
+def add_external_items(items: dict, config_parent: str):
+    # Only iterate items with configuration defaults
+    for item in items.values() if item[1].DEFAULTS:
+        item_name = item[0].lower()
+        if item_name in config[config_parent]:
+            # Item exists in config path, merge new entries in
+            a = recurse_merge_dict(item[1].DEFAULTS, config[config_parent][item_name])
+        else:
+            # Item does not exist in config path, add item's defaults to config
+            a = item[1].DEFAULTS
+        config[config_parent][item_name] = a
+
+add_external_items(EXTRACTORS, 'extractor')
+add_external_items(DOWNLOADERS, 'download')
+
+# Finally save to file
+save_config()
