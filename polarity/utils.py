@@ -30,6 +30,8 @@ browser = {
     'mobile': False
 }
 
+dump_requests = False
+
 retry_config = Retry(total=10, backoff_factor=1, status_forcelist=[502, 503, 504, 403, 404])
 
 def vprint(message, level=1, module_name='polarity', error_level=None, end='\n', use_print=False):
@@ -86,7 +88,7 @@ def vprint(message, level=1, module_name='polarity', error_level=None, end='\n',
 def threaded_vprint(*args, lock, **kwargs):
     '''
     ### Threaded verbose print
-    #### Same as verbose print, but avoids overlapping caused by threads
+    #### Same as verbose print, but avoids overlapping caused by threads using Lock objects
     ##### Example usage
     >>> from polarity.utils import threaded_vprint
     >>> from threading import Lock
@@ -116,7 +118,7 @@ def send_android_notification(
     contents=str,
     group=str,
     id=str,
-    priority=int,
+    priority: int = 0,
     sound=bool,
     vibrate_pattern=list,
     image_path=str,
@@ -138,6 +140,7 @@ def send_android_notification(
         args.extend(['--group', group])
     if id != str:
         args.extend(['-i', id])
+    args.extend(['--priority', str(priority)])
     subprocess.run(args, check=True)
 
 def remove_android_notification(id=str):
@@ -146,7 +149,7 @@ def remove_android_notification(id=str):
 # String manipulation stuff
 
 def sanitize_filename(filename=str, directory_replace=False, test_force_win32=False, test_force_android=False):
-    '`win32_replace`: replaces forbidden characters for similar looking ones'
+    'Remove unsupported characters from filename'
     replace_win32 = {
         '|': 'ꟾ',
         '<': '˂',
@@ -158,6 +161,7 @@ def sanitize_filename(filename=str, directory_replace=False, test_force_win32=Fa
         '/': '-',
         '\\': '-',
     }
+
     if platform == 'win32' or test_force_win32:
         # Windows forbidden characters
         for forbidden, shit_looking_character in replace_win32.items():
@@ -294,7 +298,7 @@ def run_ffprobe(input, show_programs=True, extra_params=''):
 class ContentIdentifier:
     extractor: str
     content_type: str
-    content_id: str
+    id: str
 
 content_id_regex = r'(?P<extractor>[\w]+)/(?P<type>[\w]+)-(?P<id>[\S]+)'
 
@@ -308,7 +312,7 @@ def is_content_id(text=str):
     '''
     return bool(re.match(content_id_regex, text))
 
-def parse_content_id(id=str):
+def parse_content_id(id: str):
     '''
     #### Returns a `ContentIdentifier` object with all attributes
     >>> from polarity.utils import parse_content_id
@@ -341,51 +345,12 @@ def make_thread(*args, **kwargs):
     _ALL_THREADS[thread.name] = {'obj': thread, 'running': False, }
     return thread
 
-def calculate_time_left(processed=int, total=int, time_start=float):
+def calculate_time_left(processed: int, total: int, time_start: float):
     elapsed = time() - time_start
     try:
         return elapsed / processed * total - elapsed
     except ZeroDivisionError:
         return 0
-
-def send_signal(self, thread=str, signal=str):
-    '''
-    ### Sends a signal to a Thread
-        >>> from polarity.utils import send_signal, make_thread
-        >>> from time import sleep
-            ...
-        # The target Thread must support handling the signals
-        >>> a = make_thread(name='Example-0', ...)
-        >>> a.start()
-        >>> sleep(5)
-        >>> send_signal('Example-0', 'PAUSE')
-    '''
-    from polarity.Polarity import _ALL_THREADS
-    valid_signals = ['PAUSE', 'STOP', 'RESUME']
-    if thread not in _ALL_THREADS:
-        vprint('Failed to send signal, Thread does not exist', 5, 'polarity', 'error')
-        return 1
-    elif self.segment_downloaders[thread]['signal'] == signal:
-        vprint('Signal is already sent!', 5, 'polarity', 'error')
-        return 2
-    elif signal not in valid_signals:
-        vprint('Invalid signal', 5, 'polarity', 'error')
-        return 3
-    self.segment_downloaders[thread]['signal'] = signal
-    vprint('Signal sent!', 3, 'polarity')
-    return 0
-
-def handle_signal():
-    'Returns True on a stop signal, pauses on a pause signal'
-    def clear_signal():
-        _ALL_THREADS[thread_name]['signal'] = ''
-    from polarity.Polarity import _ALL_THREADS
-    thread_name = current_thread().name
-    while _ALL_THREADS[thread_name]['signal'] == 'PAUSE':
-        sleep(0.5)
-    signal = _ALL_THREADS[thread_name]['signal']
-    clear_signal()
-    return signal == 'STOP'
 
 def mkfile(path=str, contents=str, ):
     if not os.path.exists(path):
