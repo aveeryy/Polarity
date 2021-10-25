@@ -12,7 +12,7 @@ class Season(PolarType):
     episode_count: int = 0
     finished: bool = True
     synopsis: str = ''
-    episodes = []
+    episodes: list[Episode] = field(default_factory=list)
     _parent = None
 
     def link_episode(self, episode: Episode):
