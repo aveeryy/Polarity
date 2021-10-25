@@ -1,7 +1,7 @@
 from .base import PolarType
 from .person import Person, Actor
 from .season import Season
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass
 class Series(PolarType):
@@ -14,7 +14,7 @@ class Series(PolarType):
     season_count: int
     episode_count: int
     people = []
-    seasons = []
+    seasons: list[Season] = field(default_factory=list)
 
     def link_person(self, person: Person) -> None:
         if person not in self.actors:

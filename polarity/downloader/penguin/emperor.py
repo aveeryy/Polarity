@@ -521,8 +521,6 @@ class PenguinDownloader(BaseDownloader):
     def create_m3u8_playlist(self, pool: SegmentPool):
         # TODO: support for multi-key
         keys = []
-        if os.path.exists(f'{self.temp_path}/{pool.id}.m3u8'):
-            return
         # Set first segment from list
         first_segment = pool.segments[0]
         playlist = '#EXTM3U\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-MEDIA-SEQUENCE:0\n'
