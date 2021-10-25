@@ -1,4 +1,4 @@
-from polarity.types import Series, Season, Episode, Movie, Stream
+from polarity.types import Series, Season, Episode, Movie, Stream, SearchResult
 from polarity.types.ffmpeg import VIDEO, AUDIO, SUBTITLES
 from polarity.extractor.base import BaseExtractor
 from polarity.config import ConfigError, lang
@@ -205,13 +205,13 @@ class AtresplayerExtractor(BaseExtractor):
             level=3,
             module_name='atresplayer'
             )
-        self.episode = Episode()
-
-        self.episode.title = episode_info['title']
-        self.episode.id = episode_id
-        self.episode.synopsis = episode_info['description'] if 'description' in episode_info else ''
-        self.episode.number = episode_info['numberOfEpisode']
-        self.episode.images.append(episode_info['image']['pathHorizontal'] + '0')
+        self.episode = Episode(
+            title=episode_info['title'],
+            id=episode_id,
+            synopsis=episode_info['description'] if 'description' in episode_info else '',
+            number=episode_info['numberOfEpisode'],
+            images=[episode_info['image']['pathHorizontal'] + '0']
+        )
         
        
         
@@ -293,7 +293,7 @@ class AtresplayerExtractor(BaseExtractor):
             
             # Set preferred stream
             self.episode.get_stream_by_id(preferred).preferred = True
-        
+            
         # TODO: support for this without extraction
         if self.url not in (None, str):
             self.episode.movie = any(i in self.url for i in ('tv-movies', '/movie-'))
@@ -369,13 +369,15 @@ class AtresplayerExtractor(BaseExtractor):
         )[0]
         if 'itemRows' in format_results and format_results['itemRows']:
             for item in format_results['itemRows']:
-                self.create_search_result(item['title'], Series, item['contentId'], item['link']['url'])
+                result = SearchResult(item['title'], Series, item['contentId'], item['link']['url'])
+                self.search_results.append(result)
         else:
             vprint(f'No results found in category FORMAT using term "{term}"', 2, 'atresplayer', 'warning')
         if 'itemRows' in format_results and format_results['itemRows']:
             for item in episode_results['itemRows']:
                 item_type = Episode if not 'tv-movies' in item['link']['url'] else Movie
-                self.create_search_result(item['title'], item_type, item['contentId'], item['link']['url'])
+                result = SearchResult(item['title'], item_type, item['contentId'], item['link']['url'])
+                self.search_results.append(result)
         else:
             vprint(f'No results found in category EPISODE using term "{term}"', 2, 'atresplayer', 'warning')
         return self.search_results
