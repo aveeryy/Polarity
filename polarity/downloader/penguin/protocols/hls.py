@@ -32,14 +32,14 @@ class HTTPLiveStream(StreamProtocol):
             # Pick higher bitrate stream
             if len(self.streams) > 1:
                 self.bandwidth_values = [s[0]['stream_info']['bandwidth'] for s in self.streams]
-                self.stream = self.streams[self.bandwidth_values.index(max(self.bandwidth_values))][0]
+                self._stream = self.streams[self.bandwidth_values.index(max(self.bandwidth_values))][0]
             else:
-                self.stream = self.streams[0][0]
+                self._stream = self.streams[0][0]
         else:
-            self.stream = self.parsed
+            self._stream = self.parsed
             
 
-    def get_stream_fragments(self, stream=dict, force_type=None):
+    def get_stream_fragments(self, stream=dict, force_type=None, only_subtitles=False):
         def build_segment_pool(media_type=str):
             self.processed_tracks[media_type] += 1
             segments = [
@@ -89,24 +89,25 @@ class HTTPLiveStream(StreamProtocol):
         self.parsed_stream = parse(self.stream_data.decode())
         # Support for legacy m3u8 playlists
         # (Not having video and audio in different streams)
-        if force_type is not None:
-            self.segment_pool = build_segment_pool(force_type)
-            if 'segment_map' in self.parsed_stream:
-                create_init_segment(pool=force_type)
-            self.segment_pools.append(self.segment_pool)
-            return
+        if not only_subtitles:
+            if force_type is not None:
+                self.segment_pool = build_segment_pool(force_type)
+                if 'segment_map' in self.parsed_stream:
+                    create_init_segment(pool=force_type)
+                self.segment_pools.append(self.segment_pool)
+                return
 
-        if 'audio' not in stream['stream_info']:
-            self.segment_pool = build_segment_pool('unified')
+            if 'audio' not in stream['stream_info']:
+                self.segment_pool = build_segment_pool('unified')
+                if 'segment_map' in self.parsed_stream:
+                    create_init_segment(pool='unified')
+            else:
+                self.segment_pool = build_segment_pool('video')
+            self.segment_pools.append(self.segment_pool)
             if 'segment_map' in self.parsed_stream:
-                create_init_segment(pool='unified')
-        else:
-            self.segment_pool = build_segment_pool('video')
-        self.segment_pools.append(self.segment_pool)
-        if 'segment_map' in self.parsed_stream:
-            create_init_segment(pool='video')    
+                create_init_segment(pool='video')   
         for media in self.parsed_data['media']:
-            if media['type'] == 'AUDIO':
+            if media['type'] == 'AUDIO' and not only_subtitles:
                 self.get_stream_fragments(media, 'audio')
             elif media['type'] == 'SUBTITLES':
                 if '.m3u' in media['uri']:
@@ -143,5 +144,5 @@ class HTTPLiveStream(StreamProtocol):
         self.scraper = cloudscraper.create_scraper(browser=self.browser)
         self.scraper.mount('https://', HTTPAdapter(max_retries=self.retries))
         self.open_playlist()
-        self.get_stream_fragments(self.stream)
+        self.get_stream_fragments(self._stream, only_subtitles=self.stream.extra_sub)
         return {'segment_pools': self.segment_pools, 'tracks': self.processed_tracks}
