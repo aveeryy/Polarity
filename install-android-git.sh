@@ -1,8 +1,8 @@
 # Polarity installation script for Android
-# Installs the latest release version from pip
+# Installs the latest commit from the stable (main) branch
 # Requires Termux to be installed
 
-VERSION='2021.10.25 (release)'
+VERSION='2021.10.25 (git)'
 REPO='https://github.com/Aveeryy/Polarity.git'
 
 echo '[-] Polarity Installer for Android' $VERSION
@@ -24,13 +24,22 @@ fi
 echo '[-] Updating repositories'
 apt -qqqq update
 echo '[-] Installing/Updating dependencies'
-apt -qqqq install -y python ffmpeg termux-api
-# Install Polarity using pip
-echo '[-] Installing the latest release'
-pip install --no-input -q -q -q Polarity
+apt -qqqq install -y git python ffmpeg termux-api
+# Clone the repository
+echo '[-] Downloading latest git release'
+cd ~
+git clone --quiet $REPO
+cd ~/Polarity/
+# Install python dependencies
+echo '[-] Installing Python dependencies'
+pip install --no-input -q -q -q -r requirements.txt
+# Install Polarity
+echo '[-] Installing Polarity'
+pip install --no-input -q -q -q -e .
 # Add alias to ~/.bashrc
 echo "alias polarity='python -m polarity'" >> ~/.bashrc
 echo '[-] Installation complete'
 echo '[-] Use Polarity with ''polarity <urls> [OPTIONS]'''
 # Create a new shell so settings apply
+cd $OLDPWD
 bash
