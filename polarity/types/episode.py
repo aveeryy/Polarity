@@ -11,7 +11,7 @@ class Episode(PolarType):
     synopsis: str = ''
     number: int = 0
     images: list = field(default_factory=list)
-    streams = []
+    streams: list[Stream] = field(default_factory=list)
     movie: bool = False
     year: int = 1970  # Only used in movies
     _parent = None
