@@ -250,22 +250,23 @@ def recurse_merge_dict(main_dict=dict, secondary_dict=dict):
 
 def load_language(lang=None):
     'Returns dict containing selected language strings'
-    from polarity.config import config
-    from polarity.paths import LANGUAGES
+    from polarity.config import config, PATHS
     if lang is None:
         lang = config['language']
-    base_language = toml.load(f'{LANGUAGES}enUS.toml')
-    if os.path.exists(f'{LANGUAGES}{lang}.toml'):
-        loaded_language = toml.load(f'{LANGUAGES}{lang}.toml')
+    base_language = toml.load(f'{PATHS["lang"]}enUS.toml')
+    if os.path.exists(f'{PATHS["lang"]}{lang}.toml'):
+        loaded_language = toml.load(f'{PATHS["lang"]}{lang}.toml')
         return recurse_merge_dict(base_language, loaded_language)
     else:
         # This string doesn't need to be translated \/
         # vprint('Specified language "%s" doesn\'t exist. Defaulting to english' % lang)
         return base_language
     
-def language_installed(lang: str) -> bool:
-    from polarity.paths import LANGUAGES
-    return os.path.exists(f'{LANGUAGES}{lang}.toml')
+def is_language_installed(lang: str) -> bool:
+    # from polarity.config import paths
+    #return os.path.exists(f'{paths["lang"]}{lang}.toml')
+    return True
+    # FUCKING IMPORTANT TODO: fix this shit
 
 def filename_datetime():
     from datetime import datetime
@@ -273,7 +274,7 @@ def filename_datetime():
 
 def run_ffprobe(input, show_programs=True, extra_params=''):
     ffprobe_tries = 0
-    vprint('getting stream information', 1, 'ffprobe')
+    vprint('Getting stream information', 1, 'ffprobe')
     params = ['ffprobe', '-v', 'error', '-print_format', 'json', '-show_format', '-show_streams']
     if show_programs:
         params.append('-show_programs')
@@ -287,7 +288,7 @@ def run_ffprobe(input, show_programs=True, extra_params=''):
             _json = json.loads(subprocess.check_output(params))
             break
         except subprocess.CalledProcessError:
-            vprint('ffprobe failed, retrying...', 1, 'ffprobe')
+            vprint('Ffprobe failed, retrying...', 1, 'ffprobe')
             ffprobe_tries += 1
             if ffprobe_tries > 3:
                 raise
@@ -418,6 +419,11 @@ def get_compatible_extractor(url: str) -> tuple[str, object]:
             return (None, None)
         return (EXTRACTORS[extractor_name][0], EXTRACTORS[extractor_name][1])
 
+
+def get_installed_languages() -> list[str]:
+    from polarity.config import paths
+    return [f.name.replace('.toml', '') for f in os.scandir(paths['lang'])]
+
 def format_language_code(code: str) -> str:
     '''
     Returns a correctly formatted language code
@@ -430,3 +436,17 @@ def format_language_code(code: str) -> str:
     lang = code[0:2]
     country = code[2:4]
     return f'{lang.lower()}{country.upper()}'
+
+def version_to_tuple(version_string: str) -> tuple:
+    version = version_string.split('.')
+    # Split the revision number
+    if '-' in version[-1]:
+        minor_rev = version[-1].split('-')
+        del version[-1]
+        version.extend(minor_rev)
+    return tuple(version)
+
+def get_item_by_id(iterable: list, identifier: str):
+    for item in iterable:
+        if item.id == identifier:
+            return item
