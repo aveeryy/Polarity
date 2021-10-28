@@ -39,18 +39,16 @@
 ## Configuration
 Configuration files are found at:
 
-### Windows
-    C:\Users\<username>\.Polarity\
-    %userprofile%\.Polarity\
-    ~/.Polarity/ (Powershell only)
+<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/> Windows `C:\Users\<username>\.Polarity\`
 
-### Linux
-    /home/<username>/.Polarity/
-    ~/.Polarity/
-     
-### Mac OS
-    /Users/<username>/.Polarity/
-    ~/.Polarity/
+<img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/> Linux `/home/<username>/.Polarity/`
+
+<img src="https://aveeryy.github.io/icons/small/MacOS.png" alt="MacOS" width="16"/> macOS `/Users/<username>/.Polarity/`
+
+<img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/> Android `/storage/emulated/0/.Polarity/`
+
+🌐 Universal `~/.Polarity/`
+    
 
 ## Testing devices
 <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/>  **Arch Linux** (latest kernel)
@@ -61,25 +59,8 @@ Configuration files are found at:
 
 <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>  **Android 10** (Termux 0.101/4.4.210-Sultan)
 
-## Development roadmap (in order)
-- Finish Crunchyroll support ✔
-- Crunchyroll bugfixing ✔
-- Support for movie formatting ✔
-- Language support ✔
-- Internal downloader ✔
-- Support for external downloaders ✔
-- Crunchyroll Beta support ✔
-- Search function ✔
-- Downloading by id, (example: crunchyroll/series-912874) ✔
-- Support for Plex and Kodi metadata files ⚙
-- Final bugfixing ❌
-- First release ❌
-- Automatic synchronization ⚙
-- Support for more websites ❌
-- Music support ❌
-
 ## Legal disclaimer
 This application is not affiliated nor endorsed by any of the sites mentioned above. This application enables downloading videos for *offline viewing* which may be forbidden in your country or cause a violation of the Terms of Service of your Internet Service Provider and/or streaming provider. Neither I nor this tool are responsible of your actions and therefore, consequences.
 
 ### About Cloudflare and Polarity
-Polarity uses [cloudscraper](https://github.com/VeNoMouS/cloudscraper) to bypass Cloudflare protections, by making too much requests your IP address could be blocked by Cloudflare for 24 hours or even more. This can be circunvented by restarting your router if you have a dynamic address, using a proxy / VPN or using a captcha recognition service. If you can't use any of the before mentioned circunventions you will have to wait to use Polarity with that streaming service again.
+Polarity uses [cloudscraper](https://github.com/VeNoMouS/cloudscraper) to bypass Cloudflare protections, by making too many requests your IP address could be blocked by Cloudflare for 24 hours or more. This can be circunvented by restarting your router if you have a dynamic address, using a proxy / VPN or using a captcha recognition service. If you can't use any of the before mentioned circunventions you will have to wait to use Polarity with that streaming service again.
