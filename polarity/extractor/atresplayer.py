@@ -142,7 +142,7 @@ class AtresplayerExtractor(BaseExtractor):
         return
 
     def get_series_info(self, identifier: str):
-        series_json = request_json(self.API_URL + 'client/v1/page/format/' +
+        self.series_json = request_json(self.API_URL + 'client/v1/page/format/' +
                                    identifier)[0]
         _episodes = request_json(self.API_URL + 'client/v1/row/search',
                                  params={
@@ -152,20 +152,20 @@ class AtresplayerExtractor(BaseExtractor):
                                  })
 
         vprint(lang['extractor']['get_media_info'] %
-               (lang['types']['alt']['series'], series_json['title'].strip(),
+               (lang['types']['alt']['series'], self.series_json['title'].strip(),
                 identifier),
                level=1,
                module_name='atresplayer')
 
         self.info = Series(
-            title=series_json['title'].strip(),
+            title=self.series_json['title'].strip(),
             id=identifier,
-            synopsis=series_json['description']
-            if 'description' in series_json else '',
-            genres=[genre['title'] for genre in series_json['tags']],
+            synopsis=self.series_json['description']
+            if 'description' in self.series_json else '',
+            genres=[genre['title'] for genre in self.series_json['tags']],
             images=[
-                series_json['image']['pathHorizontal'] + '0',
-                series_json['image']['pathVertical'] + '0',
+                self.series_json['image']['pathHorizontal'] + '0',
+                self.series_json['image']['pathVertical'] + '0',
             ],
             season_count=None,
             episode_count=_episodes[0]['pageInfo']['totalElements'],
