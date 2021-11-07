@@ -391,6 +391,10 @@ if paths['cfg'] and not os.path.exists(paths['cfg']):
 # Load configuration from file
 config = load_config(paths['cfg'])
 
+# Add new configuration entries to user's configuration and save to file
+dict_merge(config, __defaults)
+save_config(paths['cfg'], config)
+
 # Load language file if specified
 if '--language' in sys.argv:
     lang_code = sys.argv[sys.argv.index('--language') + 1]
