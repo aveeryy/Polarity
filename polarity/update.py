@@ -13,15 +13,18 @@ from polarity.version import __version__ as version
 PYTHON_GIT = 'https://github.com/Aveeryy/Polarity/archive/refs/heads/main.zip'
 UPDATE_ENDPOINT = 'https://api.github.com/repos/Aveeryy/Polarity/releases'
 
+latest_version_on_server = None
+
 
 def check_for_updates() -> bool:
-    global version
+    global latest_version_on_server, version
     releases = request_json(UPDATE_ENDPOINT)
-    latest = releases[0][-1]
+    latest = releases[0][0]
     # TODO: remove this before merging pull request
     if version == 'code-rewrite':
         # Set version number for testing
         version = '2021.11.08'
+    latest_version_on_server = latest['tag_name']
     return version_to_tuple(version) < version_to_tuple(latest['tag_name'])
 
 

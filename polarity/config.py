@@ -104,6 +104,9 @@ __defaults = {
     # Leave empty to use internal language
     # 'internal' also works
     'language': 'internal',
+    # Check for updates on start-up
+    # This does not automatically update Polarity
+    'check_for_updates': False,
     # Automatically update language files
     'auto_update_languages': True,
     # Simultaneous URLs to process
@@ -230,6 +233,7 @@ __internal_lang = {
         'use': 'Usage: ',
         'search_no_results': 'no results',
         'search_term': 'term: ',
+        'update_available': 'version %s available, update with --update',
         'usage': 'Polarity <url(s)> [OPTIONS]',
         'using_version': 'using ver. %s',
         'except': {
