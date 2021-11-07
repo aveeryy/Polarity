@@ -13,7 +13,7 @@ from polarity.config import (USAGE, ConfigError, config, lang, options, paths,
 from polarity.types.filter import Filter, build_filter
 from polarity.types.search import SearchResult
 from polarity.types.worker import Worker
-from polarity.update import language_install, windows_install
+from polarity.update import check_for_updates, language_install, windows_install
 from polarity.utils import dict_merge, filename_datetime, vprint
 
 stats = {
@@ -54,6 +54,14 @@ class Polarity:
         # Pre-start functions
 
         # Windows dependency install
+        if options['check_for_updates']:
+            if check_for_updates():
+                # Import latest server version now, if imported before
+                # it'll just be None
+                from polarity.update import latest_version_on_server
+                vprint(
+                    lang['polarity']['update_available'] %
+                    latest_version_on_server, 1, 'update')
         if 'install_windows' in options:
             windows_install()
         if 'dump' in options:
