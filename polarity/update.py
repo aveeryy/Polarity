@@ -7,16 +7,22 @@ from requests import get
 from time import sleep
 from zipfile import ZipFile
 
-from polarity.utils import vprint, humanbytes, request_webpage, version_to_tuple
-from polarity.version import __version__
+from polarity.utils import vprint, humanbytes, request_webpage, request_json, version_to_tuple
+from polarity.version import __version__ as version
 
 PYTHON_GIT = 'https://github.com/Aveeryy/Polarity/archive/refs/heads/main.zip'
 UPDATE_ENDPOINT = 'https://api.github.com/repos/Aveeryy/Polarity/releases'
 
 
 def check_for_updates() -> bool:
-    releases = get(UPDATE_ENDPOINT)
-    # TODO.
+    global version
+    releases = request_json(UPDATE_ENDPOINT)
+    latest = releases[0][-1]
+    # TODO: remove this before merging pull request
+    if version == 'code-rewrite':
+        # Set version number for testing
+        version = '2021.11.08'
+    return version_to_tuple(version) < version_to_tuple(latest['tag_name'])
 
 
 def selfupdate(mode: str = 'git'):
