@@ -603,4 +603,9 @@ def argument_parser() -> dict:
     return (args.url, options)
 
 
+# Parse arguments
 urls, options = argument_parser()
+
+# Create status lists
+processes = []
+progress_bars = []
