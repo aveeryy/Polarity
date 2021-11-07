@@ -1,10 +1,6 @@
 # Polarity
 > 🍝 Spaghetti powered, cross-platform mass downloader and metadata extractor for video streaming platforms.
 
-[![DeepSource](https://deepsource.io/gh/Aveeryy/Polarity.svg/?label=active+issues&show_trend=true)](https://deepsource.io/gh/Aveeryy/Polarity/)
-
-
-
 ## Features
 - **Cross-platform** (Linux, Windows, MacOS, Android, anything that can run Python and FFmpeg)
 - **Multilanguage**
@@ -15,24 +11,27 @@
 - **Multi-threaded downloads**
 - **External downloader support**
 ### Other features
-- **Search in supported extractors**
-- **_(Minimal)_ Live TV support**
+- **Search in supported extractors** * 
+- **_(Minimal)_ Live TV support** *
 <!---
 
 - **Automatically download new episodes**
 - **Plex and Kodi Metadata support**
 -->
 
+\* `not in current branch`
+
 
 ## Installation
 - ### [Windows Installation <img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#windows-)
+- ### [Linux Installation <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#linux-)
 - ### [Android Installation <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#android-)
 
 ## Supported websites
-| | Platforms | Premium support | Subtitles |
-|:-:|:-:|:-:|:-:|
-| Atresplayer | <img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/> <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/> <img src="https://aveeryy.github.io/icons/small/MacOS.png" alt="MacOS" width="16"/> <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/> | ✔️ | ✔️ |
-| Crunchyroll |<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/> <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/> <img src="https://aveeryy.github.io/icons/small/MacOS.png" alt="MacOS" width="16"/> <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/> | ✔️ | ✔️ |
+| | Premium | Subtitles | Search | New extractor format
+|:-:|:-:|:-:|:-:|:-:|
+| Atresplayer | ✔️ | ✔️ | ✔️ | ❌ 
+| Crunchyroll  | ✔️ | ✔️ | ❌ | ❌
 
 > Note: "🍝" means in progress
 
