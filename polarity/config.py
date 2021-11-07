@@ -77,6 +77,10 @@ def change_options(new_options: dict):
     options = dict_merge(options, new_options)
 
 
+# Create status lists
+processes = []
+progress_bars = []
+
 # Part 1: Define default configurations
 
 # Base path for configuration files
@@ -96,8 +100,8 @@ __defaults = {
     # it's just a personal recommendation lmao
     'verbose_logs': 4,
     # Language file to use
-    # Leave empty to use integrated language
-    # 'integrated' also works
+    # Leave empty to use internal language
+    # 'internal' also works
     'language': 'internal',
     # Automatically update language files
     'auto_update_languages': True,
@@ -165,7 +169,7 @@ __internal_lang = {
     'code': 'internal',
     'author': 'Aveeryy',
     'main': {
-        'no_tasks': 'no tasks to do, exiting',
+        'no_tasks': 'nothing to do, exiting',
         'exit_msg': 'exiting'
     },
     # Argument string group
@@ -211,8 +215,8 @@ __internal_lang = {
         }
     },
     'polarity': {
-        'all_tasks_finished': 'Finished',
-        'available_languages': 'Available languages:',
+        'all_tasks_finished': 'finished',
+        'available_languages': 'available languages:',
         'language_format': '%s (%s) by %s',
         'no_urls': 'Error: nothing inputted.',
         'use_help': 'Use --help to display all options',
@@ -349,6 +353,7 @@ __internal_lang = {
 
 # Part 2: Load options from configuration file (and some arguments)
 
+# TODO: add arguments to argparse
 __path_arguments = {
     '--accounts-directory': 'account',
     '--binaries-directory': 'bin',
@@ -365,11 +370,14 @@ for arg, path_name in __path_arguments.items():
     if arg in sys.argv:
         _value = sys.argv[sys.argv.index(arg) + 1]
         paths[path_name] = _value
+        # Create directories if not existing
+        os.makedirs(_value, exist_ok=True)
 
 # If config file is specified and does not exist, create it
 if paths['cfg'] and not os.path.exists(paths['cfg']):
     generate_config(paths['cfg'])
 
+# Load configuration from file
 config = load_config(paths['cfg'])
 
 # Load language file if specified
@@ -605,7 +613,3 @@ def argument_parser() -> dict:
 
 # Parse arguments
 urls, options = argument_parser()
-
-# Create status lists
-processes = []
-progress_bars = []
