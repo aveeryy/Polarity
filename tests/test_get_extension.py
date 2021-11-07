@@ -7,8 +7,8 @@ from polarity.utils import get_extension
     ('http://thisisanurl.com/file.m3u8', '.m3u8'),
     ('http://thisisanurl.com/file.m3u8?with_a_param=key.key', '.m3u8'),
     ('http://this.is.an.url.withsubdomains.com/file.m3u8?with_a_param=key.key&another_param=berries.xml', '.m3u8'),
-    ('http://thisisanurl.com/without_an_extension', None),
-    ('http://thisdoesnothaveapath.com/', None),
+    ('http://thisisanurl.com/without_an_extension', ''),
+    ('http://thisdoesnothaveapath.com/', ''),
     ('file:///thisisalocalfile.txt', '.txt'),
     ('ftp://thisisafileinanftpserver:21/document.pdf', '.pdf')
 ])
