@@ -43,17 +43,22 @@ def change_language(language_code: str) -> dict:
     global lang_code
     __lang_path = f"{paths['lang']}{language_code}.toml"
     if language_code is None:
-        return __internal_lang
+        dict_merge(lang, __internal_lang)
     elif not os.path.exists(__lang_path):
         vprint('error!! lang file not found', error_level='error')
-        return __internal_lang
+        dict_merge(lang, __internal_lang, True)
     elif os.path.exists(__lang_path):
         lang_code = language_code
         with open(__lang_path, 'r', encoding='utf-8') as l:
-            language = toml.load(l)
+            # Change language to internal without modifying the variable
+            # Doing this to avoid more languages than the internal one
+            # and the currently loaded overlapping
+            dict_merge(lang, __internal_lang, True)
+            # Now, change
+            dict_merge(lang, toml.load(l), True)
             # Merge internal language with loaded one, avoids errors due
             # missing strings
-            return dict_merge(__defaults, language)
+    return lang
 
 
 def change_verbose_level(new_level: int, change_print=True, change_log=False):
@@ -76,10 +81,6 @@ def change_options(new_options: dict):
     global options
     options = dict_merge(options, new_options)
 
-
-# Create status lists
-processes = []
-progress_bars = []
 
 # Part 1: Define default configurations
 
@@ -156,7 +157,13 @@ paths = {
     }.items()
 }
 
-verbose_level = {'print': 1, 'log': 5}
+lang = {}
+
+# Create status lists
+processes = []
+progress_bars = []
+
+verbose_level = {'print': 1, 'log': 4}
 
 # Integrated language
 # Uses very simple english words, and does not require installation
