@@ -1,9 +1,7 @@
-import logging
 import os
 import sys
 import traceback
 import pretty_errors
-import tqdm
 
 from platform import system, version, python_version
 
