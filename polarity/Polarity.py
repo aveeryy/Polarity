@@ -9,7 +9,7 @@ from tqdm import TqdmWarning
 import polarity.config
 import polarity.utils
 from polarity.config import (USAGE, ConfigError, config, lang, options, paths,
-                             verbose_level)
+                             verbose_level, change_verbose_level)
 from polarity.types.filter import Filter, build_filter
 from polarity.types.search import SearchResult
 from polarity.types.worker import Worker
@@ -28,22 +28,29 @@ class Polarity:
     def __init__(self,
                  urls: list,
                  opts: dict = None,
-                 verbose_level_override=None) -> None:
+                 _verbose_level: int = None,
+                 _logging_level: int = None) -> None:
+        '''
+        :param _verbose_level: override print verbose lvl
+        :param _logging_level: override log verbose lvl
+        '''
         stats['pool'] = urls
         if opts is not None:
             # Merge user's script options with processed options
             dict_merge(options, opts)
         # Scripting only, override the session verbose level,
         # since verbose level is set before options merge.
-        if verbose_level_override is not None:
-            polarity.config.verbose_level = verbose_level_override
+        if _verbose_level is not None:
+            change_verbose_level(_verbose_level, True)
+        if _logging_level is not None:
+            change_verbose_level(_logging_level, False, True)
         # Check if verbose level is valid
-        if verbose_level['print'] not in range(0, 6):
+        if verbose_level['print'] not in range(
+                0, 6) or verbose_level['log'] not in range(0, 6):
             raise ConfigError(lang['polarity']['except']['verbose_error'] %
-                              verbose_level['print'])
+                              verbose_level)
 
     def start(self):
-        # TODO: no task to do message
         # Pre-start functions
 
         # Windows dependency install
@@ -77,7 +84,6 @@ class Polarity:
             vprint(lang['polarity']['all_tasks_finished'])
         if options['mode'] == 'search':
             search_string = ' '.join(self.pool)
-            self.search
 
     @classmethod
     def search(string: str) -> list[SearchResult]:
@@ -99,7 +105,7 @@ class Polarity:
             with open(f'./{dump_time}_Polarity_dump_urls.txt',
                       'w',
                       encoding='utf-8') as f:
-                f.write(' \n'.join([i for i in self.pool]))
+                f.write(' \n'.join(self.pool))
 
         if 'requests' in options['dump']:
             vprint('Enabled dumping of HTTP requests', error_level='debug')
