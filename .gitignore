@@ -128,6 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# VSCode
+.vscode/*
+
 # CrunchySubs
 CrunchySubs.py
 *.ass
@@ -146,3 +149,5 @@ windows-install.py
 # API
 polar-api.py
 fastapi_server.py
+.vscode/launch.json
+.vscode/settings.json
