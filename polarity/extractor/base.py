@@ -10,6 +10,7 @@ from polarity.extractor.flags import *
 from polarity.types import Episode, Season, Series
 from polarity.types.filter import MatchFilter, NumberFilter
 from polarity.types.process import Process
+from polarity.types.progressbar import ProgressBar
 from polarity.utils import dict_merge, mkfile
 
 
@@ -19,15 +20,14 @@ class BaseExtractor(Process):
                  filter_list: list = None,
                  options: dict = None) -> None:
         super().__init__(process_type='Extractor')
-        from polarity.types.filter import Filter
 
         from polarity.config import options as user_options
+
         self.url = url
         self.extractor_name = self.__class__.__name__.replace('Extractor',
                                                               '').lower()
         if options is None:
             options = {self.extractor_name: {}}
-            print(options)
         if self.extractor_name != 'base':
             self.options = dict_merge(
                 user_options['extractor'][self.extractor_name],
@@ -203,10 +203,16 @@ class BaseExtractor(Process):
 
 
 def check_season(func) -> Season:
-    def wrapper(self, season: Season):
+    def wrapper(self,
+                season: Season = None,
+                season_id: str = None,
+                *args,
+                **kwargs):
+        if season_id is not None:
+            return func(self, season, season_id, *args, **kwargs)
         if 'ALL' in self._seasons or season.number in self._seasons:
             print('season passed vibe check')
-            return func(self, season)
+            return func(self, season, season_id, *args, **kwargs)
         # Unwanted season, don't bother getting information
         return season
 
