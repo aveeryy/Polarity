@@ -1,119 +1,268 @@
-import json
-from polarity.config import config, save_config, lang
-from polarity.paths import ACCOUNTS
-from polarity.types import * 
-from polarity.utils import vprint, is_content_id
-from getpass import getpass
-from http.cookiejar import LWPCookieJar
-from tqdm.std import tqdm
-
-from colorama import Fore
-
 import os
-import sys
+import re
+from getpass import getpass
+from http.cookiejar import CookieJar, LWPCookieJar
+from time import sleep
+from typing import Union
 
-class BaseExtractor:
-    
-    def __init__(self, url=None, options=None, external=False):
+from polarity.config import config, lang, paths
+from polarity.extractor.flags import *
+from polarity.types import Episode, Season, Series
+from polarity.types.filter import MatchFilter, NumberFilter
+from polarity.types.process import Process
+from polarity.utils import dict_merge, mkfile
+
+
+class BaseExtractor(Process):
+    def __init__(self,
+                 url: str,
+                 filter_list: list = None,
+                 options: dict = None) -> None:
+        super().__init__(process_type='Extractor')
+        from polarity.types.filter import Filter
+
+        from polarity.config import options as user_options
         self.url = url
-        self.extractor_name = self.return_class()[:-9]
-        self.info = None
-        if options is not None:
-            self.options = {**self.DEFAULTS, **config['extractor'][self.extractor_name.lower()], **options}
-        else:
-            self.options = {**self.DEFAULTS, **config['extractor'][self.extractor_name.lower()]}
-        self.external_tool = external
-        if self.extractor_name.lower() in lang:
-            self.extractor_lang = lang[self.extractor_name.lower()]
+        self.extractor_name = self.__class__.__name__.replace('Extractor',
+                                                              '').lower()
+        if options is None:
+            options = {self.extractor_name: {}}
+            print(options)
+        if self.extractor_name != 'base':
+            self.options = dict_merge(
+                user_options['extractor'][self.extractor_name],
+                options[self.extractor_name])
+            self.extractor_lang = lang[self.extractor_name]
 
-        if hasattr(self, 'FLAGS') and 'JSON_COOKIE_JAR' in self.FLAGS:
-            self.cjar = {}
-            # Create a cookiejar for the extractor
-            if not os.path.exists(ACCOUNTS + f'{self.extractor_name}.cjar'):
-                with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
-                    json.dump(self.cjar, c)
-            #with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'r', encoding='utf-8') as c:
-            #    self.cjar = json.load(c)
-        else:
-            # Create a cookiejar for the extractor
-            if not os.path.exists(ACCOUNTS + f'{self.extractor_name}.cjar'):
-                with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
-                    c.write('#LWP-Cookies-2.0\n')
-            # Open that cookiejar
-            self.cjar = LWPCookieJar(ACCOUNTS + f'{self.extractor_name}.cjar')
+        self.unparsed_filters = filter_list
+
+        # Dictionary containing what seasons and episodes to extract
+        self._seasons = {}
+        # List containing subextractors
+        self._workers = []
+
+        if AccountCapabilities in self.FLAGS:
+            # Account Capabilities is enabled, use the extractor's cookiejar
+            cjar_path = f"{paths['account']}{self.extractor_name}.cjar"
+            if not os.path.exists(cjar_path):
+                # Create the cookiejar
+                mkfile(cjar_path, '#LWP-Cookies-2.0\n')
+            self.cjar = LWPCookieJar(cjar_path)
+            # Load the cookiejar
             self.cjar.load(ignore_discard=True, ignore_expires=True)
 
-        self.extraction = False
-        self.search_results = []
-        if hasattr(self, 'load_at_init'):
-            self.load_at_init()
-        # Login if there's an user-inputted username and password in the options
-        if 'username' in self.options and 'password' in self.options:
-            self.login(self.options['username'], self.options['password'])
-
-    def set_main_info(self, media_type: str):
-        if media_type == 'series':
-            self.info = Series()
-
-        elif media_type == 'movie':
-            self.info = Movie()
-
-
-    def create_progress_bar(self, *args, **kwargs):
-        color = Fore.MAGENTA if sys.platform != 'win32' else ''
-        self.progress_bar = tqdm(*args, **kwargs)
-        self.progress_bar.desc = f'{color}[extraction]{Fore.RESET} {self.progress_bar.desc}'
-        self.progress_bar.update(0)
-        
-
-    def login_with_form(self, user=None, password=None):
-        if user is None:
-            user = input(lang['extractor']['base']['login_email_prompt'])
-        if password is None:
-            password = getpass(lang['extractor']['base']['login_password_prompt'])
-        self.login(user=user, password=password)
-
-
-    def save_cookies_in_jar(self, cookies: list, filter_list=None):
-        if 'JSON_COOKIE_JAR' in self.FLAGS:
-            raise ExtractorCodingError
-        for cookie in cookies:
-            if cookie.name not in filter_list:
-                continue
-            self.cjar.set_cookie(cookie)
-        self.cjar.save(ignore_discard=True, ignore_expires=True)
-
-    def cookie_exists(self, cookie_name: str):
-        if 'JSON_COOKIE_JAR' in self.FLAGS:
-            return bool([c for c in self.cjar if c['name'] == cookie_name])
+        if filter_list is None:
+            # Set seasons and episodes to extract to ALL
+            self._seasons = {'ALL': 'ALL'}
         else:
-            return bool([c for c in self.cjar if c.name == cookie_name])
+            # Parse the filter list
+            self._parse_filters()
 
-    def save_json_jar(self):
-        with open(ACCOUNTS + f'{self.extractor_name}.cjar', 'w', encoding='utf-8') as c:
-            json.dump(self.cjar, c)
+    def _validate_extractor(self) -> bool:
+        '''Check if extractor has all needed variables'''
+        def check_variables(_vars: list):
+            '''
+            Raise an ExtractorError if a variable does not exist in
+            class scope
+            '''
+            missing = (v for v in _vars if not hasattr(self, v))
+            if missing:
+                raise ExtractorError(
+                    f'Invalid extractor! Missing variables: {missing}')
 
-    def create_search_result(self, name: str, media_type: PolarType, low_id: str, url: str):
-        self.search_result = SearchResult()
-        self.search_result.name = name
-        self.search_result.url = url
-        self.search_result.type = media_type
-        self.search_result.id = f'{self.extractor_name.lower()}/{media_type.__name__.lower()}-{low_id}'
-        self.search_results.append(self.search_result)
-        
+        if self.extractor_name == 'base':
+            return
+        # Check if extractor has all necessary variables
+        check_variables('HOST', 'ARGUMENTS', 'DEFAULTS', 'FLAGS')
+
+        if AccountCapabilities in self.FLAGS:
+            # Check if extractor has necessary login variables
+            check_variables(('_login', 'is_logged_in'))
+        return True
+
+    def _has_cookiejar(func):
+        '''
+        Check if current extractor has a cookiejar before running cookiejar
+        functions
+        '''
+        def wrapper(self, *args, **kwargs):
+            if not hasattr(self,
+                           'cjar') or AccountCapabilities not in self.FLAGS:
+
+                raise ExtractorError('no cookiejar')
+            return func(self, *args, **kwargs)
+
+        return wrapper
+
+    @_has_cookiejar
+    def save_cookies(self,
+                     cookies: Union[CookieJar, list],
+                     filter_list: list = None) -> bool:
+        for cookie in cookies:
+            if filter_list is not None and cookie.name in filter_list:
+                self.cjar.set_cookie(cookie=cookie)
+
+    @_has_cookiejar
+    def cookie_exists(self, cookie_name: str) -> bool:
+        return cookie_name in self.cjar
+
+    def _parse_filters(self) -> None:
+        number_filters = [
+            f for f in self.unparsed_filters if type(f) is NumberFilter
+        ]
+        match_filters = [
+            f for f in self.unparsed_filters if type(f) is MatchFilter
+        ]
+        self._parse_number_filters(number_filters)
+        self.filters = match_filters
+        # Delete the unparsed filters variable to save a bit of memory
+        del self.unparsed_filters
+
+    def _parse_number_filters(self, filters: list, debug=False) -> dict:
+        for _filter in filters:
+
+            if _filter.seasons and _filter.episodes:
+                # S01E01-like string
+                _dict = {_filter.seasons[0]: [_filter.episodes[0]]}
+            elif _filter.seasons:
+                # S01-like string
+                _dict = {k: 'ALL' for k in _filter.seasons}
+            elif _filter.episodes:
+                # E01-like string
+                _dict = {'ALL': [k for k in _filter.episodes]}
+            # self._seasons = {**self._seasons, **_dict}
+            for k, v in _dict.items():
+                if k not in self._seasons:
+                    # Season 1 not in self.__seasons:
+                    # add values (v) to self._seasons[1]
+                    self._seasons[k] = v
+                elif k in self._seasons and self._seasons[k] == 'ALL':
+                    # Season 1 in self.__seasons, self._seasons[1] value is ALL
+                    # skip, since all episodes from season 1 are already set to
+                    # extraction
+                    continue
+                elif k in self._seasons and self._seasons[
+                        k] != 'ALL' and v != 'ALL':
+                    self._seasons[k].extend(v)
+                elif k in self._seasons and self._seasons[
+                        k] != 'ALL' and v == 'ALL':
+                    self._seasons[k] = 'ALL'
+            if debug:
+                return _dict
+
+    def login(self, username: str = None, password: str = None) -> bool:
+        if not hasattr(self,
+                       '_login') or AccountCapabilities not in self.FLAGS:
+            return True
+        if username is None:
+            username = input(lang['extractor']['base']['login_email_prompt'])
+        if password is None:
+            password = getpass(
+                lang['extractor']['base']['login_password_prompt'])
+        return self._login(username=username, password=password)
+
+    def _subworkers_wait(self) -> None:
+        'Do not call this function directly, use `self.wait_for_subworkers` instead'
+        while [proc for proc in self._workers if proc.is_alive]:
+            sleep(0.5)
+        if type(self.info) is Series:
+            self.info.extracted = True
+
+    def wait_for_subworkers(self) -> None:
+        '''
+        Waits until all subworkers have finished,
+        then if self.info obj type is Series, change it's finished attribute
+        to True
+        '''
+
+        wait_proc = Process('__Bus_Waiter',
+                            daemon=True,
+                            target=self._subworkers_wait)
+        wait_proc.start()
+
+    def create_subextractor(
+        self,
+        target: object,
+    ) -> Process:
+        proc = Process('__Subextractor', daemon=True, target=target)
+        # Make process a children of current process
+        self.set_child(child=proc)
+        return proc
+
+    def check_episode_by_title(self, episode: Episode) -> bool:
+        '''Check if episode passes the title match filters'''
+        passes = False
+        for _filter in self.filters:
+            match = _filter.check(title=episode.title)
+            if not match and _filter.absolutes:
+                # Since absolute filters must always pass, return False
+                return False
+            # Modify variable only if 'passes' is False
+            passes = match if not passes else passes
+        return passes
+
+
+def check_season(func) -> Season:
+    def wrapper(self, season: Season):
+        if 'ALL' in self._seasons or season.number in self._seasons:
+            print('season passed vibe check')
+            return func(self, season)
+        # Unwanted season, don't bother getting information
+        return season
+
+    return wrapper
+
+
+def check_episode(func) -> Episode:
+    '''
+    Input an Episode, if the Episode object passes number filter
+    checks, returns the Episode run throught the decorated function,
+    else returns the Episode back as-is
+    '''
+    def wrapper(self,
+                episode: Episode = None,
+                episode_id: str = None,
+                *args,
+                **kwargs):
+        # Number filter check
+        if episode_id is not None:
+            # Do not check if episode identifier inputted directly
+            pass
+        elif episode is not None:
+            # Using episode object, filters apply here
+            if 'ALL' in self._seasons and 'ALL' in self._seasons['ALL']:
+                # All episodes are set to be downloaded
+                pass
+            elif 'ALL' in self._seasons and episode.number in self._seasons[
+                    'ALL']:
+                # Episode number in ALL seasons list
+                pass
+            elif episode._parent is not None:
+                # Since all possibilities to be included from the "ALL"
+                # list have passed now, check if the episode is in it's
+                # season's list
+                if not episode._parent.number in self._seasons and \
+                    episode.number in self._seasons[episode._parent.number]:
+                    pass
+                else:
+                    # All possible cases have been considered
+                    # Episode does not pass filter tests
+                    return episode
+            elif episode._parent is None:
+                # Orphan Episode object, not applicable
+                pass
+        return func(self,
+                    episode=episode,
+                    episode_id=episode_id,
+                    *args,
+                    **kwargs)
+
+    return wrapper
+
+
 class ExtractorError(Exception):
     pass
 
+
 class InvalidURLError(Exception):
-    pass
-
-class LoginError(Exception):
-    pass
-
-class ContentUnavailableError(Exception):
-    def __init__(self, msg='Content is unavailable in your region or has been taken out of the platform', *args, **kwargs):
-        super().__init__(msg, *args, **kwargs)
-
-class ExtractorCodingError(Exception):
-    'This is only used on BaseExtractor, do not use!'
     pass
