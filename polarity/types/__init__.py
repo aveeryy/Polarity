@@ -7,4 +7,4 @@ from .series import Series
 from .stream import Stream
 from .datetime import Time
 
-from .base import PolarType
+from .base import MediaType

@@ -1,9 +1,8 @@
-import json
+class MediaType:
+    @property
+    def class_name(self):
+        return self.__class__.__name__
 
-class PolarType:
-    '''
-
-    '''
-    def set_metadata(self, **values):
-        for key, value in values.items():
-            setattr(self, key, value)
+    def set_metadata(self, metadata: dict) -> None:
+        for key, val in metadata.values():
+            setattr(self, key, val)

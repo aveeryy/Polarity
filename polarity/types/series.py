@@ -1,10 +1,13 @@
-from .base import PolarType
-from .person import Person, Actor
-from .season import Season
 from dataclasses import dataclass, field
 
+from polarity.types.base import MediaType
+from polarity.types.episode import Episode
+from polarity.types.person import Actor, Person
+from polarity.types.season import Season
+
+
 @dataclass
-class Series(PolarType):
+class Series(MediaType):
     title: str
     id: str
     synopsis: str
@@ -15,6 +18,7 @@ class Series(PolarType):
     episode_count: int
     people = []
     seasons: list[Season] = field(default_factory=list)
+    extracted = False
 
     def link_person(self, person: Person) -> None:
         if person not in self.actors:
@@ -25,5 +29,10 @@ class Series(PolarType):
             season._parent = self
             self.seasons.append(season)
 
-    def get_all_episodes(self) -> list:
+    def get_season_by_id(self, season_id: str) -> Season:
+        match = [s for s in self.seasons if s.id == season_id]
+        if match:
+            return match[0]
+
+    def get_all_episodes(self) -> list[Episode]:
         return [e for s in self.seasons for e in s.episodes]
