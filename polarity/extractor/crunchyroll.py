@@ -6,6 +6,7 @@ from uuid import uuid4
 from polarity.config import lang
 from polarity.extractor.flags import *
 from polarity.types import Episode, Season, Series, Stream
+from polarity.types.progressbar import ProgressBar
 from polarity.utils import (get_country_from_ip, is_content_id, order_dict,
                             parse_content_id, request_json, request_webpage,
                             vprint)
@@ -471,7 +472,6 @@ class CrunchyrollExtractor(BaseExtractor):
                                    'collection_id': collection_id
                                },
                                proxies=self.proxy)
-            print(req[0])
             if not self.check_for_error(
                     req[0], 'Failed to fetch. Content unavailable'):
                 return {
@@ -496,7 +496,9 @@ class CrunchyrollExtractor(BaseExtractor):
                     'episode': req[0]['data']['etp_guid'],
                 }
 
-    def get_series_info(self, series_id=str):
+    def get_series_info(self,
+                        series_id: str,
+                        return_raw_info=False) -> Union[Series, dict]:
         if self.account_info['bearer'] is None:
             self.get_cms_tokens()
         series_json = request_json(
@@ -508,6 +510,9 @@ class CrunchyrollExtractor(BaseExtractor):
                 'Policy': self.account_info['policy'],
                 'Key-Pair-Id': self.account_info['key_pair_id']
             })[0]
+
+        if return_raw_info:
+            return series_json
 
         vprint(
             lang['extractor']['get_media_info'] %
@@ -566,10 +571,6 @@ class CrunchyrollExtractor(BaseExtractor):
             _season._crunchyroll_dub = language
 
             season_list.append(_season)
-
-            if hasattr(self, 'info'):
-                self.info.link_season(season)
-
         return season_list
 
     @check_season
@@ -612,7 +613,7 @@ class CrunchyrollExtractor(BaseExtractor):
 
         _season.set_metadata(metadata)
 
-        return season
+        return _season
 
     def get_episodes_from_season(
             self,
@@ -636,7 +637,7 @@ class CrunchyrollExtractor(BaseExtractor):
         unparsed_list = request_json(self.CMS_API_URL + '/episodes',
                                      params={
                                          'season_id':
-                                         season_id,
+                                         identifier,
                                          'locale':
                                          self.options['meta_language'],
                                          'Signature':
@@ -655,9 +656,10 @@ class CrunchyrollExtractor(BaseExtractor):
             _season.episode_count = len(unparsed_list['items'])
 
         episode_list = [
-            self._parse_episode_info(episode) for episode in unparsed_list
+            self._parse_episode_info(episode)
+            for episode in unparsed_list['items']
         ]
-        return episode_list['items']
+        return episode_list
 
     @check_episode
     def get_episode_info(self,
@@ -841,7 +843,7 @@ class CrunchyrollExtractor(BaseExtractor):
 
         # self.get_cms_tokens()
 
-        if url_type == 'series':
+        if url_type == Series:
             # Posible series cases:
             # Case 1: Legacy URL -> .../series-name - ID-less
             # Case 2: Legacy URL -> .../series-000000 - has ID
@@ -874,24 +876,23 @@ class CrunchyrollExtractor(BaseExtractor):
 
             self.get_series_info(series_id=series_guid)
 
-            self.create_progress_bar(desc=self.info.title,
-                                     total=self.info.episode_count,
-                                     leave=False)
+            self.progress_bar = ProgressBar(desc=self.info.title,
+                                            total=self.info.episode_count,
+                                            leave=False,
+                                            head='extraction')
 
-            for season in self.get_seasons(series_guid=series_guid):
-                if not any(s in ('all', season['dub'])
+            for season in self.get_seasons(series_id=series_guid):
+                if not any(s in ('all', season._crunchyroll_dub)
                            for s in self.options['dub_language']):
                     continue
-                _season = self.get_season_info(season_id=season['id'])
-                self.info.link_season(season=_season)
-                for episode in self.get_episodes_from_season(
-                        season_id=season['id']):
-                    _episode = self._parse_episode_info(episode_info=episode)
-                    _season.link_episode(episode=_episode)
+                self.get_season_info(season=season)
+                self.info.link_season(season=season)
+                for episode in self.get_episodes_from_season(season=season):
+                    season.link_episode(episode=episode)
 
             self.progress_bar.close()
 
-        elif url_type == 'episode':
+        elif url_type == Episode:
             if media_id.isdigit():
                 episode_guid = self.get_etp_guid(
                     episode_id=media_id)['episode']
