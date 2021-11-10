@@ -1,6 +1,6 @@
 from colorama import Fore
 
-from polarity.Polarity import _progress_bars
+from polarity.config import progress_bars
 
 import sys
 import tqdm
@@ -18,7 +18,8 @@ class ProgressBar(tqdm.tqdm):
         color = Fore.MAGENTA if sys.platform != 'win32' else ''
         if head is not None:
             desc = f'{color}[{head}]{Fore.RESET} {desc}'
-        _progress_bars.append(self)
+        progress_bars.append(self)
+        self.closed_bar = False
         super().__init__(iterable=iterable, desc=desc, total=total, leave=leave, file=file, ncols=ncols, mininterval=mininterval, maxinterval=maxinterval, miniters=miniters, ascii=ascii, disable=disable, unit=unit, unit_scale=unit_scale, dynamic_ncols=dynamic_ncols, smoothing=smoothing, bar_format=bar_format, initial=initial, position=position, postfix=postfix, unit_divisor=unit_divisor, write_bytes=write_bytes, lock_args=lock_args, nrows=nrows, colour=colour, delay=delay, gui=gui, **kwargs)
 
     def update(self, n=1): 
