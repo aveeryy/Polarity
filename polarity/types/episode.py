@@ -1,10 +1,10 @@
-from .base import PolarType
 from .stream import Stream
+from .base import MediaType
 
 from dataclasses import dataclass, field
 
 @dataclass
-class Episode(PolarType):
+class Episode(MediaType):
     # TODO: finish this
     title: str
     id: str
@@ -15,6 +15,7 @@ class Episode(PolarType):
     movie: bool = False
     year: int = 1970  # Only used in movies
     _parent = None
+    _partial = True
 
     def link_stream(self, stream=Stream) -> None:
         if not stream in self.streams:

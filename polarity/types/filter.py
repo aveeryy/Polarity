@@ -11,7 +11,9 @@ class Filter:
     def __init__(self, filter: str) -> None:
         self._filter = filter
         self._properties = {}
-        self.absolute = False
+    
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.raw_filter})'
 
     @property
     def raw_filter(self):
@@ -58,6 +60,14 @@ class NumberFilter(Filter):
         self.__seasons = []
         self.__episodes = []
         self.__parse_filter_obj()
+        
+    @property
+    def seasons(self) -> list[int]:
+        return self.__seasons
+    
+    @property
+    def episodes(self) -> list[int]:
+        return self.__episodes
 
     def __parse_filter_obj(self):
         'Parses a filter string and puts season/episode numbers in their respective lists'
@@ -71,7 +81,9 @@ class NumberFilter(Filter):
 
         elif self.properties['multi']:
             # Specifies episode of a season, example: S01E05, S07E12, S4E3
-            match = re.match(self.regex['range'], self._filter)
+            match = re.match(self.regex['multi'], self._filter)
+            self.__seasons.append(int(match.group('season')))
+            self.__episodes.append(int(match.group('episode')))
 
         elif self.properties['range']:
             # Range of seasons/episodes, examples: S01-12, S6-9, E12-45, E2-3
@@ -98,15 +110,24 @@ class MatchFilter(Filter):
                  filter: str,
                  regex=False,
                  full=False,
-                 not_match=False) -> None:
-        self.absolute = True
+                 not_match=False,
+                 absolute=False) -> None:
         if full:
             filter = f'^{filter}$'
         if regex:
             filter = re.compile(pattern=filter)
         super().__init__(filter)
+        self.__absolute = absolute
         self.__not_match = not_match
 
+    @property
+    def absolute(self):
+        return self.__absolute
+
+    @property
+    def not_match(self):
+        return self.__not_match
+    
     def _check(self,
                title: str = "",
                season_number: int = 0,
@@ -137,7 +158,8 @@ def build_filter(params: str, filter: str) -> None:
             'params': {
                 'regex': False,
                 'full': False,
-                'not_match': False
+                'not_match': False,
+                'absolute': False
             }
         },
         'notmatch': {
@@ -145,12 +167,13 @@ def build_filter(params: str, filter: str) -> None:
             'params': {
                 'regex': False,
                 'full': False,
-                'not_match': True
+                'not_match': True,
+                'absolute': False
             }
         },
     }
     unparsed = params.split('_')
-    if len(unparsed) > 1:
+    if len(unparsed) >= 1:
         raw_parameters = unparsed[1:]
         # Create a dictionary based on "parameter: True" entries
         parameters = {k: True for k in raw_parameters}

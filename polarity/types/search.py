@@ -1,7 +1,9 @@
-from polarity.types.base import PolarType
+from polarity.types.base import MediaType
+from dataclasses import dataclass
 
-class SearchResult(PolarType):
-    name = None
-    type = None
-    id = None
-    url = None
+@dataclass
+class SearchResult(MediaType):
+    name: str
+    type: str
+    id: str
+    url: str

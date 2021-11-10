@@ -1,6 +1,6 @@
-from .base import PolarType
+from .base import MediaType
 
-class Movie(PolarType):
+class Movie(MediaType):
     title = None
     id = None
     synopsis = None
