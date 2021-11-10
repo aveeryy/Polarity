@@ -79,7 +79,7 @@ def change_paths(new_paths: dict):
 
 def change_options(new_options: dict):
     global options
-    options = dict_merge(options, new_options)
+    dict_merge(options, new_options, True)
 
 
 # Part 1: Define default configurations
