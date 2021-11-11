@@ -8,17 +8,17 @@ from polarity.types.season import Season
 
 @dataclass
 class Series(MediaType):
-    title: str
-    id: str
-    synopsis: str
-    genres: list
-    year: int
-    images: list
-    season_count: int
-    episode_count: int
-    people = []
+    title: str = None
+    id: str = None
+    synopsis: str = None
+    genres: list[str] = field(default_factory=list)
+    year: int = 1970
+    images: list = field(default_factory=list)
+    season_count: int = 0
+    episode_count: int = 0
+    people: list[Person] = field(default_factory=list)
     seasons: list[Season] = field(default_factory=list)
-    extracted = False
+    _partial = True
 
     def link_person(self, person: Person) -> None:
         if person not in self.actors:
