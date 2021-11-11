@@ -140,7 +140,17 @@ __defaults = {
         'redownload': False,
     },
     # Extractor options
-    'extractor': {},
+    'extractor': {
+        # Number of threads to be used in season extraction
+        'season_threads': 3,
+        # Number of threads to be used in episode extraction
+        # Maximum number of simultaneous episode extractions can be
+        # calculated using this formula:
+        # simulteneous_urls * season_threads * episode_threads
+        # So by default:
+        # 3 * 3 * 5 = 45 active threads assuming at least 3 URLs
+        'episode_threads': 5,
+    },
     'flags': []
 }
 
