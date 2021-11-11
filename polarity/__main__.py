@@ -26,15 +26,7 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        # vprint(lang['main']['exit_msg'], 1)
-        try:
-            vprint('safe exiting')
-            for proc in processes:
-                proc.terminate()
-        except KeyboardInterrupt:
-            vprint('unsafe exit')
-            for proc in processes:
-                proc.kill()
+        vprint(lang['main']['exit_msg'], 1)
         os._exit(0)
 
     except Exception:
