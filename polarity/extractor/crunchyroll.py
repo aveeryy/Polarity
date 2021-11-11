@@ -37,7 +37,7 @@ class CrunchyrollExtractor(BaseExtractor):
             'attrib': {
                 'choices': [
                     'all', 'none', 'en-US', 'es-ES', 'es-LA', 'fr-FR', 'pt-BR',
-                    'ar-ME', 'it-IT', 'de-DE', 'ru-RU'
+                    'ar-ME', 'it-IT', 'de-DE', 'ru-RU', 'tr-TR'
                 ],
                 'help':
                 lang['crunchyroll']['args']['subs'],
@@ -191,6 +191,11 @@ class CrunchyrollExtractor(BaseExtractor):
             'lang': 'rus',
             'name': 'Русский',
             'dub': r'\(Russian\)'
+        },
+        'tr-TR': {
+            'meta': '',
+            'lang': 'tur',
+            'name': 'Türkçe'
         },
         'ja-JP': {
             'meta': '',
