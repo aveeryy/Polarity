@@ -1,4 +1,6 @@
+import time
 import re
+from polarity.types.thread import Thread
 from typing import Union
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -12,7 +14,7 @@ from polarity.utils import (get_country_from_ip, is_content_id, order_dict,
                             vprint)
 
 from .base import (BaseExtractor, ExtractorError, InvalidURLError,
-                   check_episode, check_season)
+                   Subextractor, check_episode, check_season)
 
 
 class CrunchyrollExtractor(BaseExtractor):
@@ -519,7 +521,7 @@ class CrunchyrollExtractor(BaseExtractor):
             (lang['types']['alt']['series'], series_json['title'], series_id),
             1, 'crunchyroll')
 
-        self.info = Series(
+        self.info.set_metadata(
             title=series_json['title'],
             id=series_id,
             synopsis=series_json['description'],
@@ -611,7 +613,7 @@ class CrunchyrollExtractor(BaseExtractor):
             'number': season_json['season_number'],
         }
 
-        _season.set_metadata(metadata)
+        _season.set_metadata(**metadata)
 
         return _season
 
@@ -655,11 +657,10 @@ class CrunchyrollExtractor(BaseExtractor):
             _season = season if season is not None else self.season
             _season.episode_count = len(unparsed_list['items'])
 
-        episode_list = [
-            self._parse_episode_info(episode)
-            for episode in unparsed_list['items']
-        ]
-        return episode_list
+        for episode in unparsed_list['items']:
+            parsed_episode = self._parse_episode_info(episode)
+
+            yield parsed_episode
 
     @check_episode
     def get_episode_info(self,
@@ -813,6 +814,17 @@ class CrunchyrollExtractor(BaseExtractor):
 
         return streams
 
+    # Threading
+
+    def _threaded_season(self, season: Season) -> None:
+        if not any(s in ('all', season._crunchyroll_dub)
+                   for s in self.options['dub_language']):
+            return
+        self.get_season_info(season=season)
+        self.info.link_season(season=season)
+        for episode in self.get_episodes_from_season(season=season):
+            season.link_episode(episode=episode)
+
     def search(self, term=str):
         # TODO: search
         search_results = request_json(url=self.API_URL + 'content/v1/search',
@@ -828,8 +840,7 @@ class CrunchyrollExtractor(BaseExtractor):
                                       })
         print(search_results)
 
-    def extract(self, ):
-        self.extraction = True
+    def _true_extract(self, ):
         if not is_content_id(self.url):
             url_tuple = self.identify_url(url=self.url)
             url_type, media_id = url_tuple
@@ -881,14 +892,18 @@ class CrunchyrollExtractor(BaseExtractor):
                                             leave=False,
                                             head='extraction')
 
+            season_threads = []
+
             for season in self.get_seasons(series_id=series_guid):
-                if not any(s in ('all', season._crunchyroll_dub)
-                           for s in self.options['dub_language']):
-                    continue
-                self.get_season_info(season=season)
-                self.info.link_season(season=season)
-                for episode in self.get_episodes_from_season(season=season):
-                    season.link_episode(episode=episode)
+                _thread = Thread('__Subextractor',
+                                 daemon=True,
+                                 target=self._threaded_season,
+                                 kwargs={'season': season})
+                _thread.start()
+                season_threads.append(_thread)
+
+            while [t for t in season_threads if t.is_alive()]:
+                time.sleep(0.1)
 
             self.progress_bar.close()
 
@@ -919,5 +934,16 @@ class CrunchyrollExtractor(BaseExtractor):
             episode = self._parse_episode_info(episode_info=episode_info)
             # Link the episode with the season
             self.season.link_episode(episode=episode)
+        # Since extraction has finished, remove the partial flag
+        self.info._partial = False
 
+    def _extract(self) -> Series:
+        self.info = Series()
+        # Create a thread to execute the extraction function in the
+        # background
+        extractor = Thread('__Extraction_Executor', target=self._true_extract)
+        # Make the thread a child of current one
+        self.set_child(child=extractor)
+        extractor.start()
+        # Return a partial (Series) information object
         return self.info
