@@ -7,19 +7,19 @@ from typing import Union
 
 from polarity.config import config, lang, paths
 from polarity.extractor.flags import *
-from polarity.types import Episode, Season, Series
+from polarity.types import Episode, Season, Series, Movie
 from polarity.types.filter import MatchFilter, NumberFilter
-from polarity.types.process import Process
+from polarity.types.thread import Thread
 from polarity.types.progressbar import ProgressBar
 from polarity.utils import dict_merge, mkfile
 
 
-class BaseExtractor(Process):
+class BaseExtractor(Thread):
     def __init__(self,
                  url: str,
                  filter_list: list = None,
                  options: dict = None) -> None:
-        super().__init__(process_type='Extractor')
+        super().__init__(thread_type='Extractor', daemon=True)
 
         from polarity.config import options as user_options
 
@@ -58,6 +58,10 @@ class BaseExtractor(Process):
             # Parse the filter list
             self._parse_filters()
 
+    def extract(self) -> Union[Series, Movie]:
+        self.extraction = True
+        return self._extract()
+
     def _validate_extractor(self) -> bool:
         '''Check if extractor has all needed variables'''
         def check_variables(_vars: list):
@@ -73,7 +77,7 @@ class BaseExtractor(Process):
         if self.extractor_name == 'base':
             return
         # Check if extractor has all necessary variables
-        check_variables('HOST', 'ARGUMENTS', 'DEFAULTS', 'FLAGS')
+        check_variables('HOST', 'ARGUMENTS', 'DEFAULTS', 'FLAGS', '_extract')
 
         if AccountCapabilities in self.FLAGS:
             # Check if extractor has necessary login variables
@@ -175,19 +179,10 @@ class BaseExtractor(Process):
         to True
         '''
 
-        wait_proc = Process('__Bus_Waiter',
-                            daemon=True,
-                            target=self._subworkers_wait)
+        wait_proc = Thread('__Bus_Waiter',
+                           daemon=True,
+                           target=self._subworkers_wait)
         wait_proc.start()
-
-    def create_subextractor(
-        self,
-        target: object,
-    ) -> Process:
-        proc = Process('__Subextractor', daemon=True, target=target)
-        # Make process a children of current process
-        self.set_child(child=proc)
-        return proc
 
     def check_episode_by_title(self, episode: Episode) -> bool:
         '''Check if episode passes the title match filters'''
@@ -264,6 +259,12 @@ def check_episode(func) -> Episode:
                     **kwargs)
 
     return wrapper
+
+
+class Subextractor(Thread):
+    def __init__(self, func: object, arg_name: str, pool: list,
+                 output: Season) -> None:
+        super().__init__(thread_type='__Subextractor', daemon=True)
 
 
 class ExtractorError(Exception):
