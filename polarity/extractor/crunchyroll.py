@@ -4,6 +4,7 @@ from polarity.types.thread import Thread
 from typing import Union
 from urllib.parse import urlparse
 from uuid import uuid4
+from queue import Queue
 
 from polarity.config import lang
 from polarity.extractor.flags import *
@@ -192,10 +193,7 @@ class CrunchyrollExtractor(BaseExtractor):
                  filter_list: list = None,
                  options: dict = None) -> None:
         super().__init__(url, filter_list=filter_list, options=options)
-        self.spoofed_region = False
         self.proxy = {}
-        if self.options['region_spoof'] not in ('none', None):
-            self.region_spoof(region_code=self.options['region_spoof'])
         self.get_bearer_token()
         self.get_cms_tokens()
 
@@ -415,14 +413,7 @@ class CrunchyrollExtractor(BaseExtractor):
         self.account_info['madurity'] = bucket_match.group('madurity')
         self.account_info['bucket'] = token_req['cms']['bucket']
         self.CMS_API_URL = f'{self.API_URL}cms/v2{self.account_info["bucket"]}'
-        if self.spoofed_region:
-            if self.spoofed_country == bucket_match.group('country'):
-                vprint(
-                    self.extractor_lang['spoof_region_success'] %
-                    self.spoofed_country, 2, 'crunchyroll')
-            else:
-                vprint(self.extractor_lang['spoof_region_fail'], 2,
-                       'crunchyroll', 'error')
+
         return {
             'policy': self.account_info['policy'],
             'signature': self.account_info['signature'],
@@ -490,7 +481,7 @@ class CrunchyrollExtractor(BaseExtractor):
             url=self.CMS_API_URL + '/series/' + series_id,
             headers={'Authorization': self.account_info['bearer']},
             params={
-                'locale': self.options['meta_language'],
+                'locale': self.options['crunchyroll']['meta_language'],
                 'Signature': self.account_info['signature'],
                 'Policy': self.account_info['policy'],
                 'Key-Pair-Id': self.account_info['key_pair_id']
@@ -524,19 +515,15 @@ class CrunchyrollExtractor(BaseExtractor):
 
         season_list = []
         vprint(lang['extractor']['get_all_seasons'], 2, 'crunchyroll')
-        api_season_list = request_json(self.CMS_API_URL + '/seasons',
-                                       params={
-                                           'series_id':
-                                           series_id,
-                                           'locale':
-                                           self.options['meta_language'],
-                                           'Signature':
-                                           self.account_info['signature'],
-                                           'Policy':
-                                           self.account_info['policy'],
-                                           'Key-Pair-Id':
-                                           self.account_info['key_pair_id']
-                                       })[0]
+        api_season_list = request_json(
+            self.CMS_API_URL + '/seasons',
+            params={
+                'series_id': series_id,
+                'locale': self.options['crunchyroll']['meta_language'],
+                'Signature': self.account_info['signature'],
+                'Policy': self.account_info['policy'],
+                'Key-Pair-Id': self.account_info['key_pair_id']
+            })[0]
 
         for season in api_season_list['items']:
             # Get dub language from the title using regex
@@ -579,7 +566,7 @@ class CrunchyrollExtractor(BaseExtractor):
             self.CMS_API_URL + '/seasons/' + _season_id,
             headers={'Authorization': self.account_info['bearer']},
             params={
-                'locale': self.options['meta_language'],
+                'locale': self.options['crunchyroll']['meta_language'],
                 'Signature': self.account_info['signature'],
                 'Policy': self.account_info['policy'],
                 'Key-Pair-Id': self.account_info['key_pair_id']
@@ -616,22 +603,24 @@ class CrunchyrollExtractor(BaseExtractor):
         :return: Returns a Full Episode object (with streams) if
         return_raw_info is False, else returns unparsed JSON dict
         '''
+        def worker(pool: list, out: Queue) -> Episode:
+            while pool:
+                item = pool.pop()
+                parsed_episode = self._parse_episode_info(item)
+                out.put(parsed_episode)
+
         identifier = season_id if season_id is not None else season.id
         if identifier is None:
             raise ExtractorError('No indentifier inputted')
-        unparsed_list = request_json(self.CMS_API_URL + '/episodes',
-                                     params={
-                                         'season_id':
-                                         identifier,
-                                         'locale':
-                                         self.options['meta_language'],
-                                         'Signature':
-                                         self.account_info['signature'],
-                                         'Policy':
-                                         self.account_info['policy'],
-                                         'Key-Pair-Id':
-                                         self.account_info['key_pair_id']
-                                     })[0]
+        unparsed_list = request_json(
+            self.CMS_API_URL + '/episodes',
+            params={
+                'season_id': identifier,
+                'locale': self.options['crunchyroll']['meta_language'],
+                'Signature': self.account_info['signature'],
+                'Policy': self.account_info['policy'],
+                'Key-Pair-Id': self.account_info['key_pair_id']
+            })[0]
         if return_raw_info:
             return unparsed_list
 
@@ -640,10 +629,35 @@ class CrunchyrollExtractor(BaseExtractor):
             _season = season if season is not None else self.season
             _season.episode_count = len(unparsed_list['items'])
 
-        for episode in unparsed_list['items']:
-            parsed_episode = self._parse_episode_info(episode)
+        # Reverse the list so last episodes do not come first
+        unparsed_list['items'].reverse()
 
-            yield parsed_episode
+        episode_threads = []
+        parsed_episodes = Queue()
+
+        for i in range(self.options['episode_threads']):
+            _thread = Thread('__Episode_extractor',
+                             daemon=True,
+                             target=worker,
+                             name=f'EpisodeThread{i}',
+                             kwargs={
+                                 'pool': unparsed_list['items'],
+                                 'out': parsed_episodes
+                             })
+            _thread.start()
+            episode_threads.append(_thread)
+
+        while True:
+            if not [t for t in episode_threads if t.is_alive()
+                    ] and not parsed_episodes.queue:
+                break
+            while True:
+                if not parsed_episodes.queue:
+                    break
+                episode = parsed_episodes.get()
+                if hasattr(self, 'progress_bar'):
+                    self.progress_bar.update()
+                yield episode
 
     @check_episode
     def get_episode_info(self,
@@ -669,7 +683,7 @@ class CrunchyrollExtractor(BaseExtractor):
             self.CMS_API_URL + '/episodes/' + _episode_id,
             headers={'Authorization': self.account_info['bearer']},
             params={
-                'locale': self.options['meta_language'],
+                'locale': self.options['crunchyroll']['meta_language'],
                 'Signature': self.account_info['signature'],
                 'Policy': self.account_info['policy'],
                 'Key-Pair-Id': self.account_info['key_pair_id']
@@ -747,15 +761,17 @@ class CrunchyrollExtractor(BaseExtractor):
 
         streams_json = request_json(url=playback)[0]
         # Case 1: Disabled hardsubs or desired hardsub language does not exist
-        if self.options['hardsub_language'] == 'none' or self.options[
-                'hardsub_language'] not in streams_json['streams'][
-                    'adaptive_hls']:
+        if self.options['crunchyroll'][
+                'hardsub_language'] == 'none' or self.options['crunchyroll'][
+                    'hardsub_language'] not in streams_json['streams'][
+                        'adaptive_hls']:
             is_preferred = 'ja-JP'
         # Case 2: Desired hardsub language exists
-        elif self.options['hardsub_language'] in streams_json['streams'][
-                'adaptive_hls']:
+        elif self.options['crunchyroll']['hardsub_language'] in streams_json[
+                'streams']['adaptive_hls']:
             is_preferred = streams_json['streams']['adaptive_hls'][
-                self.options['hardsub_language']]['hardsub_locale']
+                self.options['crunchyroll']
+                ['hardsub_language']]['hardsub_locale']
 
         for stream in streams_json['streams']['adaptive_hls'].values():
             if stream['hardsub_locale'] == '':
@@ -782,8 +798,8 @@ class CrunchyrollExtractor(BaseExtractor):
                 url=s['url'],
                 name=self.LANG_CODES[s['locale']]['name'],
                 language=self.LANG_CODES[s['locale']]['lang'],
-                preferred='all' in self.options['sub_language']
-                or s in self.options['sub_language'],
+                preferred='all' in self.options['crunchyroll']['sub_language']
+                or s in self.options['crunchyroll']['sub_language'],
             ) for s in order_dict(to_order=streams_json['subtitles'],
                                   order_definer=self.LANG_CODES).values()
         ]
@@ -792,8 +808,6 @@ class CrunchyrollExtractor(BaseExtractor):
             streams.append(subtitle)
 
         # TODO : remove
-        if hasattr(self, 'progress_bar'):
-            self.progress_bar.update(1)
 
         return streams
 
@@ -801,7 +815,7 @@ class CrunchyrollExtractor(BaseExtractor):
 
     def _threaded_season(self, season: Season) -> None:
         if not any(s in ('all', season._crunchyroll_dub)
-                   for s in self.options['dub_language']):
+                   for s in self.options['crunchyroll']['dub_language']):
             return
         self.get_season_info(season=season)
         self.info.link_season(season=season)
@@ -810,17 +824,16 @@ class CrunchyrollExtractor(BaseExtractor):
 
     def search(self, term=str):
         # TODO: search
-        search_results = request_json(url=self.API_URL + 'content/v1/search',
-                                      headers={
-                                          'Authorization':
-                                          self.account_info['bearer'],
-                                      },
-                                      params={
-                                          'q': term,
-                                          'n': 30,
-                                          'locale':
-                                          self.options['meta_language']
-                                      })
+        search_results = request_json(
+            url=self.API_URL + 'content/v1/search',
+            headers={
+                'Authorization': self.account_info['bearer'],
+            },
+            params={
+                'q': term,
+                'n': 30,
+                'locale': self.options['crunchyroll']['meta_language']
+            })
         print(search_results)
 
     def _true_extract(self, ):
@@ -831,11 +844,6 @@ class CrunchyrollExtractor(BaseExtractor):
             parsed = parse_content_id(id=self.url)
             url_type = parsed.content_type
             media_id = parsed.id
-
-        # if self.options['region_spoof'] not in ('none', None):
-        #     self.region_spoof(region_code=self.options['region_spoof'])
-
-        # self.get_cms_tokens()
 
         if url_type == Series:
             # Posible series cases:
