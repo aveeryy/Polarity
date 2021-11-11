@@ -26,9 +26,6 @@ class CrunchyrollExtractor(BaseExtractor):
         'dub_language': ['all'],
         'meta_language': 'en-US',
         'hardsub_language': 'none',
-        'region_spoof': 'none',
-        'use_alt_bearer': False,
-        'alt_bearer_server': ''
     }
 
     ARGUMENTS = [
@@ -90,21 +87,6 @@ class CrunchyrollExtractor(BaseExtractor):
                 'help': lang['crunchyroll']['args']['region']
             },
             'variable': 'region_spoof'
-        },
-        {
-            'args': ['--crunchyroll-use-alt-bearer-server'],
-            'attrib': {
-                'action': 'store_true',
-                'help': lang['crunchyroll']['args']['use_alt_bearer']
-            },
-            'variable': 'use_alt_bearer'
-        },
-        {
-            'args': ['--crunchyroll-alt-bearer-server'],
-            'attrib': {
-                'help': lang['crunchyroll']['args']['alt_bearer_server']
-            },
-            'variable': 'alt_bearer_server'
         },
         {
             'args': ['--crunchyroll-email'],
@@ -204,10 +186,6 @@ class CrunchyrollExtractor(BaseExtractor):
             'dub': r'[^()]'
         },
     }
-
-    @classmethod
-    def return_class(self):
-        return __class__.__name__
 
     def __init__(self,
                  url: str,
