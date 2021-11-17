@@ -74,8 +74,9 @@ class Polarity:
         # Actual start-up
         if options['mode'] == 'download':
             if not stats['pool']:
-                vprint(lang['main']['no_tasks'], error_level='error')
-                vprint(USAGE, module_name='polarity/usage')
+                vprint(lang['main']['no_tasks'], level=2, error_level='error')
+                print(f"{lang['polarity']['use']}{USAGE}\n")
+                print(lang['polarity']['use_help'])
                 os._exit(1)
             self.pool = [{'url': url, 'filters': []} for url in stats['pool']]
 
@@ -85,6 +86,7 @@ class Polarity:
                 w = Worker(self.pool, worker_id=i)
                 workers.append(w)
                 w.start()
+
             # Wait until workers finish
             while [w for w in workers if w.is_alive()]:
                 time.sleep(0.1)
@@ -119,6 +121,7 @@ class Polarity:
             vprint('Enabled dumping of HTTP requests', error_level='debug')
             polarity.utils.dump_requests = True
 
+    @classmethod
     def process_filters(self, filters: str, link=True) -> list[Filter]:
         'Create Filter objects from a string and link them to their respective links'
         filter_list = []
