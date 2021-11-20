@@ -26,3 +26,9 @@ class ProgressBar(tqdm.tqdm):
         if self.closed_bar:
             return
         super().update(n=n)
+
+    def close(self):
+        if self.closed_bar:
+            return
+        self.closed_bar = True
+        return super().close()
