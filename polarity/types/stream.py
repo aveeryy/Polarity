@@ -32,7 +32,7 @@ class Stream(MediaType, metaclass=MetaMediaType):
     name: dict
     language: dict
     id: str = None
-    key: dict = None
+    key: dict[str, ContentKey] = None
     content_type: str = None
     extra_audio = False
     extra_sub = False
