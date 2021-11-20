@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from polarity.types.base import MediaType
+from polarity.types.base import MediaType, MetaMediaType
 
 @dataclass
-class Person(MediaType):
+class Person(MediaType, metaclass=MetaMediaType):
     name: str
     gender: str
     image: str

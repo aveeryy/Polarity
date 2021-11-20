@@ -1,8 +1,8 @@
-from .base import MediaType
+from polarity.types.base import MediaType, MetaMediaType
 from dataclasses import dataclass
 
 @dataclass
-class ContentKey(MediaType):
+class ContentKey(MediaType, metaclass=MetaMediaType):
     '''
     Available key methods:
     
@@ -14,7 +14,7 @@ class ContentKey(MediaType):
     method: str
 
 @dataclass
-class Stream(MediaType):
+class Stream(MediaType, metaclass=MetaMediaType):
     '''
     ### Stream guidelines:
     - Languages' names must be the actual name in that language
@@ -39,7 +39,7 @@ class Stream(MediaType):
 
 
 @dataclass   
-class Segment(MediaType):
+class Segment(MediaType, metaclass=MetaMediaType):
     url: str
     number: int
     media_type: type
@@ -52,7 +52,7 @@ class Segment(MediaType):
     _finished = False
         
 @dataclass
-class SegmentPool(MediaType):
+class SegmentPool(MediaType, metaclass=MetaMediaType):
     segments: list
     format: str
     id: str

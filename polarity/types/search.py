@@ -1,8 +1,8 @@
-from polarity.types.base import MediaType
+from polarity.types.base import MediaType, MetaMediaType
 from dataclasses import dataclass
 
 @dataclass
-class SearchResult(MediaType):
+class SearchResult(MediaType, metaclass=MetaMediaType):
     name: str
     type: str
     id: str

@@ -183,7 +183,7 @@ def build_filter(params: str, filter: str) -> None:
     filter_object = types[filter_type]['obj']
     defaults = types[filter_type]['params']
     # Create the final Filter object
-    filter = filter_object(
+    _filter = filter_object(
         filter=filter,
         # Merge the filter defaults with passed parameters
         **{
@@ -191,4 +191,4 @@ def build_filter(params: str, filter: str) -> None:
             **parameters
         })
 
-    return (filter, filter_object)
+    return (_filter, filter_object)

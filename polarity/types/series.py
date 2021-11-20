@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 
-from polarity.types.base import MediaType
+from polarity.types.base import MediaType, MetaMediaType, MetaMediaType
 from polarity.types.episode import Episode
 from polarity.types.person import Actor, Person
 from polarity.types.season import Season
 
 
 @dataclass
-class Series(MediaType):
+class Series(MediaType, metaclass=MetaMediaType):
     title: str = None
     id: str = None
     synopsis: str = None
@@ -34,5 +34,11 @@ class Series(MediaType):
         if match:
             return match[0]
 
-    def get_all_episodes(self) -> list[Episode]:
+    def get_all_episodes(self, pop=False) -> list[Episode]:
+        '''
+        :param pop: Removes episodes from the lists
+        :returns: List with extracted episodes
+        '''
+        if pop:
+            return [s.episodes.pop(0) for s in self.seasons for _ in s.episodes]
         return [e for s in self.seasons for e in s.episodes]

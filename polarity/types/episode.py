@@ -1,21 +1,22 @@
-from .stream import Stream
-from .base import MediaType
-
 from dataclasses import dataclass, field
 
+from polarity.types.base import MediaType, MetaMediaType
+
+from polarity.types.stream import Stream
+
+
 @dataclass
-class Episode(MediaType):
-    # TODO: finish this
+class Episode(MediaType, metaclass=MetaMediaType):
     title: str
     id: str
     synopsis: str = ''
     number: int = 0
     images: list = field(default_factory=list)
     streams: list[Stream] = field(default_factory=list)
-    movie: bool = False
-    year: int = 1970  # Only used in movies
     _parent = None
     _partial = True
+    _unwanted = False
+    skip_download = None
 
     def link_stream(self, stream=Stream) -> None:
         if not stream in self.streams:
@@ -39,3 +40,13 @@ class Episode(MediaType):
     
     def get_extra_subs(self) -> list:
         return [s for s in self.streams if s.extra_sub]
+
+    def convert_to_movie(self):
+        from polarity.types.movie import Movie
+        return Movie(
+            title=self.title,
+            id=self.id,
+            synopsis=self.synopsis,
+            images=self.images,
+            streams=self.streams
+        )
