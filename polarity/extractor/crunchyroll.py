@@ -224,8 +224,9 @@ class CrunchyrollExtractor(BaseExtractor):
 
         if url_id is not None and url_id.isdigit():
             # URL is a legacy one, get the new identifier
-            return self._get_etp_guid(
-                **{f'{url_type.__name__.lower()}_id': url_id})
+            return (url_type,
+                    self._get_etp_guid(
+                        **{f'{url_type.__name__.lower()}_id': url_id}))
 
         if url_type == Series:
             if url_id is None:
@@ -889,8 +890,11 @@ class CrunchyrollExtractor(BaseExtractor):
             # Parse the raw episode info
             # Reusing the info fetched from the get_identifier function
             # since there's no point in doing it again
-            episode = self._parse_episode_info(
-                episode_info=self.__episode_info)
+            if hasattr(self, '__episode_info'):
+                episode = self._parse_episode_info(
+                    episode_info=self.__episode_info)
+            else:
+                episode = self.get_episode_info(episode_id=url_ids[Episode])
             # Link the episode with the season
             self.season.link_episode(episode=episode)
         # Since extraction has finished, remove the partial flag
