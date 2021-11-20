@@ -19,6 +19,7 @@ class Series(MediaType, metaclass=MetaMediaType):
     people: list[Person] = field(default_factory=list)
     seasons: list[Season] = field(default_factory=list)
     _partial = True
+    _extracted = False
 
     def link_person(self, person: Person) -> None:
         if person not in self.actors:
