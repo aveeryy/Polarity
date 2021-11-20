@@ -460,10 +460,9 @@ def get_compatible_extractor(url: str) -> Union[tuple[str, object], None]:
     from polarity.extractor import EXTRACTORS
     if not is_content_id(text=url):
         url_host = urlparse(url).netloc
-        extractor = [
-            extractor for extractor in EXTRACTORS.values()
-            if re.match(extractor[2], url_host)
-        ]
+        extractor = [(name, extractor)
+                     for name, extractor in EXTRACTORS.items()
+                     if re.match(extractor.HOST, url_host)]
         if not extractor:
             return
         # Return (name, object)
