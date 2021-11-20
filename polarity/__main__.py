@@ -1,11 +1,12 @@
 import os
 import sys
+import time
 import traceback
 import pretty_errors
 
 from platform import system, version, python_version
 
-from polarity.config import lang, paths, urls, processes
+from polarity.config import lang, paths, urls, processes, progress_bars
 from polarity.Polarity import Polarity
 from polarity.utils import vprint, filename_datetime
 from polarity.version import __version__
@@ -26,6 +27,9 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
+        for bar in progress_bars:
+            bar.close()
+            time.sleep(0.2)
         vprint(lang['main']['exit_msg'], 1)
         os._exit(0)
 
