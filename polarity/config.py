@@ -109,14 +109,10 @@ __defaults = {
     'check_for_updates': False,
     # Automatically update language files
     'auto_update_languages': True,
-    # Simultaneous URLs to process
-    'simultaneous_urls': 3,
     # Download options
     'download': {
-        # Maximum of downloads per URL
-        # Total maximum downloads is calculated by a simple formula:
-        # simultaneous_urls * downloads_per_url
-        'downloads_per_url': 3,
+        # Maximum active downloads
+        'active_downloads': 5,
         # Output directory for series
         'series_directory': f'{__download_path}{"Series/"}'.replace("\\", "/"),
         # Output directory for movies
@@ -134,19 +130,20 @@ __defaults = {
         # Default format: Movie title (Year)
         'movie_format': '{E} ({Y})',
         # Desired video resolution, number must be height
-        # Non standard values are also accepted
+        # If resolution is not available, gets the closest value
         'resolution': 4320,
         # Allow downloading previously downloaded episodes
         'redownload': False,
     },
     # Extractor options
     'extractor': {
+        'active_extractions': 5,
         # Number of threads to be used in season extraction
         'season_threads': 3,
-        # Number of threads to be used in episode extraction
+        # Number of threads to be used in episode extraction of a season
         # Maximum number of simultaneous episode extractions can be
         # calculated using this formula:
-        # simulteneous_urls * season_threads * episode_threads
+        # active_extractions * season_threads * episode_threads
         # So by default:
         # 3 * 3 * 5 = 45 active threads assuming at least 3 URLs
         'episode_threads': 5,
@@ -256,15 +253,15 @@ __internal_lang = {
     },
     'dl': {
         'cannot_download_content': '%s "%s" can\'t be downloaded: %s',
-        'download_id': 'download id',
+        'content_id': 'content id',
         'download_successful': 'Downloaded %s "%s"',
         'downloading_content': 'Downloading %s "%s"',
         'fail_to_delete': "failed to delete old file",
         'fail_to_move': "failed to move file to download directory",
         'redownload_enabled': 'deleting old file',
-        'no_extractor_available': 'skipping %s "%s". no extractor',
+        'no_extractor': 'skipping %s "%s". no extractor',
         'no_redownload': 'skipping %s "%s". already downloaded',
-        'url': 'URL'
+        'url': 'url'
     },
     'penguin': {
         'doing_binary_concat': 'Doing binary segment concat on track %s of %s',
