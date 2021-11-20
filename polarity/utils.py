@@ -12,13 +12,13 @@ from json.decoder import JSONDecodeError
 from shutil import which
 from sys import platform
 from time import time
+from typing import Union
 from urllib.parse import urlparse
 from xml.parsers.expat import ExpatError
 
 import cloudscraper
 import colorama
 import requests
-import toml
 import xmltodict
 from requests.models import Response
 from tqdm import tqdm
@@ -378,12 +378,15 @@ def parse_content_id(id: str) -> ContentIdentifier:
     >>> a.id
         '320430'
     '''
+    from polarity.types import str_to_type
     if not is_content_id(id):
         vprint('Failed to parse content identifier', 1,
                'utils/parse_content_id', 'error')
         return
     parsed_id = re.match(content_id_regex, id)
-    return ContentIdentifier(*parsed_id.groups())
+    extractor, media_type, _id = parsed_id.groups()
+    media_type = str_to_type(media_type)
+    return ContentIdentifier(extractor, media_type, _id)
 
 
 ###################
@@ -452,7 +455,7 @@ def get_country_from_ip() -> str:
 ################
 
 
-def get_compatible_extractor(url: str) -> tuple[str, object]:
+def get_compatible_extractor(url: str) -> Union[tuple[str, object], None]:
     'Returns a compatible extractor for the inputted url, if exists'
     from polarity.extractor import EXTRACTORS
     if not is_content_id(text=url):
@@ -462,14 +465,14 @@ def get_compatible_extractor(url: str) -> tuple[str, object]:
             if re.match(extractor[2], url_host)
         ]
         if not extractor:
-            return (None, None)
+            return
         # Return (name, object)
         return (extractor[0][0], extractor[0][1])
     else:
         parsed_id = parse_content_id(id=url)
         extractor_name = parsed_id.extractor
         if not extractor_name in EXTRACTORS:
-            return (None, None)
+            return
         return (EXTRACTORS[extractor_name][0], EXTRACTORS[extractor_name][1])
 
 
