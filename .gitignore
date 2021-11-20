@@ -141,13 +141,7 @@ download_fragment.py
 extract.py
 out.txt
 ffmpeg.zip
+namefiltercheck.py
 
 # Unfinished stuff
-polarity/extractor/crunchy.py
-windows-install.py
-
-# API
-polar-api.py
-fastapi_server.py
-.vscode/launch.json
-.vscode/settings.json
+naming_standards.md
