@@ -3,23 +3,27 @@ import os
 import re
 import time
 import warnings
+from threading import Lock
+from typing import Union
 
 from tqdm import TqdmWarning
 
-import polarity.config
 import polarity.utils
-from polarity.config import (USAGE, ConfigError, config, lang, options, paths,
-                             verbose_level, change_verbose_level)
+from polarity.config import (USAGE, ConfigError, change_verbose_level, lang,
+                             options, paths, verbose_level)
+from polarity.types import Episode, Movie, Season, Series
+from polarity.types.thread import Thread
 from polarity.types.filter import Filter, build_filter
 from polarity.types.search import SearchResult
-from polarity.types.worker import Worker
-from polarity.update import check_for_updates, language_install, windows_install
-from polarity.utils import dict_merge, filename_datetime, vprint
+from polarity.update import (check_for_updates, language_install,
+                             windows_install)
+from polarity.utils import (dict_merge, filename_datetime,
+                            get_compatible_extractor, is_content_id,
+                            normalize_integer, sanitize_path, thread_vprint,
+                            vprint)
 
-stats = {
-    'pool': None,
-    'processes': None,
-}
+# ~TEMP~
+from polarity.downloader import PenguinDownloader
 
 warnings.filterwarnings('ignore', category=TqdmWarning)
 
@@ -34,7 +38,14 @@ class Polarity:
         :param _verbose_level: override print verbose lvl
         :param _logging_level: override log verbose lvl
         '''
-        stats['pool'] = urls
+        self.status = {
+            'pool': urls,
+            'extraction': {
+                'finished': False,
+                'tasks': []
+            }
+        }
+        self.status['pool'] = urls
         if opts is not None:
             # Merge user's script options with processed options
             dict_merge(options, opts)
@@ -49,6 +60,10 @@ class Polarity:
                 0, 6) or verbose_level['log'] not in range(0, 6):
             raise ConfigError(lang['polarity']['except']['verbose_error'] %
                               verbose_level)
+
+        self.__extract_lock = Lock()
+        self.__print_lock = Lock()
+        self.download_pool = []
 
     def start(self):
         # Pre-start functions
@@ -73,25 +88,45 @@ class Polarity:
 
         # Actual start-up
         if options['mode'] == 'download':
-            if not stats['pool']:
+            if not self.status['pool']:
                 vprint(lang['main']['no_tasks'], level=2, error_level='error')
                 print(f"{lang['polarity']['use']}{USAGE}\n")
                 print(lang['polarity']['use_help'])
                 os._exit(1)
-            self.pool = [{'url': url, 'filters': []} for url in stats['pool']]
+            self.pool = [{
+                'url': url,
+                'filters': [],
+                'reserved': False
+            } for url in self.status['pool']]
 
             workers = []
+            _workers = []
+            if options['extractor']['active_extractions'] > len(self.pool):
+                options['extractor']['active_extractions'] = len(self.pool)
             # Create worker processes
-            for i in range(options['simultaneous_urls']):
-                w = Worker(self.pool, worker_id=i)
-                workers.append(w)
+            for _ in range(options['extractor']['active_extractions']):
+                w = Thread('Extractor_Worker',
+                           target=self._extract_task,
+                           daemon=True)
                 w.start()
+                workers.append(w)
+            for _ in range(options['download']['active_downloads']):
+                w = Thread('Download_Worker',
+                           target=self._download_task,
+                           daemon=True)
+                w.start()
+                _workers.append(w)
 
             # Wait until workers finish
-            while [w for w in workers if w.is_alive()]:
+            while True:
+                if not [w for w in workers if w.is_alive()]:
+                    self.status['extraction']['finished'] = True
+                    if not [w for w in _workers if w.is_alive()]:
+                        break
                 time.sleep(0.1)
                 continue
             vprint(lang['polarity']['all_tasks_finished'])
+
         if options['mode'] == 'search':
             search_string = ' '.join(self.pool)
 
@@ -174,3 +209,144 @@ class Polarity:
                 skip_next_item = True
                 indexed += 2
         return filter_list
+
+    def _extract_task(self, ) -> None:
+        def take_item() -> Union[dict, None]:
+            with self.__extract_lock:
+                available = [i for i in self.pool if not i['reserved']]
+                if not available:
+                    return
+                item = available[0]
+                self.pool[self.pool.index(item)]['reserved'] = True
+            return item
+
+        while True:
+            item = take_item()
+            if item is None:
+                vprint('~TEMP~ extraction tasks finished')
+                break
+            _extractor = get_compatible_extractor(url=item['url'])
+            if _extractor is None:
+                vprint(lang['dl']['no_extractor'] %
+                       lang['dl']['url'] if not is_content_id(item['url']) else
+                       lang['dl']['content_id'])
+                continue
+            name, extractor = _extractor
+            extracted_info = extractor(item['url'], item['filters']).extract()
+
+            if type(extracted_info) is Series:
+                while True:
+                    episodes = extracted_info.get_all_episodes(pop=True)
+                    if not episodes and extracted_info._extracted:
+                        # No more episodes to add to download list
+                        # and extractor finish, end loop
+                        break
+                    for episode in episodes:
+                        if type(episode) is Episode:
+                            media = (extracted_info, episode._parent, episode)
+                        elif type(episode) is Movie:
+                            media = Episode
+                        media_object = self._format_filenames(media, name)
+                        self.download_pool.append(media_object)
+            elif type(extracted_info) is Movie:
+                while not extracted_info._extracted:
+                    time.sleep(0.1)
+                media_object = self._format_filenames(extracted_info, name)
+                self.download_pool.append(media_object)
+            print(self.download_pool)
+
+    def _download_task(self) -> None:
+        while True:
+            if not self.download_pool and self.status['extraction']['finished']:
+
+                break
+            elif not self.download_pool:
+                time.sleep(1)
+                continue
+            # Take an item from the download pool
+            item = self.download_pool.pop(0)
+            if item.skip_download is not None:
+                thread_vprint(
+                    lang['dl']['cannot_download_content'] %
+                    type(item).__name__, item.short_name, item)
+            # ~TEMP~ Set the downloader to Penguin
+            _downloader = PenguinDownloader
+
+            downloader = _downloader(stream=item.get_preferred_stream(),
+                                     short_name=item.short_name,
+                                     media_id=item.id,
+                                     extra_audio=item.get_extra_audio(),
+                                     extra_subs=item.get_extra_subs(),
+                                     output=item.output)
+
+            downloader.start()
+
+    @staticmethod
+    def _format_filenames(media_obj: Union[tuple[Series, Season, Episode],
+                                           Movie],
+                          extractor: str) -> Union[Series, Movie]:
+        if type(media_obj) is tuple:
+            series_dir = options['download']['series_format'].format(
+                # Extractor's name
+                W=extractor,
+                # Series' title
+                S=media_obj[0].title,
+                # Series' identifier
+                i=media_obj[0].id,
+                # Series' year
+                y=media_obj[0].year)
+            season_dir = options['download']['season_format'].format(
+                # Extractor's name
+                W=extractor,
+                # Series' title
+                S=media_obj[0].title,
+                # Season's title
+                s=media_obj[1].title,
+                # Season's identifier
+                i=media_obj[1].id,
+                # Season's number with trailing 0 if < 10
+                sn=normalize_integer(media_obj[1].number),
+                # Season's number
+                Sn=media_obj[1].number)
+            output_filename = options['download']['episode_format'].format(
+                # Extractor's name
+                W=extractor,
+                # Series' title
+                S=media_obj[0].title,
+                # Season's title
+                s=media_obj[1].title,
+                # Episode's title
+                E=media_obj[2].title,
+                # Episode's identifier
+                i=media_obj[2].id,
+                # Season's number with trailing 0 if < 10
+                sn=normalize_integer(media_obj[1].number),
+                # Season's number
+                Sn=media_obj[1].number,
+                # Episode's number with trailing 0 if < 10
+                en=normalize_integer(media_obj[2].number),
+                # Episode's number
+                En=media_obj[2].number)
+            output_path = os.path.join(options['download']['series_directory'],
+                                       series_dir, season_dir, output_filename)
+            # Not using f-strings for readibility
+            media_obj[2].short_name = '%s S%sE%s' % (
+                media_obj[0].title, normalize_integer(media_obj[1].number),
+                normalize_integer(media_obj[2].number))
+            media_obj[2].output = sanitize_path(output_path)
+            return media_obj[2]
+        if type(media_obj) is Movie:
+            output_filename = options['download']['movie_format'].format(
+                # Extractor's name
+                W=extractor,
+                # Movie's title
+                E=media_obj.title,
+                # Movie's identifier
+                i=media_obj.id,
+                # Movie's year
+                Y=media_obj.year)
+            output_path = os.path.join(options['download']['movie_directory'],
+                                       output_filename)
+            media_obj.short_name = f'{media_obj.title} ({media_obj.year})'
+            media_obj.output = sanitize_path(output_path)
+            return media_obj
