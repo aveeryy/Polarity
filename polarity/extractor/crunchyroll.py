@@ -1,21 +1,20 @@
-import time
 import re
-from polarity.types.thread import Thread
+import time
+from queue import Queue
 from typing import Union
 from urllib.parse import urlparse
-from uuid import uuid4
-from queue import Queue
 
 from polarity.config import lang
+from polarity.extractor.base import (BaseExtractor, ExtractorError,
+                                     InvalidURLError, check_episode,
+                                     check_season)
 from polarity.extractor.flags import *
 from polarity.types import Episode, Season, Series, Stream
+from polarity.types.base import MediaType
 from polarity.types.progressbar import ProgressBar
-from polarity.utils import (get_country_from_ip, is_content_id, order_dict,
-                            parse_content_id, request_json, request_webpage,
-                            vprint)
-
-from .base import (BaseExtractor, ExtractorError, InvalidURLError,
-                   Subextractor, check_episode, check_season)
+from polarity.types.thread import Thread
+from polarity.utils import (is_content_id, order_dict, parse_content_id,
+                            request_json, request_webpage, vprint)
 
 
 class CrunchyrollExtractor(BaseExtractor):
@@ -196,9 +195,12 @@ class CrunchyrollExtractor(BaseExtractor):
         self.proxy = {}
         self.get_bearer_token()
         self.get_cms_tokens()
+        # Since there are no individual movies in Crunchyroll, set
+        # information variable to a Series object
+        self.info = Series()
 
     @staticmethod
-    def check_for_error(contents=dict, error_msg=None) -> bool:
+    def check_for_error(contents: dict, error_msg: str = None) -> bool:
         if 'error' in contents and contents['error']:
             vprint(message=error_msg,
                    module_name='crunchyroll',
@@ -206,16 +208,68 @@ class CrunchyrollExtractor(BaseExtractor):
             return True
         return False
 
+    def identify_url(self, url: str) -> tuple[MediaType, dict[MediaType, str]]:
+        '''
+        Returns a tuple with the url type and a dict with raw content
+        identifiers related to that url
+        '''
+        # TODO: support for season content identifiers
+        series_id = season_id = episode_id = None
+        if not is_content_id(url):
+            url_type, url_id = self._get_url_type(url=url)
+        else:
+            parsed = parse_content_id(url)
+            url_type = parsed.content_type
+            url_id = parsed.id
+
+        if url_id is not None and url_id.isdigit():
+            # URL is a legacy one, get the new identifier
+            return self._get_etp_guid(
+                **{f'{url_type.__name__.lower()}_id': url_id})
+
+        if url_type == Series:
+            if url_id is None:
+                # Request the series' webpage and get id from page's source
+                series_page = request_webpage(self.url, cookies=self.cjar)
+
+                # Raise an Invalid URL error if page doesn't exist
+                if series_page.status_code == 404:
+                    raise InvalidURLError
+
+                series_content = series_page.content.decode()
+                _series_id = re.search(
+                    pattern=r'ass="show-actions" group_id="(?P<id>\d{5,})"',
+                    string=series_content).group(1)
+
+                # Get series GUID from the ID
+                series_id = self._get_etp_guid(series_id=_series_id)[Series]
+            else:
+                series_id = url_id
+        elif url_type == Episode:
+            # Get raw episode info
+            self.__episode_info = self.get_episode_info(episode_id=url_id,
+                                                        return_raw_info=True)
+            # Get series and season's guid using regex
+            series_id = re.search(
+                r'/(\w+)$', self.__episode_info['__links__']['episode/series']
+                ['href']).group(1)
+            season_id = re.search(
+                r'/(\w+)$', self.__episode_info['__links__']['episode/season']
+                ['href']).group(1)
+            episode_id = url_id
+
+        return (url_type, {
+            Series: series_id,
+            Season: season_id,
+            Episode: episode_id
+        })
+
     @staticmethod
-    def identify_url(url: str) -> tuple:
-        'Identifies an url type'
+    def _get_url_type(url: str) -> tuple[MediaType, str]:
         is_legacy = False
         parsed_url = urlparse(url=url)
         url_host = parsed_url.netloc
         url_path = parsed_url.path
-        # Check if URL host is valid
-        if not re.match(r'(?:www\.|beta\.|)crunchyroll\.com', url_host):
-            raise ExtractorError
         # Identify if the url is a legacy one
         is_legacy = url_host in ('www.crunchyroll.com',
                                  'crunchyroll.com') and not '/watch/' in url
@@ -230,7 +284,7 @@ class CrunchyrollExtractor(BaseExtractor):
                 # 6. media)- -> matches an episode short url
                 # 7. (?P<id>[\d]{6,}) -> matches the id on both a long and a short url, i.e 811160
                 Series:
-                r'(?:/[a-z-]{2,5}/|/)(?:\w+-(?P<id>\d+)|[^/]+)(?:/$|$)',
+                r'(?:/[a-z-]{2,5}/|/)(?:series-(?P<id>\d+)|(?!media-)[^/]+)(?:/$|$)',
                 Episode:
                 r'(?:/[a-z-]{2,5}/|/)(?:(?:[^/]+)/[\w-]+|media)-(?P<id>[\d]{6,})(?:/$|$)'
             }
@@ -250,6 +304,57 @@ class CrunchyrollExtractor(BaseExtractor):
             if match:
                 return (media_type, match.group('id'))
         raise InvalidURLError
+
+    # Legacy Crunchyroll site support
+    def _get_etp_guid(self,
+                      series_id: int = None,
+                      season_id: int = None,
+                      episode_id: int = None) -> dict[MediaType, str]:
+        '''Grab the etp_guid from a legacy id'''
+        info_api = 'https://api.crunchyroll.com/info.0.json'
+        # Define variables
+        series_guid = season_guid = episode_guid = None
+        if series_id is not None:
+            req = request_json(url=info_api,
+                               params={
+                                   'session_id': self.get_session_id(),
+                                   'series_id': series_id
+                               },
+                               proxies=self.proxy)
+            if not self.check_for_error(
+                    req[0], 'Failed to fetch. Content unavailable'):
+                series_guid = req[0]['data']['etp_guid']
+        elif season_id is not None:
+            req = request_json(url=info_api,
+                               params={
+                                   'session_id': self.get_session_id(),
+                                   'collection_id': season_id
+                               },
+                               proxies=self.proxy)
+            if not self.check_for_error(
+                    req[0], 'Failed to fetch. Content unavailable'):
+                series_guid = req[0]['data']['series_etp_guid']
+                season_guid = req[0]['data']['etp_guid']
+        elif episode_id is not None:
+            req = request_json(
+                url=info_api,
+                params={
+                    'session_id': self.get_session_id(),
+                    'fields':
+                    'media.etp_guid,media.collection_etp_guid,media.series_etp_guid',
+                    'media_id': episode_id
+                },
+                proxies=self.proxy)
+            if not self.check_for_error(
+                    req[0], 'Failed to fetch. Content unavailable'):
+                series_guid = req[0]['data']['series_etp_guid']
+                season_guid = req[0]['data']['collection_etp_guid']
+                episode_guid = req[0]['data']['etp_guid']
+        return {
+            Series: series_guid,
+            Season: season_guid,
+            Episode: episode_guid
+        }
 
     # Session stuff
     def get_session_id(self, save_to_cjar=False) -> str:
@@ -317,44 +422,8 @@ class CrunchyrollExtractor(BaseExtractor):
         '''
         return self.cookie_exists('etp_rt')
 
-    def region_spoof(self, region_code=str):
-        # TODO: remove
-        key = 0
-        while key == 0:
-            uuid = uuid4().hex
-            key_request = request_json(
-                url='https://client.hola.org/client_cgi/background_init',
-                method='post',
-                params={'uuid': uuid},
-                data={
-                    'login': '1',
-                    'ver': '1.164.641'
-                })[0]
-
-            key = key_request['key']
-
-            proxy_request = request_json(
-                url='https://client.hola.org/client_cgi/zgettunnels',
-                params={
-                    'country': region_code,
-                    'limit': 3,
-                    'ext_ver': '1.164.641',
-                    'uuid': uuid,
-                    'session_key': key,
-                    'is_premium': 0
-                })[0]
-        self.spoofed_region = True
-        self.spoofed_country = region_code.upper()
-        self.proxy = {
-            'http':
-            f'http://user-uuid-{uuid}:{proxy_request["agent_key"]}@{list(proxy_request["ip_list"].values())[0]}:{proxy_request["port"]["direct"]}',
-            'https':
-            f'http://user-uuid-{uuid}:{proxy_request["agent_key"]}@{list(proxy_request["ip_list"].values())[0]}:{proxy_request["port"]["direct"]}'
-        }
-        return proxy_request
-
     def get_bearer_token(self, force_client_id=False) -> str:
-        'Grabs Bearer Authorization token'
+        '''Grabs Bearer Authorization token'''
         # Set token method
         # etp_rt -> logged in
         # client_id -> not logged in
@@ -394,6 +463,7 @@ class CrunchyrollExtractor(BaseExtractor):
         return self.account_info['bearer']
 
     def get_cms_tokens(self) -> dict[str, str]:
+        '''Get necessary elements to build a valid API URL'''
         bucket_re = r'/(?P<country>\w{2})/(?P<madurity>M[1-3])'
         if self.account_info['bearer'] is None:
             self.get_bearer_token()
@@ -419,58 +489,6 @@ class CrunchyrollExtractor(BaseExtractor):
             'signature': self.account_info['signature'],
             'key_pair_id': self.account_info['key_pair_id']
         }
-
-    def get_identifier(self, url: str) -> dict:
-        series_id = season_id = episode_id = None
-        url_type, url_id = self.identify_url(url=url)
-
-    # Legacy Crunchyroll site support
-    def get_etp_guid(self,
-                     series_id=None,
-                     collection_id=None,
-                     episode_id=None):
-        'Grab the etp_guid from a legacy id'
-        info_api = 'https://api.crunchyroll.com/info.0.json'
-        if series_id is not None:
-            req = request_json(url=info_api,
-                               params={
-                                   'session_id': self.get_session_id(),
-                                   'series_id': series_id
-                               },
-                               proxies=self.proxy)
-            if not self.check_for_error(
-                    req[0], 'Failed to fetch. Content unavailable'):
-                return {'series': req[0]['data']['etp_guid']}
-        if collection_id is not None:
-            req = request_json(url=info_api,
-                               params={
-                                   'session_id': self.get_session_id(),
-                                   'collection_id': collection_id
-                               },
-                               proxies=self.proxy)
-            if not self.check_for_error(
-                    req[0], 'Failed to fetch. Content unavailable'):
-                return {
-                    'series': req[0]['data']['series_etp_guid'],
-                    'season': req[0]['data']['etp_guid'],
-                }
-        if episode_id is not None:
-            req = request_json(
-                url=info_api,
-                params={
-                    'session_id': self.get_session_id(),
-                    'fields':
-                    'media.etp_guid,media.collection_etp_guid,media.series_etp_guid',
-                    'media_id': episode_id
-                },
-                proxies=self.proxy)
-            if not self.check_for_error(
-                    req[0], 'Failed to fetch. Content unavailable'):
-                return {
-                    'series': req[0]['data']['series_etp_guid'],
-                    'season': req[0]['data']['collection_etp_guid'],
-                    'episode': req[0]['data']['etp_guid'],
-                }
 
     def get_series_info(self,
                         series_id: str,
@@ -587,11 +605,11 @@ class CrunchyrollExtractor(BaseExtractor):
 
         return _season
 
-    def get_episodes_from_season(
-            self,
-            season_id: str = None,
-            season: Season = None,
-            return_raw_info=False) -> Union[list[Episode], dict]:
+    def get_episodes_from_season(self,
+                                 season_id: str = None,
+                                 season: Season = None,
+                                 return_raw_info=False,
+                                 threaded=True) -> Union[list[Episode], dict]:
         '''
         Return a list with partial Episode objects from the episodes of the
         season
@@ -600,6 +618,7 @@ class CrunchyrollExtractor(BaseExtractor):
         :param season_id: Season's identifier
         :param season: Season object
         :param return_raw_info: Returns the JSON directly without parsing
+        :param threaded: Run with multiple threads
         :return: Returns a Full Episode object (with streams) if
         return_raw_info is False, else returns unparsed JSON dict
         '''
@@ -611,7 +630,7 @@ class CrunchyrollExtractor(BaseExtractor):
 
         identifier = season_id if season_id is not None else season.id
         if identifier is None:
-            raise ExtractorError('No indentifier inputted')
+            raise ExtractorError('~TEMP~ No indentifier inputted')
         unparsed_list = request_json(
             self.CMS_API_URL + '/episodes',
             params={
@@ -635,8 +654,8 @@ class CrunchyrollExtractor(BaseExtractor):
         episode_threads = []
         parsed_episodes = Queue()
 
-        for i in range(self.options['episode_threads']):
-            _thread = Thread('__Episode_extractor',
+        for i in range(self.options['episode_threads'] if threaded else 1):
+            _thread = Thread('__Episode_Extractor',
                              daemon=True,
                              target=worker,
                              name=f'EpisodeThread{i}',
@@ -713,8 +732,7 @@ class CrunchyrollExtractor(BaseExtractor):
                           number=episode_info['episode_number'])
         # If content does not have an episode number, assume it's a movie
         if episode.number is None:
-            episode.number = 0
-            episode.movie = True
+            episode = episode.convert_to_movie()
             if episode_info['season_tags']:
                 episode.year = re.search(
                     r'(\d+)', episode_info['season_tags'][0]).group(0)
@@ -724,7 +742,7 @@ class CrunchyrollExtractor(BaseExtractor):
         if get_streams and 'playback' in episode_info:
             episode.streams = self._get_streams(episode_info['playback'])
         elif get_streams and 'playback' not in episode_info:
-            episode.skip_download = 'unavailable'  # TODO: better string
+            episode.skip_download = '~TEMP~ Unavailable'  # TODO: better string
 
         return episode
 
@@ -807,13 +825,9 @@ class CrunchyrollExtractor(BaseExtractor):
             subtitle.extra_sub = True
             streams.append(subtitle)
 
-        # TODO : remove
-
         return streams
 
-    # Threading
-
-    def _threaded_season(self, season: Season) -> None:
+    def _threaded_episodes_from_season(self, season: Season) -> None:
         if not any(s in ('all', season._crunchyroll_dub)
                    for s in self.options['crunchyroll']['dub_language']):
             return
@@ -822,7 +836,7 @@ class CrunchyrollExtractor(BaseExtractor):
         for episode in self.get_episodes_from_season(season=season):
             season.link_episode(episode=episode)
 
-    def search(self, term=str):
+    def search(self, term: str):
         # TODO: search
         search_results = request_json(
             url=self.API_URL + 'content/v1/search',
@@ -836,46 +850,11 @@ class CrunchyrollExtractor(BaseExtractor):
             })
         print(search_results)
 
-    def _true_extract(self, ):
-        if not is_content_id(self.url):
-            url_tuple = self.identify_url(url=self.url)
-            url_type, media_id = url_tuple
-        else:
-            parsed = parse_content_id(id=self.url)
-            url_type = parsed.content_type
-            media_id = parsed.id
+    def _extract(self):
+        url_type, url_ids = self.identify_url(url=self.url)
 
         if url_type == Series:
-            # Posible series cases:
-            # Case 1: Legacy URL -> .../series-name - ID-less
-            # Case 2: Legacy URL -> .../series-000000 - has ID
-            # Case 3: New URL -> .../series/AlphaNumID/... - has ID
-
-            if media_id is None:
-                # Case 1
-                # Request the series' webpage and get id from page's source
-                series_page = request_webpage(self.url, cookies=self.cjar)
-
-                # Raise an Invalid URL error if page doesn't exist
-                if series_page.status_code == 404:
-                    raise InvalidURLError
-
-                series_content = series_page.content.decode()
-                series_id = re.search(
-                    pattern=r'ass="show-actions" group_id="(?P<id>\d{5,})"',
-                    string=series_content).group(1)
-
-                # Get series GUID from the ID
-                series_guid = self.get_etp_guid(series_id=series_id)['series']
-            else:
-                # Case 2
-                if media_id.isdigit():
-                    # Get series GUID from the ID
-                    series_guid = self.get_etp_guid(
-                        series_id=media_id)['series']
-                else:
-                    series_guid = media_id
-
+            series_guid = url_ids[Series]
             self.get_series_info(series_id=series_guid)
 
             self.progress_bar = ProgressBar(desc=self.info.title,
@@ -883,58 +862,36 @@ class CrunchyrollExtractor(BaseExtractor):
                                             leave=False,
                                             head='extraction')
 
+            # This is required when extracting a series
+            # Prints a warning when using filters to tell the user that
+            # the progress bar will be inaccurate
+            self._print_filter_warning()
+
             season_threads = []
 
             for season in self.get_seasons(series_id=series_guid):
                 _thread = Thread('__Subextractor',
                                  daemon=True,
-                                 target=self._threaded_season,
+                                 target=self._threaded_episodes_from_season,
                                  kwargs={'season': season})
                 _thread.start()
                 season_threads.append(_thread)
 
             while [t for t in season_threads if t.is_alive()]:
                 time.sleep(0.1)
-
             self.progress_bar.close()
 
         elif url_type == Episode:
-            if media_id.isdigit():
-                episode_guid = self.get_etp_guid(
-                    episode_id=media_id)['episode']
-            else:
-                episode_guid = media_id
-
-            # Get raw episode info
-            episode_info = self.get_episode_info(episode_id=episode_guid,
-                                                 return_raw_info=True)
-
-            # Get series and season's guid using regex
-            series_guid = re.search(
-                r'/(\w+)$',
-                episode_info['__links__']['episode/series']['href']).group(1)
-            season_guid = re.search(
-                r'/(\w+)$',
-                episode_info['__links__']['episode/season']['href']).group(1)
-
             # Get series and season info
-            self.get_series_info(series_id=series_guid)
-            self.season = self.get_season_info(season_id=season_guid)
+            self.get_series_info(series_id=url_ids[Series])
+            self.season = self.get_season_info(season_id=url_ids[Season])
             self.info.link_season(season=self.season)
             # Parse the raw episode info
-            episode = self._parse_episode_info(episode_info=episode_info)
+            # Reusing the info fetched from the get_identifier function
+            # since there's no point in doing it again
+            episode = self._parse_episode_info(
+                episode_info=self.__episode_info)
             # Link the episode with the season
             self.season.link_episode(episode=episode)
         # Since extraction has finished, remove the partial flag
         self.info._partial = False
-
-    def _extract(self) -> Series:
-        self.info = Series()
-        # Create a thread to execute the extraction function in the
-        # background
-        extractor = Thread('__Extraction_Executor', target=self._true_extract)
-        # Make the thread a child of current one
-        self.set_child(child=extractor)
-        extractor.start()
-        # Return a partial (Series) information object
-        return self.info

@@ -11,7 +11,7 @@ from polarity.types import Episode, Season, Series, Movie
 from polarity.types.filter import MatchFilter, NumberFilter
 from polarity.types.thread import Thread
 from polarity.types.progressbar import ProgressBar
-from polarity.utils import dict_merge, mkfile
+from polarity.utils import dict_merge, mkfile, vprint
 
 
 class BaseExtractor(Thread):
@@ -29,9 +29,10 @@ class BaseExtractor(Thread):
         if options is None:
             options = {self.extractor_name: {}}
         if self.extractor_name != 'base':
-            self.options = dict_merge(
-                user_options['extractor'][self.extractor_name],
-                options[self.extractor_name])
+            self.options = dict_merge(user_options['extractor'],
+                                      options,
+                                      overwrite=True,
+                                      modify=False)
             self.extractor_lang = lang[self.extractor_name]
 
         self.unparsed_filters = filter_list
@@ -54,13 +55,34 @@ class BaseExtractor(Thread):
         if filter_list is None:
             # Set seasons and episodes to extract to ALL
             self._seasons = {'ALL': 'ALL'}
+            self._using_filters = False
         else:
             # Parse the filter list
             self._parse_filters()
+            self._using_filters = True
 
     def extract(self) -> Union[Series, Movie]:
         self.extraction = True
-        return self._extract()
+        # Return if no URL is inputted
+        if not self.url or self.url is None:
+            raise ExtractorError('~TEMP~ No URL inputted')
+        # Create a thread to execute the extraction function in the background
+        extractor = Thread('__Extraction_Executor', target=self._extract)
+        # Make the thread a child of current one
+        self.set_child(child=extractor)
+        extractor.start()
+        # Return a partial information object
+        while not hasattr(self, 'info'):
+            sleep(0.1)
+        return self.info
+
+    def _print_filter_warning(self) -> None:
+        if not self._using_filters:
+            return
+        vprint(
+            '~TEMP~ Using filters, total count in progress bar will be inaccurate',
+            module_name=self.__class__.__name__.lower(),
+            error_level='warning')
 
     def _validate_extractor(self) -> bool:
         '''Check if extractor has all needed variables'''
@@ -206,7 +228,6 @@ def check_season(func) -> Season:
         if season_id is not None:
             return func(self, season, season_id, *args, **kwargs)
         if 'ALL' in self._seasons or season.number in self._seasons:
-            print('season passed vibe check')
             return func(self, season, season_id, *args, **kwargs)
         # Unwanted season, don't bother getting information
         return season
@@ -259,12 +280,6 @@ def check_episode(func) -> Episode:
                     **kwargs)
 
     return wrapper
-
-
-class Subextractor(Thread):
-    def __init__(self, func: object, arg_name: str, pool: list,
-                 output: Season) -> None:
-        super().__init__(thread_type='__Subextractor', daemon=True)
 
 
 class ExtractorError(Exception):
