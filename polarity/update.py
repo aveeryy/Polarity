@@ -98,8 +98,9 @@ def language_install(language_list: list):
     else:
         vprint('All languages installed successfully', 2, 'update')
     # After install reload the language strings
-    from polarity.config import reload_language
-    reload_language()
+    from polarity.config import change_language, lang_code
+    if lang_code not in ('internal', ''):
+        change_language(lang_code)
 
 
 def windows_install() -> None:
