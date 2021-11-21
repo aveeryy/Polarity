@@ -29,10 +29,11 @@ class BaseExtractor(Thread):
         if options is None:
             options = {self.extractor_name: {}}
         if self.extractor_name != 'base':
-            self.options = dict_merge(user_options['extractor'],
-                                      options,
-                                      overwrite=True,
-                                      modify=False)
+            # self.options = dict_merge(user_options['extractor'],
+            #                           options,
+            #                           overwrite=True,
+            #                           modify=False)
+            self.options = user_options['extractor']
             self.extractor_lang = lang[self.extractor_name]
 
         self.unparsed_filters = filter_list
@@ -52,7 +53,7 @@ class BaseExtractor(Thread):
             # Load the cookiejar
             self.cjar.load(ignore_discard=True, ignore_expires=True)
 
-        if filter_list is None:
+        if filter_list is None or not filter_list:
             # Set seasons and episodes to extract to ALL
             self._seasons = {'ALL': 'ALL'}
             self._using_filters = False
@@ -81,7 +82,8 @@ class BaseExtractor(Thread):
             return
         vprint(
             '~TEMP~ Using filters, total count in progress bar will be inaccurate',
-            module_name=self.__class__.__name__.lower(),
+            module_name=self.__class__.__name__.lower().replace(
+                'extractor', ''),
             error_level='warning')
 
     def _validate_extractor(self) -> bool:
@@ -218,6 +220,34 @@ class BaseExtractor(Thread):
             passes = match if not passes else passes
         return passes
 
+    def _check_episode(self, episode: Episode) -> bool:
+        '''Returns True if episode passes filters check'''
+        # Using episode object, filters apply here
+        if 'ALL' in self._seasons and 'ALL' in self._seasons['ALL']:
+            # All episodes are set to be downloaded
+            pass
+        elif 'ALL' in self._seasons and episode.number in self._seasons['ALL']:
+            # Episode number in ALL seasons list
+            pass
+        elif episode._parent is not None:
+            # Since all possibilities to be included from the "ALL"
+            # list have passed now, check if the episode is in it's
+            # season's list
+            if episode._parent.number in self._seasons and self._seasons[
+                    episode._parent.number] == 'ALL':
+                pass
+            elif episode._parent.number in self._seasons and \
+                episode.number in self._seasons[episode._parent.number]:
+                pass
+            else:
+                # All possible cases have been considered
+                # Episode does not pass filter tests
+                return False
+        elif episode._parent is None:
+            # Orphan Episode object, not applicable
+            pass
+        return True
+
 
 def check_season(func) -> Season:
     def wrapper(self,
@@ -251,28 +281,9 @@ def check_episode(func) -> Episode:
             # Do not check if episode identifier inputted directly
             pass
         elif episode is not None:
-            # Using episode object, filters apply here
-            if 'ALL' in self._seasons and 'ALL' in self._seasons['ALL']:
-                # All episodes are set to be downloaded
-                pass
-            elif 'ALL' in self._seasons and episode.number in self._seasons[
-                    'ALL']:
-                # Episode number in ALL seasons list
-                pass
-            elif episode._parent is not None:
-                # Since all possibilities to be included from the "ALL"
-                # list have passed now, check if the episode is in it's
-                # season's list
-                if not episode._parent.number in self._seasons and \
-                    episode.number in self._seasons[episode._parent.number]:
-                    pass
-                else:
-                    # All possible cases have been considered
-                    # Episode does not pass filter tests
-                    return episode
-            elif episode._parent is None:
-                # Orphan Episode object, not applicable
-                pass
+            if not self._check_episode(episode):
+                return episode
+
         return func(self,
                     episode=episode,
                     episode_id=episode_id,

@@ -1,3 +1,4 @@
+from os import error
 import re
 import time
 from queue import Queue
@@ -429,11 +430,10 @@ class CrunchyrollExtractor(BaseExtractor):
         # etp_rt -> logged in
         # client_id -> not logged in
 
-        vprint(
-            self.extractor_lang['getting_bearer'],
-            3,
-            'crunchyroll',
-        )
+        vprint(self.extractor_lang['getting_bearer'],
+               level=3,
+               module_name='crunchyroll',
+               error_level='debug')
         method = 'etp_rt_cookie' if self.cookie_exists(
             'etp_rt') and not force_client_id else 'client_id'
         vprint(self.extractor_lang['using_method'] % method, 3, 'crunchyroll',
@@ -626,6 +626,19 @@ class CrunchyrollExtractor(BaseExtractor):
         def worker(pool: list, out: Queue) -> Episode:
             while pool:
                 item = pool.pop()
+                # Make a partial episode object, to check if needs
+                # to be filtered out
+                e = Episode(
+                    title=item['title'],
+                    id=item['id'],
+                    number=item['episode_number'],
+                )
+                e._parent = season if season is not None else None
+                if not self._check_episode(e):
+                    vprint(f'~TEMP~ Skipping episode {e.id}', 5, 'cr')
+                    if hasattr(self, 'progress_bar'):
+                        self.progress_bar.update()
+                    continue
                 parsed_episode = self._parse_episode_info(item)
                 out.put(parsed_episode)
 
@@ -871,6 +884,11 @@ class CrunchyrollExtractor(BaseExtractor):
             season_threads = []
 
             for season in self.get_seasons(series_id=series_guid):
+                if 'all' not in self.options['crunchyroll']['dub_language'] \
+                    and season._crunchyroll_dub not in self.options['crunchyroll']['dub_language']:
+                    vprint('~TEMP~ Skipping season, unwanted dub')
+                    continue
+
                 _thread = Thread('__Subextractor',
                                  daemon=True,
                                  target=self._threaded_episodes_from_season,
