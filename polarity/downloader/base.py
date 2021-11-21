@@ -29,4 +29,11 @@ class BaseDownloader(Thread):
         }
         self.output = output
         self.temp_path = f'{paths["tmp"]}{self.content["sanitized"]}'
+
+    def _start(self) -> None:
+        path, _ = os.path.split(self.output)
+        os.makedirs(path, exist_ok=True)
         os.makedirs(self.temp_path, exist_ok=True)
+
+    def run(self) -> None:
+        self._start()
