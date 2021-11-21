@@ -18,6 +18,7 @@ class Series(MediaType, metaclass=MetaMediaType):
     episode_count: int = 0
     people: list[Person] = field(default_factory=list)
     seasons: list[Season] = field(default_factory=list)
+    __seasons: list[Season] = field(default_factory=list)
     _partial = True
     _extracted = False
 
@@ -29,6 +30,7 @@ class Series(MediaType, metaclass=MetaMediaType):
         if season not in self.seasons:
             season._parent = self
             self.seasons.append(season)
+            self.__seasons.append(season)
 
     def get_season_by_id(self, season_id: str) -> Season:
         match = [s for s in self.seasons if s.id == season_id]
@@ -43,3 +45,7 @@ class Series(MediaType, metaclass=MetaMediaType):
         if pop:
             return [s.episodes.pop(0) for s in self.seasons for _ in s.episodes]
         return [e for s in self.seasons for e in s.episodes]
+
+    @property
+    def all_seasons(self) -> list[Season]:
+        return self.__seasons
