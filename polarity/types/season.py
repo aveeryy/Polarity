@@ -13,6 +13,7 @@ class Season(MediaType, metaclass=MetaMediaType):
     finished: bool = True
     synopsis: str = ''
     episodes: list[Episode] = field(default_factory=list)
+    __episodes: list[Episode] = field(default_factory=list)
     _partial = True  # Partial until proven full
     _unwanted = False
     _parent = None
@@ -21,3 +22,9 @@ class Season(MediaType, metaclass=MetaMediaType):
         if episode not in self.episodes:
             episode._parent = self
             self.episodes.append(episode)
+            self.__episodes.append(episode)
+
+    @property
+    def all_episodes(self) -> list[Episode]:
+        '''Returns all episodes, even if popped by `get_all_episodes`'''
+        return self.__episodes
