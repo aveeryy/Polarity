@@ -27,9 +27,7 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        for bar in progress_bars:
-            bar.close()
-            time.sleep(0.2)
+
         vprint(lang['main']['exit_msg'], 1)
         os._exit(0)
 
