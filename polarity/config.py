@@ -575,6 +575,7 @@ def argument_parser() -> dict:
                          action='store_true',
                          help=lang_help['update_git'])
     general.add_argument('--printer', nargs='*')
+    general.add_argument('--filters', help='~TEMP~ download filters')
 
     download = parser.add_argument_group(title=lang_group['download'])
     # Downloader options
@@ -628,7 +629,7 @@ def argument_parser() -> dict:
     # Add argument values to options
     process_args()
 
-    options = dict_merge(config, opts, modify=False)
+    options = dict_merge(config, opts, overwrite=True, modify=False)
 
     return (args.url, options)
 

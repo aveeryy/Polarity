@@ -63,7 +63,10 @@ class Polarity:
 
         self.__extract_lock = Lock()
         self.__print_lock = Lock()
+        # List with extracted Episode or Movie objects, for download tasks
         self.download_pool = []
+        # List with extracted Series or Movie objects, for metadata tasks
+        self.extracted_items = []
 
     def start(self):
         # Pre-start functions
@@ -93,11 +96,15 @@ class Polarity:
                 print(f"{lang['polarity']['use']}{USAGE}\n")
                 print(lang['polarity']['use_help'])
                 os._exit(1)
+
             self.pool = [{
                 'url': url,
                 'filters': [],
                 'reserved': False
             } for url in self.status['pool']]
+
+            if 'filters' in options:
+                self.process_filters(filters=options['filters'])
 
             workers = []
             _workers = []
@@ -156,7 +163,6 @@ class Polarity:
             vprint('Enabled dumping of HTTP requests', error_level='debug')
             polarity.utils.dump_requests = True
 
-    @classmethod
     def process_filters(self, filters: str, link=True) -> list[Filter]:
         'Create Filter objects from a string and link them to their respective links'
         filter_list = []
@@ -233,6 +239,7 @@ class Polarity:
                 continue
             name, extractor = _extractor
             extracted_info = extractor(item['url'], item['filters']).extract()
+            self.extracted_items.append(extracted_info)
 
             if type(extracted_info) is Series:
                 while True:
@@ -253,7 +260,6 @@ class Polarity:
                     time.sleep(0.1)
                 media_object = self._format_filenames(extracted_info, name)
                 self.download_pool.append(media_object)
-            print(self.download_pool)
 
     def _download_task(self) -> None:
         while True:
@@ -281,10 +287,30 @@ class Polarity:
 
             downloader.start()
 
+            while downloader.is_alive():
+                time.sleep(0.1)
+
+    def _metadata_task(self) -> None:
+        '''
+        Write metadata files
+        '''
+        def make_series_metadata(self) -> dict:
+            base = {'tvshow': {}}
+
+        while True:
+            for item in self.extracted_items:
+                if type(item) is Series:
+                    if not item._extracted:
+                        continue
+                    # Remove item from list
+                    self.extracted_items.pop(
+                        [self.extracted_items.index(item)])
+
     @staticmethod
     def _format_filenames(media_obj: Union[tuple[Series, Season, Episode],
                                            Movie],
-                          extractor: str) -> Union[Series, Movie]:
+                          extractor: str,
+                          separate=False) -> Union[Episode, Movie, tuple[str]]:
         if type(media_obj) is tuple:
             series_dir = options['download']['series_format'].format(
                 # Extractor's name
