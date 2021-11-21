@@ -93,6 +93,9 @@ def vprint(
         tqdm.write(f'{head} {message}', end=end)
 
     # Redact emails out for logs
+    if type(message) is not str:
+        message = str(message)
+
     message = re.sub(r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)',
                      '[REDACTED]', message)
 
@@ -259,7 +262,10 @@ def get_extension(url) -> str:
 
 
 def humanbytes(B) -> str:
-    'Return the given bytes as a human friendly KB, MB, GB, or TB string\nhttps://stackoverflow.com/a/31631711'
+    '''
+    Return the given bytes as a human friendly KB, MB, GB, or TB string
+    https://stackoverflow.com/a/31631711
+    '''
     B = float(B)
     KB = float(1024)
     MB = float(KB**2)  # 1,048,576
@@ -297,11 +303,11 @@ def dict_merge(dct: dict,
     if not modify:
         # Make a copy of dct to not modify the obj directly
         dct = deepcopy(dct)
-    for k, v in merge_dct.items():
+    for k in merge_dct:
         if (k in dct and isinstance(dct[k], dict)
                 and isinstance(merge_dct[k], dict)):
-            dict_merge(dct[k], merge_dct[k])
-        elif k not in dct or overwrite:
+            dict_merge(dct[k], merge_dct[k], overwrite, True)
+        elif overwrite or k not in dct:
             dct[k] = merge_dct[k]
     # Return added to maintain compatibility
     return dct
@@ -456,7 +462,7 @@ def get_country_from_ip() -> str:
 
 
 def get_compatible_extractor(url: str) -> Union[tuple[str, object], None]:
-    'Returns a compatible extractor for the inputted url, if exists'
+    '''Returns a compatible extractor for the inputted url, if exists'''
     from polarity.extractor import EXTRACTORS
     if not is_content_id(text=url):
         url_host = urlparse(url).netloc
@@ -478,6 +484,10 @@ def get_compatible_extractor(url: str) -> Union[tuple[str, object], None]:
 ###################
 # Region spoofing #
 ###################
+
+
+def enable_passive_spoofing():
+    pass
 
 
 def get_proxy_by_country(country_code: str) -> dict:
