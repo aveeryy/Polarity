@@ -86,7 +86,8 @@ class PenguinDownloader(BaseDownloader):
 
         self.indexes = {'video': 0, 'audio': 0, 'subtitles': 0, 'files': 0}
 
-    def start(self):
+    def _start(self):
+        super()._start()
         self.options['penguin']['segment_downloaders'] = int(
             self.options['penguin']['segment_downloaders'])
         vprint('Item: ' + self.content['extended'], 4,
@@ -113,7 +114,8 @@ class PenguinDownloader(BaseDownloader):
         vprint(lang['penguin']['threads_started'] %
                (self.options['penguin']['segment_downloaders']),
                level=3,
-               module_name='penguin')
+               module_name='penguin',
+               error_level='debug')
         for i in range(self.options['penguin']['segment_downloaders']):
             sdl_name = f'{threading.current_thread().name}/sdl{i}'
             sdl = threading.Thread(target=self.segment_downloader,
@@ -475,6 +477,8 @@ class PenguinDownloader(BaseDownloader):
                                 headers={
                                     'range': f'bytes={segment.mpd_range}'
                                 } if segment.mpd_range is not None else {})
+                        except OSError as e:
+                            pass
                         except BaseException as e:
                             thread_vprint(f'Exception in download: {e}',
                                           level=5,
@@ -570,7 +574,7 @@ class PenguinDownloader(BaseDownloader):
 
         # Add segments to playlist
         for segment in pool.segments:
-            if segment.key != last_key:
+            if segment.key != last_key and segment.key is not None:
                 last_key = segment.key
                 playlist += f'#EXT-X-KEY:METHOD={segment.key["video"].method},URI="{self.temp_path}/{pool.id}_{key_num}.key"\n'
                 # Download the key
