@@ -108,7 +108,7 @@ __defaults = {
     # This does not automatically update Polarity
     'check_for_updates': False,
     # Automatically update language files
-    'auto_update_languages': True,
+    'auto_update_languages': False,
     # Download options
     'download': {
         # Maximum active downloads
@@ -134,6 +134,10 @@ __defaults = {
         'resolution': 4320,
         # Allow downloading previously downloaded episodes
         'redownload': False,
+        # Extension for video extractor downloads
+        'video_extension': '.mkv',
+        # Extension for audio extractor downloads
+        'audio_extension': 'auto'
     },
     # Extractor options
     'extractor': {
