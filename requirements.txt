@@ -1,5 +1,4 @@
 xmltodict>=0.12.0
-pretty_errors>=1.2.21
 toml>=0.10.2
 cloudscraper>=1.2.58
 requests>=2.25.1
