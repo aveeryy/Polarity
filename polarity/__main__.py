@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import traceback
-import pretty_errors
 
 from platform import system, version, python_version
 
