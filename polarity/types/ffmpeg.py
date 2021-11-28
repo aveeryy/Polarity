@@ -1,21 +1,34 @@
+from dataclasses import dataclass, field
+
+
+@dataclass
 class FFmpegInput:
-    def __init__(self) -> None:
-        self.file_path = None
-        self.indexes = {
-            'file': 0,
-            VIDEO: 0,
-            AUDIO: 0,
-            SUBTITLES: 0,
-        }
-        self.metadata = {}
-        self.hls_stream = False,
-        self.convert_to_srt = False
-    
+    input_path: str
+    indexes: dict
+    codecs: dict
+    metadata: dict = field(default_factory=dict)
+    hls_stream: bool = False
+
     def generate_command(self) -> dict:
+        '''
+        Generates part of a ffmpeg command, split in two parts
+        
+        * Input
+
+        Contains the input files and allowed_extensions
+
+        * Meta
+
+        Contains the stream codecs and metadata
+
+        If multiple FFmpegInput objects are used, first join the input
+        part of the command, then the metadata and last the output
+        '''
         command = {'input': [], 'meta': []}
         if self.hls_stream:
             command['input'] += '-allowed_extensions', 'ALL'
-        command['input'] += '-i', self.file_path
+        command['input'] += '-i', self.input_path
+
         command['meta'] += '-map', f'{self.indexes["file"]}:{VIDEO}?'
         command['meta'] += '-map', f'{self.indexes["file"]}:{AUDIO}?'
         command['meta'] += '-map', f'{self.indexes["file"]}:{SUBTITLES}?'
@@ -25,10 +38,10 @@ class FFmpegInput:
                     continue
                 if type(value) == list:
                     value = value[self.indexes[media_type]]
-                command['meta'] += f'-metadata:s:{media_type}:{self.indexes[media_type]}', f'{key}={value}'
-        if self.convert_to_srt:
-            command['meta'] += f'-c:s:{self.indexes[SUBTITLES]}', 'srt'
+                command[
+                    'meta'] += f'-metadata:s:{media_type}:{self.indexes[media_type]}', f'{key}={value}'
         return command
+
 
 VIDEO = 'v'
 AUDIO = 'a'

@@ -2,6 +2,7 @@ from polarity.types.base import MediaType, MetaMediaType
 from .episode import Episode
 from dataclasses import dataclass, field
 
+
 @dataclass
 class Season(MediaType, metaclass=MetaMediaType):
     title: str = None
@@ -12,15 +13,18 @@ class Season(MediaType, metaclass=MetaMediaType):
     episode_count: int = 0
     finished: bool = True
     synopsis: str = ''
-    episodes: list[Episode] = field(default_factory=list)
-    __episodes: list[Episode] = field(default_factory=list)
-    _partial = True  # Partial until proven full
-    _unwanted = False
-    _parent = None
+    episodes: list[Episode] = field(init=False)
+    _series = None
+    _partial = True
+
+    def __post_init__(self):
+        self.episodes = []
+        self.__episodes = []
 
     def link_episode(self, episode: Episode):
         if episode not in self.episodes:
-            episode._parent = self
+            episode._season = self
+            episode._series = self._series
             self.episodes.append(episode)
             self.__episodes.append(episode)
 

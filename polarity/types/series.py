@@ -17,10 +17,21 @@ class Series(MediaType, metaclass=MetaMediaType):
     season_count: int = 0
     episode_count: int = 0
     people: list[Person] = field(default_factory=list)
-    seasons: list[Season] = field(default_factory=list)
-    __seasons: list[Season] = field(default_factory=list)
+    seasons: list[Season] = field(init=False)
+    # False if all series information is extracted, not counting seasons
+    # and their respective episodes, True if not
+    # Check the wiki for more info
     _partial = True
+    # True if all requested seasons and episodes have been extracted,
+    # False if not
     _extracted = False
+
+    def __post_init__(self):
+        self.seasons = []
+        self.__seasons = []
+
+    def __repr__(self) -> str:
+        return f'Series({self.title}, {self.id})[{"partial" if self._partial else "full"}]'
 
     def link_person(self, person: Person) -> None:
         if person not in self.actors:
@@ -28,7 +39,7 @@ class Series(MediaType, metaclass=MetaMediaType):
 
     def link_season(self, season: Season) -> None:
         if season not in self.seasons:
-            season._parent = self
+            season._series = self
             self.seasons.append(season)
             self.__seasons.append(season)
 
@@ -43,7 +54,9 @@ class Series(MediaType, metaclass=MetaMediaType):
         :returns: List with extracted episodes
         '''
         if pop:
-            return [s.episodes.pop(0) for s in self.seasons for _ in s.episodes]
+            return [
+                s.episodes.pop(0) for s in self.seasons for _ in s.episodes
+            ]
         return [e for s in self.seasons for e in s.episodes]
 
     @property

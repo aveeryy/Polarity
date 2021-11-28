@@ -1,19 +1,20 @@
-from .person import Person, Actor, Director
+from .person import Person, Actor, Director, Artist
 from .episode import Episode
 from .movie import Movie
+from .progressbar import ProgressBar
 from .search import SearchResult
 from .season import Season
 from .series import Series
 from .stream import Stream
-from .datetime import Time
+from .task import Task
+from .thread import Thread
 
 from polarity.types.base import MediaType, MetaMediaType
 
 __all_types = [
-    v
-    for v in globals().values()
-    if v.__class__.__name__ == 'MetaMediaType'
-    ]
+    v for v in globals().values() if v.__class__.__name__ == 'MetaMediaType'
+]
+
 
 def str_to_type(text: str) -> MediaType:
     '''Get a media type by it's name'''
