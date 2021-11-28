@@ -21,6 +21,7 @@ from polarity.utils import (dict_merge, filename_datetime,
                             get_compatible_extractor, is_content_id,
                             normalize_integer, sanitize_path, thread_vprint,
                             vprint)
+from polarity.version import __version__
 
 # ~TEMP~
 from polarity.downloader import PenguinDownloader
@@ -38,6 +39,9 @@ class Polarity:
         :param _verbose_level: override print verbose lvl
         :param _logging_level: override log verbose lvl
         '''
+        # Print Polarity version
+        vprint(lang['polarity']['using_version'] % __version__, 3, 'polarity',
+               'debug')
         self.status = {
             'pool': urls,
             'extraction': {
@@ -106,6 +110,7 @@ class Polarity:
             if 'filters' in options:
                 self.process_filters(filters=options['filters'])
 
+            # TODO: better names
             workers = []
             _workers = []
             if options['extractor']['active_extractions'] > len(self.pool):
@@ -117,6 +122,7 @@ class Polarity:
                            daemon=True)
                 w.start()
                 workers.append(w)
+
             for _ in range(options['download']['active_downloads']):
                 w = Thread('Download_Worker',
                            target=self._download_task,
@@ -131,7 +137,6 @@ class Polarity:
                     if not [w for w in _workers if w.is_alive()]:
                         break
                 time.sleep(0.1)
-                continue
             vprint(lang['polarity']['all_tasks_finished'])
 
         if options['mode'] == 'search':
@@ -250,7 +255,7 @@ class Polarity:
                         break
                     for episode in episodes:
                         if type(episode) is Episode:
-                            media = (extracted_info, episode._parent, episode)
+                            media = (extracted_info, episode._season, episode)
                         elif type(episode) is Movie:
                             media = Episode
                         media_object = self._format_filenames(media, name)
@@ -356,9 +361,6 @@ class Polarity:
             output_path = os.path.join(options['download']['series_directory'],
                                        series_dir, season_dir, output_filename)
             # Not using f-strings for readibility
-            media_obj[2].short_name = '%s S%sE%s' % (
-                media_obj[0].title, normalize_integer(media_obj[1].number),
-                normalize_integer(media_obj[2].number))
             media_obj[2].output = sanitize_path(output_path)
             return media_obj[2]
         if type(media_obj) is Movie:
@@ -373,6 +375,5 @@ class Polarity:
                 Y=media_obj.year)
             output_path = os.path.join(options['download']['movie_directory'],
                                        output_filename)
-            media_obj.short_name = f'{media_obj.title} ({media_obj.year})'
             media_obj.output = sanitize_path(output_path)
             return media_obj

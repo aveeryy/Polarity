@@ -532,9 +532,7 @@ def argument_parser() -> dict:
 
     from polarity.downloader import DOWNLOADERS
 
-    # Print Polarity version
-    vprint(lang['polarity']['using_version'] % __version__, 3, 'polarity',
-           'debug')
+
 
     parser = argparse.ArgumentParser(
         usage=USAGE,
