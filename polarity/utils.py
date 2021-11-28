@@ -261,6 +261,10 @@ def get_extension(url) -> str:
     return result.group('ext')
 
 
+def strip_extension(url: str) -> str:
+    return url.replace(get_extension(url), '')
+
+
 def humanbytes(B) -> str:
     '''
     Return the given bytes as a human friendly KB, MB, GB, or TB string
@@ -566,17 +570,16 @@ def get_task_by_name(task_list: list, task_name: str):
 
 
 def order_list(
-    to_order,
+    to_order: list,
     order_definer: list[str],
     index=None,
 ) -> list:
     if index is None:
         return [y for x in order_definer for y in to_order if x == y]
-    else:
-        return [y for x in order_definer for y in to_order if x == y[index]]
+    return [y for x in order_definer for y in to_order if x == y[index]]
 
 
-def order_dict(to_order, order_definer):
+def order_dict(to_order: dict, order_definer: list):
     return {y: z for x in order_definer for y, z in to_order.items() if x == y}
 
 
