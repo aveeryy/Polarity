@@ -1,10 +1,9 @@
-# Implementation of config.py with a much cleaner code
 import argparse
+import atoml
 import logging
 import re
 import os
 import sys
-import toml
 
 from polarity.utils import filename_datetime, get_argument_value, get_home_path, dict_merge, vprint
 from polarity.version import __version__
@@ -16,8 +15,8 @@ class ConfigError(Exception):
 
 
 def generate_config(config_path: str) -> None:
-    with open(config_path, 'w', encoding='utf-8') as c:
-        toml.dump(config, __defaults)
+    with open(config_path, 'w') as c:
+        atoml.dump(__defaults, c)
 
 
 def load_config(config_path: str) -> dict:
@@ -27,16 +26,26 @@ def load_config(config_path: str) -> dict:
     with open(config_path, 'r', encoding='utf-8') as c:
         try:
             # Load configuration
-            config = toml.loads(c.read())
-        except toml.decoder.TomlDecodeError:
+            config = atoml.loads(c.read())
+        except atoml.exceptions.ATOMLError:
             # TODO: corrupt config handler
-            pass
+            raise Exception
     return config
 
 
 def save_config(config_path: str, config: dict) -> None:
-    with open(config_path, 'w', encoding='utf-8') as c:
-        toml.dump(config, c)
+    with open(config_path, 'w') as c:
+        atoml.dump(config, c)
+
+
+def merge_external_config(obj: object, name: str, config_path: dict) -> None:
+    if not hasattr(obj, 'DEFAULTS'):
+        pass
+    elif name.lower() not in config_path:
+        # Downloader configuration not in config file, add it
+        config_path[name.lower()] = obj.DEFAULTS
+    elif name.lower() in config_path:
+        dict_merge(config_path[name.lower()], obj.DEFAULTS)
 
 
 def change_language(language_code: str) -> dict:
@@ -55,7 +64,7 @@ def change_language(language_code: str) -> dict:
             # and the currently loaded overlapping
             dict_merge(lang, __internal_lang, True)
             # Now, change
-            dict_merge(lang, toml.load(l), True)
+            dict_merge(lang, atoml.load(l), True)
             # Merge internal language with loaded one, avoids errors due
             # missing strings
     return lang
@@ -161,12 +170,12 @@ paths = {
     for k, v in {
         'account': 'Accounts/',
         'bin': 'Binaries/',
-        'cfg': 'Polarity.toml',
-        'dl_log': 'AlreadyDownloaded.log',
+        'cfg': 'config.toml',
+        'dl_log': 'download.log',
         'dump': 'Dumps/',
         'lang': 'Languages/',
         'log': 'Logs/',
-        'sync_list': 'SyncList.json',
+        'sync_list': 'sync.json',
         'tmp': 'Temp/'
     }.items()
 }
@@ -373,6 +382,8 @@ __internal_lang = {
     }
 }
 
+lang = __internal_lang
+
 # Part 2: Load options from configuration file (and some arguments)
 
 # TODO: add arguments to argparse
@@ -402,8 +413,17 @@ if paths['cfg'] and not os.path.exists(paths['cfg']):
 # Load configuration from file
 config = load_config(paths['cfg'])
 
+from polarity.extractor import EXTRACTORS
+from polarity.downloader import DOWNLOADERS
+
+for name, downloader in DOWNLOADERS.items():
+    merge_external_config(downloader, name, config['download'])
+for name, extractor in EXTRACTORS.items():
+    merge_external_config(extractor, name, config['extractor'])
+
 # Add new configuration entries to user's configuration and save to file
 dict_merge(config, __defaults)
+
 save_config(paths['cfg'], config)
 
 # Load language file if specified
@@ -532,8 +552,6 @@ def argument_parser() -> dict:
 
     from polarity.downloader import DOWNLOADERS
 
-
-
     parser = argparse.ArgumentParser(
         usage=USAGE,
         description='Polarity %s | https://github.com/Aveeryy/Polarity/' %
@@ -615,7 +633,6 @@ def argument_parser() -> dict:
                        help='Exit after a dump')
 
     # Add extractor arguments
-    from polarity.extractor import EXTRACTORS
     for name, extractor in EXTRACTORS.items():
         if not hasattr(extractor, 'ARGUMENTS'):
             continue
