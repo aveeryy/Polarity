@@ -7,8 +7,8 @@ from urllib.parse import urlparse
 
 from polarity.config import lang
 from polarity.extractor.base import (BaseExtractor, ExtractorError,
-                                     InvalidURLError, check_episode,
-                                     check_season)
+                                     InvalidURLError, check_episode_wrapper,
+                                     check_season_wrapper)
 from polarity.extractor.flags import *
 from polarity.types import Episode, Season, Series, Stream
 from polarity.types.base import MediaType
@@ -383,7 +383,7 @@ class CrunchyrollExtractor(BaseExtractor):
             self.save_cookies_in_jar(cookie)
         return req[0]['data']['session_id']
 
-    def login(self, user: None, password: None) -> dict:
+    def _login(self, username: str = None, password: str = None) -> dict:
         '''
         Login into the extractor's website
         
@@ -396,7 +396,7 @@ class CrunchyrollExtractor(BaseExtractor):
             method='post',
             params={
                 'session_id': session_id,
-                'account': user,
+                'account': username,
                 'password': password,
             },
             cookies=self.cjar)
@@ -412,7 +412,7 @@ class CrunchyrollExtractor(BaseExtractor):
                    (login_req[0]['message']),
                    module_name='crunchyroll',
                    error_level='error')
-            return login_req[0]
+        return login_req[0]
 
     def is_logged_in(self) -> bool:
         '''
@@ -564,7 +564,7 @@ class CrunchyrollExtractor(BaseExtractor):
             season_list.append(_season)
         return season_list
 
-    @check_season
+    @check_season_wrapper
     def get_season_info(self,
                         season: Season = None,
                         season_id: str = None,
@@ -612,7 +612,7 @@ class CrunchyrollExtractor(BaseExtractor):
                                  return_raw_info=False,
                                  threaded=True) -> Union[list[Episode], dict]:
         '''
-        Return a list with partial Episode objects from the episodes of the
+        Return a list with full Episode objects from the episodes of the
         season
         
         Only one season parameter is required
@@ -633,8 +633,15 @@ class CrunchyrollExtractor(BaseExtractor):
                     id=item['id'],
                     number=item['episode_number'],
                 )
-                e._parent = season if season is not None else None
-                if not self._check_episode(e):
+                e._season = season if season is not None else None
+                # This check is *not* necessary on other extractors,
+                # since Crunchyroll returns the exact same info from
+                # the season's episode list and the episode info page,
+                # it would be stupid to waste time getting the exact
+                # information again, and the `get_episode_info` and
+                # `check_episode_wrapper` are skipped, so the filter check
+                # must be done separately
+                if not self.check_episode(e):
                     vprint(f'~TEMP~ Skipping episode {e.id}', 5, 'cr')
                     if hasattr(self, 'progress_bar'):
                         self.progress_bar.update()
@@ -668,11 +675,10 @@ class CrunchyrollExtractor(BaseExtractor):
         episode_threads = []
         parsed_episodes = Queue()
 
-        for i in range(self.options['episode_threads'] if threaded else 1):
+        for _ in range(self.options['episode_threads'] if threaded else 1):
             _thread = Thread('__Episode_Extractor',
                              daemon=True,
                              target=worker,
-                             name=f'EpisodeThread{i}',
                              kwargs={
                                  'pool': unparsed_list['items'],
                                  'out': parsed_episodes
@@ -692,7 +698,7 @@ class CrunchyrollExtractor(BaseExtractor):
                     self.progress_bar.update()
                 yield episode
 
-    @check_episode
+    @check_episode_wrapper
     def get_episode_info(self,
                          episode: Episode,
                          episode_id: str,
@@ -726,7 +732,7 @@ class CrunchyrollExtractor(BaseExtractor):
 
         episode = self._parse_episode_info(episode_info,
                                            get_streams=get_streams)
-        if not self.check_episode_by_title(episode=episode):
+        if not self.check_episode(episode=episode):
             if not hasattr(episode, 'skip_download'):
                 # If episode has not a skip reason already, add one
                 episode.skip_download = '~TEMP~ Did not pass name filter check'
