@@ -14,12 +14,11 @@ from polarity.types.progressbar import ProgressBar
 from polarity.utils import dict_merge, mkfile, vprint
 
 
-class BaseExtractor(Thread):
+class BaseExtractor:
     def __init__(self,
                  url: str,
                  filter_list: list = None,
                  options: dict = None) -> None:
-        super().__init__(thread_type='Extractor', daemon=True)
 
         from polarity.config import options as user_options
 
@@ -34,7 +33,28 @@ class BaseExtractor(Thread):
             #                           overwrite=True,
             #                           modify=False)
             self.options = user_options['extractor']
+            self.__opts = user_options['extractor'][self.extractor_name]
             self.extractor_lang = lang[self.extractor_name]
+
+            if AccountCapabilities in self.FLAGS:
+                # Account Capabilities is enabled, use the extractor's cookiejar
+                cjar_path = f"{paths['account']}{self.extractor_name}.cjar"
+
+                if not os.path.exists(cjar_path):
+                    # Create the cookiejar
+                    mkfile(cjar_path, '#LWP-Cookies-2.0\n')
+
+                self.cjar = LWPCookieJar(cjar_path)
+                # Load the cookiejar
+                self.cjar.load(ignore_discard=True, ignore_expires=True)
+
+                if LoginRequired in self.FLAGS and not self.is_logged_in():
+                    # Check if username and password has been passed in options
+                    username = self.__opts[
+                        'username'] if 'username' in self.__opts else None
+                    password = self.__opts[
+                        'password'] if 'password' in self.__opts else None
+                    self.login(username, password)
 
         self.unparsed_filters = filter_list
 
@@ -43,24 +63,21 @@ class BaseExtractor(Thread):
         # List containing subextractors
         self._workers = []
 
-        if AccountCapabilities in self.FLAGS:
-            # Account Capabilities is enabled, use the extractor's cookiejar
-            cjar_path = f"{paths['account']}{self.extractor_name}.cjar"
-            if not os.path.exists(cjar_path):
-                # Create the cookiejar
-                mkfile(cjar_path, '#LWP-Cookies-2.0\n')
-            self.cjar = LWPCookieJar(cjar_path)
-            # Load the cookiejar
-            self.cjar.load(ignore_discard=True, ignore_expires=True)
-
         if filter_list is None or not filter_list:
             # Set seasons and episodes to extract to ALL
             self._seasons = {'ALL': 'ALL'}
+            self.filters = []
             self._using_filters = False
         else:
             # Parse the filter list
             self._parse_filters()
             self._using_filters = True
+
+    def _watchdog(self):
+        '''Set the extraction flag in case of the extraction thread dying'''
+        while self._extractor.is_alive():
+            sleep(0.5)
+        self.info._extracted = True
 
     def extract(self) -> Union[Series, Movie]:
         self.extraction = True
@@ -68,12 +85,19 @@ class BaseExtractor(Thread):
         if not self.url or self.url is None:
             raise ExtractorError('~TEMP~ No URL inputted')
         # Create a thread to execute the extraction function in the background
-        extractor = Thread('__Extraction_Executor', target=self._extract)
+        self._extractor = Thread('__Extraction_Executor',
+                                 target=self._extract,
+                                 daemon=True)
+        _watchdog_thread = Thread('__Extraction_Watchdog',
+                                  target=self._watchdog,
+                                  daemon=True)
         # Make the thread a child of current one
-        self.set_child(child=extractor)
-        extractor.start()
+        # self.set_child(child=extractor)
+        self._extractor.start()
+        _watchdog_thread.start()
         # Return a partial information object
         while not hasattr(self, 'info'):
+            # Check if extractor fucking died
             sleep(0.1)
         return self.info
 
@@ -101,7 +125,26 @@ class BaseExtractor(Thread):
         if self.extractor_name == 'base':
             return
         # Check if extractor has all necessary variables
-        check_variables('HOST', 'ARGUMENTS', 'DEFAULTS', 'FLAGS', '_extract')
+        check_variables(
+            'HOST',
+            'ARGUMENTS',
+            'DEFAULTS',
+            'FLAGS',
+            '_extract',
+            'identify_url',
+            '_get_url_type',
+        )
+
+        if VideoExtractor in self.FLAGS:
+            # Identification methods
+            check_variables(
+                'get_series_info',
+                'get_season_info',
+                'get_seasons',
+                'get_episodes_from_seasons',
+                'get_episode_info',
+                '_get_streams',
+            )
 
         if AccountCapabilities in self.FLAGS:
             # Check if extractor has necessary login variables
@@ -132,7 +175,7 @@ class BaseExtractor(Thread):
 
     @_has_cookiejar
     def cookie_exists(self, cookie_name: str) -> bool:
-        return cookie_name in self.cjar
+        return cookie_name in self.cjar.as_lwp_str()
 
     def _parse_filters(self) -> None:
         number_filters = [
@@ -183,44 +226,12 @@ class BaseExtractor(Thread):
                        '_login') or AccountCapabilities not in self.FLAGS:
             return True
         if username is None:
-            username = input(lang['extractor']['base']['login_email_prompt'])
+            username = input(lang['extractor']['base']['email_prompt'])
         if password is None:
-            password = getpass(
-                lang['extractor']['base']['login_password_prompt'])
+            password = getpass(lang['extractor']['base']['password_prompt'])
         return self._login(username=username, password=password)
 
-    def _subworkers_wait(self) -> None:
-        'Do not call this function directly, use `self.wait_for_subworkers` instead'
-        while [proc for proc in self._workers if proc.is_alive]:
-            sleep(0.5)
-        if type(self.info) is Series:
-            self.info.extracted = True
-
-    def wait_for_subworkers(self) -> None:
-        '''
-        Waits until all subworkers have finished,
-        then if self.info obj type is Series, change it's finished attribute
-        to True
-        '''
-
-        wait_proc = Thread('__Bus_Waiter',
-                           daemon=True,
-                           target=self._subworkers_wait)
-        wait_proc.start()
-
-    def check_episode_by_title(self, episode: Episode) -> bool:
-        '''Check if episode passes the title match filters'''
-        passes = False
-        for _filter in self.filters:
-            match = _filter.check(title=episode.title)
-            if not match and _filter.absolutes:
-                # Since absolute filters must always pass, return False
-                return False
-            # Modify variable only if 'passes' is False
-            passes = match if not passes else passes
-        return passes
-
-    def _check_episode(self, episode: Episode) -> bool:
+    def check_episode(self, episode: Episode) -> bool:
         '''Returns True if episode passes filters check'''
         # Using episode object, filters apply here
         if 'ALL' in self._seasons and 'ALL' in self._seasons['ALL']:
@@ -229,27 +240,44 @@ class BaseExtractor(Thread):
         elif 'ALL' in self._seasons and episode.number in self._seasons['ALL']:
             # Episode number in ALL seasons list
             pass
-        elif episode._parent is not None:
+        elif episode._season is not None:
             # Since all possibilities to be included from the "ALL"
             # list have passed now, check if the episode is in it's
             # season's list
-            if episode._parent.number in self._seasons and self._seasons[
-                    episode._parent.number] == 'ALL':
+            if episode._season.number in self._seasons and self._seasons[
+                    episode._season.number] == 'ALL':
                 pass
-            elif episode._parent.number in self._seasons and \
-                episode.number in self._seasons[episode._parent.number]:
+            elif episode._season.number in self._seasons and \
+                episode.number in self._seasons[episode._season.number]:
                 pass
             else:
                 # All possible cases have been considered
                 # Episode does not pass filter tests
                 return False
-        elif episode._parent is None:
+        elif episode._season is None:
             # Orphan Episode object, not applicable
             pass
-        return True
+        # Finally check if passes title check
+        return self._check_episode_by_title(episode=episode.title)
+
+    def _check_episode_by_title(self, episode: Episode) -> bool:
+        '''Check if episode passes the title match filters'''
+        passes = True
+        for _filter in self.filters:
+            match = _filter.check(title=episode.title)
+            if not match and _filter.absolutes:
+                # Since absolute filters must always pass, return False
+                return False
+            # Modify variable only if 'passes' is False
+            passes = match if not match else passes
+        return passes
 
 
-def check_season(func) -> Season:
+def check_season_wrapper(func) -> Season:
+    '''
+    Wrapper for get_season_info, avoids getting information
+    from seasons that are filtered out
+    '''
     def wrapper(self,
                 season: Season = None,
                 season_id: str = None,
@@ -265,11 +293,13 @@ def check_season(func) -> Season:
     return wrapper
 
 
-def check_episode(func) -> Episode:
+def check_episode_wrapper(func) -> Episode:
     '''
-    Input an Episode, if the Episode object passes number filter
-    checks, returns the Episode run throught the decorated function,
-    else returns the Episode back as-is
+    Wrapper for get_episode_info, avoids getting information
+    from episodes that are filtered out.
+
+    Does *not* work when inputting a bare identifier instead of a
+    partial Episode object
     '''
     def wrapper(self,
                 episode: Episode = None,
@@ -289,6 +319,16 @@ def check_episode(func) -> Episode:
                     episode_id=episode_id,
                     *args,
                     **kwargs)
+
+    return wrapper
+
+
+def check_login_wrapper(func) -> bool:
+    def wrapper(self, *args, **kwargs):
+        while True:
+            if self.is_logged_in():
+                return func(self, *args, **kwargs)
+            self.login()
 
     return wrapper
 
