@@ -20,10 +20,6 @@ def check_for_updates() -> bool:
     global latest_version_on_server, version
     releases = request_json(UPDATE_ENDPOINT)
     latest = releases[0][0]
-    # TODO: remove this before merging pull request
-    if version == 'code-rewrite':
-        # Set version number for testing
-        version = '2021.11.08'
     latest_version_on_server = latest['tag_name']
     return version_to_tuple(version) < version_to_tuple(latest['tag_name'])
 
