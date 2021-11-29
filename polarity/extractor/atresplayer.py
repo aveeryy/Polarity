@@ -1,4 +1,3 @@
-import os
 import re
 from typing import Union
 from urllib.parse import urlparse
@@ -12,8 +11,8 @@ from polarity.extractor.flags import (AccountCapabilities, EnableLiveTV,
 from polarity.types import (Episode, Movie, ProgressBar, SearchResult, Season,
                             Series, Stream)
 from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO
-from polarity.utils import (get_item_by_id, is_content_id, parse_content_id,
-                            request_json, request_webpage, vprint)
+from polarity.utils import (is_content_id, parse_content_id, request_json,
+                            request_webpage, vprint)
 
 
 class AtresplayerExtractor(BaseExtractor):
@@ -28,7 +27,6 @@ class AtresplayerExtractor(BaseExtractor):
 
     DEFAULTS = {
         'codec': 'hevc',
-        # 'fetch_extras': False,
     }
 
     API_URL = 'https://api.atresplayer.com/'
@@ -49,14 +47,6 @@ class AtresplayerExtractor(BaseExtractor):
             },
             'variable': 'codec'
         },
-        #{
-        #    'args': ['--atresplayer-extras'],
-        #    'attrib': {
-        #        'action': 'store_true',
-        #        'help': 'Allows fetching extras when extracting'
-        #    },
-        #    'variable': 'fetch_extras'
-        #}
     ]
 
     FLAGS = {AccountCapabilities, LoginRequired, EnableLiveTV, EnableSearch}
@@ -103,7 +93,7 @@ class AtresplayerExtractor(BaseExtractor):
                     web).group(1)  # Series ID
             else:
                 series_id = parse_content_id(id=url).id
-            if content_id == Season:
+            if content_type == Season:
                 if not content_id:
                     # Get season id from the seasons page's html
                     season_id = re.search(
@@ -191,8 +181,9 @@ class AtresplayerExtractor(BaseExtractor):
             if 'description' in self.__series_json else '',
             genres=[g['title'] for g in self.__series_json['tags']],
             images=[
-                self.__series_json['image']['pathHorizontal'] + '0',
-                self.__series_json['image']['pathVertical'] + '0',
+                self.__series_json['image']['pathHorizontal'] +
+                '1920x1080.jpg',
+                self.__series_json['image']['pathVertical'] + '720x1280.jpg',
             ],
             season_count=None,
             episode_count=_episodes[0]['pageInfo']['totalElements'],
@@ -205,12 +196,10 @@ class AtresplayerExtractor(BaseExtractor):
         vprint(lang['extractor']['get_all_seasons'], 2, 'atresplayer')
 
         seasons = [
-            Season(
-                title=season['title'],
-                id=season['link']['href'][-24:],
-                **self.get_season_jsonld_info(
-                    season['link']['href'][-24:])['number'],
-            ) for season in self.__series_json['seasons']
+            Season(title=season['title'],
+                   id=season['link']['href'][-24:],
+                   **self.get_season_jsonld_info(season['link']['href'][-24:]))
+            for season in self.__series_json['seasons']
         ]
         return seasons
 
@@ -218,7 +207,7 @@ class AtresplayerExtractor(BaseExtractor):
         # This endpoint is only needed to get the season number and ep. count
         # For some stupid-ass reason it isn't in the season API
         season_jsonld = request_json(
-            url=self.API_URL + 'client/v1/jsonld/format/%s' % self.info.id,
+            url=f'{self.API_URL}client/v1/jsonld/format/{self.info.id}',
             params={'seasonId': season_id})
         return {
             'number': season_jsonld[0]['seasonNumber'],
@@ -249,18 +238,26 @@ class AtresplayerExtractor(BaseExtractor):
             level=2,
             module_name='atresplayer')
 
-        season = Season(title=season_json['title'],
-                        id=season_id,
-                        number=jsonld_info['number'],
-                        images=[season_json['image']['pathHorizontal'] + '0'],
-                        episode_count=jsonld_info['episode_count'])
+        season = Season(
+            title=season_json['title'],
+            id=season_id,
+            number=jsonld_info['number'],
+            images=[season_json['image']['pathHorizontal'] + '1920x1080.jpg'],
+            episode_count=jsonld_info['episode_count'])
         season.synopsis = season_json[
             'description'] if 'description' in season_json else ''
         return season
 
-    def get_episodes_from_season(self, season_id: str) -> list[Episode]:
+    def get_episodes_from_season(
+        self,
+        season: Season = None,
+        season_id: str = None,
+    ) -> list[Episode]:
+
+        season_id = season.id if season is not None else season_id
         episodes = []
         page = 0
+        # Placeholder until the total number of pages is known
         total_pages = 727
         while page < total_pages:
             page_json = request_json(url=self.API_URL + 'client/v1/row/search',
@@ -273,6 +270,8 @@ class AtresplayerExtractor(BaseExtractor):
                                      })[0]
 
             if 'pageInfo' not in page_json:
+                # If pageInfo is not in the json file, the season has no
+                # content, therefore skip it
                 vprint(
                     self.extractor_lang['no_content_in_season'] %
                     (page_json['title'], season_id), 1, 'atresplayer',
@@ -281,12 +280,12 @@ class AtresplayerExtractor(BaseExtractor):
 
             # Update the number of total pages
             total_pages = page_json['pageInfo']['totalPages']
-            for episode in page_json['itemRows']:
-                # Add episode to episodes list
-                episodes.append(
-                    self.get_episode_info(episode_id=episode['contentId']))
+            episodes.extend([
+                self.get_episode_info(episode_id=e['contentId'])
+                for e in page_json['itemRows']
+            ])
             page += 1
-        return episodes
+            return episodes
 
     @check_episode_wrapper
     def get_episode_info(self,
@@ -317,9 +316,13 @@ class AtresplayerExtractor(BaseExtractor):
             synopsis=episode_info['description']
             if 'description' in episode_info else '',
             number=episode_info['numberOfEpisode'],
-            images=[episode_info['image']['pathHorizontal'] + '0'])
+            images=[episode_info['image']['pathHorizontal'] + '1920x1080.jpg'])
 
         self._get_streams(episode)
+
+        # Check if the episode needs to be downloaded
+        if not self.check_episode(episode=episode):
+            episode.skip_download = lang['extractor']['filter_check_fail']
 
         return episode
 
@@ -489,7 +492,6 @@ class AtresplayerExtractor(BaseExtractor):
         return self.search_results
 
     def _extract(self):
-
         url_type, identifiers = self.identify_url(url=self.url)
 
         # Get the series information
@@ -503,23 +505,24 @@ class AtresplayerExtractor(BaseExtractor):
                                             leave=False)
             # Get all seasons' information
             for season in self.get_seasons():
-                season = self.get_season_info(season=season)
-                # Get the episodes from the current season
-                episodes = self.get_episodes_from_season(season_id=season.id)
+                _season = self.get_season_info(season=season)
+                episode_list = self.get_episodes_from_season(season=_season)
                 # Link the season
-                self.info.link_season(season=season)
-                for episode in episodes:
-                    season.link_episode(episode=episode)
+                self.info.link_season(_season)
+                # Link the episodes
+                for episode in episode_list:
+                    _season.link_episode(episode)
+
             self.progress_bar.close()
 
         elif url_type == Season:
             # Gets single season information
-            season = self.get_season_info(identifiers[Season])
+            season = self.get_season_info(season_id=identifiers[Season])
             self.progress_bar = ProgressBar(head='extraction',
                                             desc=self.info.title,
                                             total=season.episode_count,
                                             leave=False)
-            episodes = self.get_episodes_from_season(season.id)
+            episodes = self.get_episodes_from_season(season)
             self.info.link_season(season=season)
             for episode in episodes:
                 season.link_episode(episode=episode)
