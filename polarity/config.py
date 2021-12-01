@@ -286,7 +286,7 @@ __internal_lang = {
         'segment_downloaded': 'Successfully downloaded segment %s',
         'segment_retry': 'Download of segment %s failed, retrying...',
         'thread_started': 'Started downloader "%s"',
-        'threads_started': 'Starting %d segment downloader(s)',
+        'threads_started': 'start: %d download threads',
         'args': {
             'ffmpeg_codec': 'Postprocessing codification settings',
             'retries': 'Number of retries to download a segment',
@@ -312,6 +312,7 @@ __internal_lang = {
                 'argument_variable_empty': 'Variable argument is empty',
             }
         },
+        'filter_check_fail': 'did not pass filter check',
         'generic_error': 'error, error msg: ',
         'get_all_seasons': 'getting info from seasons',
         'get_media_info': 'getting info: %s "%s" (%s)',
