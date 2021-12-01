@@ -99,6 +99,7 @@ class BaseExtractor:
         while not hasattr(self, 'info'):
             # Check if extractor fucking died
             sleep(0.1)
+        self.info._extractor = self.extractor_name
         return self.info
 
     def _print_filter_warning(self) -> None:
