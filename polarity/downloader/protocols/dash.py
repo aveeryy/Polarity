@@ -5,9 +5,9 @@ from urllib.parse import urljoin
 from urllib3.util.retry import Retry
 
 from polarity.config import lang
-from polarity.downloader.penguin.protocols.base import StreamProtocol
+from polarity.downloader.protocols.base import StreamProtocol
 from polarity.types.stream import *
-from polarity.utils import vprint, request_xml
+from polarity.utils import vprint, request_xml, get_extension
 
 
 class MPEGDASHStream(StreamProtocol):
