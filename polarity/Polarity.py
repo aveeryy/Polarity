@@ -244,7 +244,6 @@ class Polarity:
                 continue
             name, extractor = _extractor
             extracted_info = extractor(item['url'], item['filters']).extract()
-            extracted_info._extractor = name
             self.extracted_items.append(extracted_info)
 
             if type(extracted_info) is Series:
