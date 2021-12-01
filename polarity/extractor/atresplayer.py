@@ -280,12 +280,10 @@ class AtresplayerExtractor(BaseExtractor):
 
             # Update the number of total pages
             total_pages = page_json['pageInfo']['totalPages']
-            episodes.extend([
-                self.get_episode_info(episode_id=e['contentId'])
-                for e in page_json['itemRows']
-            ])
+            for episode in page_json['itemRows']:
+                yield self.get_episode_info(episode_id=episode['contentId'])
+
             page += 1
-            return episodes
 
     @check_episode_wrapper
     def get_episode_info(self,
@@ -369,6 +367,7 @@ class AtresplayerExtractor(BaseExtractor):
                                              SUBTITLES: 'spa'
                                          },
                                          id=stream_type[1],
+                                         content_type=VIDEO,
                                          preferred=False,
                                          key=None)
                         if episode is not None:
@@ -394,9 +393,6 @@ class AtresplayerExtractor(BaseExtractor):
                 episode.get_stream_by_id(preferred).preferred = True
             # This is the only reason to create a burner object lol
             _episode.get_stream_by_id(preferred).preferred = True
-
-        if hasattr(self, 'progress_bar'):
-            self.progress_bar.update(1)
 
         return _episode.streams
 
@@ -506,26 +502,24 @@ class AtresplayerExtractor(BaseExtractor):
             # Get all seasons' information
             for season in self.get_seasons():
                 _season = self.get_season_info(season=season)
-                episode_list = self.get_episodes_from_season(season=_season)
                 # Link the season
                 self.info.link_season(_season)
-                # Link the episodes
-                for episode in episode_list:
+                for episode in self.get_episodes_from_season(season=_season):
                     _season.link_episode(episode)
-
+                    self.progress_bar.update(1)
             self.progress_bar.close()
 
         elif url_type == Season:
             # Gets single season information
             season = self.get_season_info(season_id=identifiers[Season])
+            self.info.link_season(season=season)
             self.progress_bar = ProgressBar(head='extraction',
                                             desc=self.info.title,
                                             total=season.episode_count,
                                             leave=False)
-            episodes = self.get_episodes_from_season(season)
-            self.info.link_season(season=season)
-            for episode in episodes:
+            for episode in self.get_episodes_from_season(season):
                 season.link_episode(episode=episode)
+                self.progress_bar.update(1)
             self.progress_bar.close()
 
         elif url_type in (Episode, Movie):
