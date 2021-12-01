@@ -244,6 +244,7 @@ class Polarity:
                 continue
             name, extractor = _extractor
             extracted_info = extractor(item['url'], item['filters']).extract()
+            extracted_info._extractor = name
             self.extracted_items.append(extracted_info)
 
             if type(extracted_info) is Series:
@@ -276,7 +277,8 @@ class Polarity:
                 continue
             # Take an item from the download pool
             item = self.download_pool.pop(0)
-            if item.skip_download is not None:
+            if item.skip_download is not None and item.skip_download != lang[
+                    'extractor']['filter_check_fail']:
                 thread_vprint(
                     lang['dl']['cannot_download_content'] %
                     type(item).__name__, item.short_name, item)
