@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
+from .base import MediaType, MetaMediaType
 
 
 @dataclass
-class FFmpegInput:
+class FFmpegInput(MediaType, metaclass=MetaMediaType):
     input_path: str
     indexes: dict
     codecs: dict
@@ -32,6 +33,9 @@ class FFmpegInput:
         command['meta'] += '-map', f'{self.indexes["file"]}:{VIDEO}?'
         command['meta'] += '-map', f'{self.indexes["file"]}:{AUDIO}?'
         command['meta'] += '-map', f'{self.indexes["file"]}:{SUBTITLES}?'
+        for media_type, codec in self.codecs.items():
+            command[
+                'meta'] += f'-c:{media_type}:{self.indexes[media_type]}', codec
         for media_type, metadata in self.metadata.items():
             for key, value in metadata.items():
                 if value is None:
