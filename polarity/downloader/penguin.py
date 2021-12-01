@@ -1,6 +1,5 @@
 import json
 import os
-import pickle
 import re
 import subprocess
 import threading
@@ -14,10 +13,11 @@ from urllib.parse import unquote
 import cloudscraper
 from polarity.config import lang, paths
 from polarity.downloader.base import BaseDownloader
-from polarity.downloader.penguin.protocols import *
+from polarity.downloader.protocols import *
 from polarity.types.ffmpeg import *
 from polarity.types.stream import *
 from polarity.types.progressbar import ProgressBar
+from polarity.types.thread import Thread
 from polarity.utils import (browser, get_extension, retry_config,
                             strip_extension, thread_vprint, vprint)
 from polarity.version import __version__
@@ -26,7 +26,7 @@ from requests.adapters import HTTPAdapter
 
 class PenguinDownloader(BaseDownloader):
 
-    __penguin_version__ = '2021.11.21'
+    __penguin_version__ = '2021.11.30'
 
     thread_lock = threading.Lock()
 
@@ -42,24 +42,21 @@ class PenguinDownloader(BaseDownloader):
         'segment_downloaders': 10,
         'ffmpeg': {
             'codecs': {
-                'video': 'copy',
-                'audio': 'copy',
+                'v': 'copy',
+                'a': 'copy',
                 # Changing this is not recommended, specially with Crunchyroll
                 # since it uses SSA subtitles with styles, converting those to
                 # SRT will cause them to lose all formatting
-                'subtitles': 'copy'
+                's': 'copy'
             },
-            # Experimenting with this, will definitively not final
-            'subtitle_rules': {
-                '.ass': ['s', 'copy'],
-                '.vtt': ['s', 'srt'],
+            'codec_rules': {
+                '.vtt': [['s', 'srt']],
             }
         },
         'tweaks': {
             # Fixes Atresplayer subtitles italic parts
             'atresplayer_subtitle_fix': True,
             # Converts ttml2 subtitles to srt with internal convertor
-            # Yields
             'convert_ttml2_to_srt': True,
         }
     }
@@ -116,7 +113,10 @@ class PenguinDownloader(BaseDownloader):
     def load_output_data(self) -> dict:
         with open(f'{self.temp_path}_pools.json', 'r') as f:
             # Load the output data from the file
-            output = json.load(f)
+            try:
+                output = json.load(f)
+            except json.decoder.JSONDecodeError:
+                return
         pools = []
         inputs = []
         for pool in output['segment_pools']:
@@ -164,7 +164,7 @@ class PenguinDownloader(BaseDownloader):
         with open(path, 'rb') as f:
             try:
                 return json.load(f)
-            except json.JSONDecodeError:
+            except json.decoder.JSONDecodeError:
                 if use_backup:
                     # Backup file also broke, return
                     vprint('~TEMP~ backup file broke, trying to regenerate')
@@ -194,13 +194,20 @@ class PenguinDownloader(BaseDownloader):
         super()._start()
         self.options['penguin']['segment_downloaders'] = int(
             self.options['penguin']['segment_downloaders'])
-        vprint('Item: ' + self.content['extended'], 4,
-               threading.current_thread().name)
+        vprint('Starting download of ' + self.content['extended'], 1,
+               'penguin')
         if os.path.exists(f'{self.temp_path}_pools.json'):
-            vprint(lang['penguin']['resuming'] % self.content['name'])
             # Open resume file
-            self.output_data = self.load_output_data()
-        else:
+            output_data = self.load_output_data()
+            if output_data is None:
+                vprint('~TEMP~ Failed to load output data file, recreating', 2,
+                       'penguin', 'error')
+                # Remove the file
+                os.remove(f'{self.temp_path}_pools.json')
+            elif type(output_data) is dict:
+                vprint(lang['penguin']['resuming'] % self.content['name'])
+                self.output_data = output_data
+        if not os.path.exists(f'{self.temp_path}_pools.json'):
             for stream in self.streams:
                 self.process_stream(stream)
 
@@ -208,8 +215,7 @@ class PenguinDownloader(BaseDownloader):
             self.save_output_data()
         # Make a copy of the segment pools
         # Legacy stuff
-        self.copy_of_segment_pools = deepcopy(
-            self.output_data['segment_pools'])
+        self.segment_pools = deepcopy(self.output_data['segment_pools'])
         if os.path.exists(f'{self.temp_path}_stats.json'):
             self.resume_stats = self.load_resume_data()
 
@@ -330,6 +336,7 @@ class PenguinDownloader(BaseDownloader):
                 os.remove(input_path)
 
         command = self.generate_ffmpeg_command()
+        Thread('__FFmpeg_Watchdog', target=self.ffmpeg_watchdog).start()
 
         subprocess.run(command, check=True)
         move(f'{paths["tmp"]}{self.content["sanitized"]}.mkv',
@@ -371,6 +378,48 @@ class PenguinDownloader(BaseDownloader):
                 prog_bar.update(1)
         prog_bar.close()
 
+    # def get_segment_deletion_timings(self, pools: list[SegmentPool]) -> list:
+    #     return [s for s in p.segments p for p in pools]
+
+    def ffmpeg_watchdog(self) -> bool:
+        '''
+        Show ffmpeg merge progress and remove segments as they are merged
+        to the master file
+        '''
+        # TODO: automatic removal of segments
+        stats = {
+            'total_size': 0,
+            'out_time': None,
+            'progress': 'continue',
+        }
+
+        last_update = 0
+        remux_bar = ProgressBar(head='remux',
+                                desc=self.content['name'],
+                                unit='iB',
+                                unit_scale=True,
+                                leave=False,
+                                total=self.resume_stats['downloaded_bytes'])
+        # Wait until file is created
+        while not os.path.exists(f'{self.temp_path}_ffmpeg.txt'):
+            sleep(0.5)
+        while stats['progress'] == 'continue':
+            with open(f'{self.temp_path}_ffmpeg.txt', 'r') as f:
+                try:
+                    data = f.readlines()[-15:]
+                    for i in ('total_size', 'out_time', 'progress'):
+                        pattern = re.compile(f'{i}=(.+)')
+                        # Find all matches
+                        matches = re.findall(pattern, '\n'.join(data))
+                        stats[i] = matches[-1]
+                except IndexError:
+                    sleep(0.2)
+                    continue
+            remux_bar.update(int(stats['total_size']) - last_update)
+            last_update = int(stats['total_size'])
+            sleep(0.5)
+        remux_bar.close()
+
     def generate_ffmpeg_command(self, ) -> list:
         # Merge segments
         command = [
@@ -387,9 +436,10 @@ class PenguinDownloader(BaseDownloader):
         for _command in commands:
             command.extend(_command['meta'])
         command.extend([
-            '-c:v', 'copy', '-c:a', 'copy', '-metadata',
+            '-metadata',
             'encoding_tool=Polarity %s | Penguin %s' %
-            (__version__, self.__penguin_version__)
+            (__version__, self.__penguin_version__), '-progress',
+            f'{self.temp_path}_ffmpeg.txt'
         ])
         # Append the output
         command.append(f'{paths["tmp"]}{self.content["sanitized"]}.mkv')
@@ -461,6 +511,7 @@ class PenguinDownloader(BaseDownloader):
 
         pool_extension = pool.pool_type if pool.pool_type is not None else pool.get_ext_from_segment(
         )
+        segment_extension = pool.get_ext_from_segment(0)
         ff_input = FFmpegInput(
             input_path=f'{self.temp_path}/{pool.id}{pool_extension}',
             indexes={
@@ -469,7 +520,7 @@ class PenguinDownloader(BaseDownloader):
                 AUDIO: self.indexes['audio'],
                 SUBTITLES: self.indexes['subtitles'],
             },
-            codecs={},
+            codecs=dict(self.options['penguin']['ffmpeg']['codecs']),
             metadata={},
             hls_stream='.m3u' in stream.url)
 
@@ -486,6 +537,14 @@ class PenguinDownloader(BaseDownloader):
             self.indexes['subtitles'] += 1
             set_metadata(SUBTITLES, 'title', stream.name)
             set_metadata(SUBTITLES, 'language', stream.language)
+
+        for ext, rules in self.options['penguin']['ffmpeg'][
+                'codec_rules'].items():
+            if ext == segment_extension:
+                proc = {rule[0]: rule[1] for rule in rules}
+                codec_rules = {**ff_input.codecs, **proc}
+                ff_input.codecs = codec_rules
+                break
         return ff_input
 
     def segment_downloader(self):
@@ -681,11 +740,12 @@ class PenguinDownloader(BaseDownloader):
         # Add segments to playlist
         for segment in pool.segments:
             if segment.key != last_key and segment.key is not None:
-                last_key = segment.key
-                playlist += f'#EXT-X-KEY:METHOD={segment.key["video"].method},URI="{self.temp_path}/{pool.id}_{key_num}.key"\n'
-                # Download the key
-                download_key(segment)
-                key_num += 1
+                if segment.key['video'] is not None:
+                    last_key = segment.key
+                    playlist += f'#EXT-X-KEY:METHOD={segment.key["video"].method},URI="{self.temp_path}/{pool.id}_{key_num}.key"\n'
+                    # Download the key
+                    download_key(segment)
+                    key_num += 1
             playlist += f'#EXTINF:{segment.duration},\n{self.temp_path}/{segment.group}_{segment.number}{segment.ext}\n'
         # Write end of file
         playlist += '#EXT-X-ENDLIST\n'
