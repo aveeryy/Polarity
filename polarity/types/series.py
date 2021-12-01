@@ -1,11 +1,9 @@
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 from polarity.types.base import MediaType, MetaMediaType, MetaMediaType
 from polarity.types.episode import Episode
 from polarity.types.person import Actor, Person
 from polarity.types.season import Season
-
-import json
 
 from time import sleep
 
