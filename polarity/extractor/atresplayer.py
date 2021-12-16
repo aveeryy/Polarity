@@ -6,8 +6,7 @@ from polarity.config import ConfigError, lang
 from polarity.extractor.base import (BaseExtractor, ExtractorError,
                                      check_episode_wrapper,
                                      check_login_wrapper, check_season_wrapper)
-from polarity.extractor.flags import (AccountCapabilities, EnableLiveTV,
-                                      EnableSearch, LoginRequired)
+from polarity.extractor.flags import *
 from polarity.types import (Episode, Movie, ProgressBar, SearchResult, Season,
                             Series, Stream)
 from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO
@@ -49,7 +48,10 @@ class AtresplayerExtractor(BaseExtractor):
         },
     ]
 
-    FLAGS = {AccountCapabilities, LoginRequired, EnableLiveTV, EnableSearch}
+    FLAGS = {
+        VideoExtractor, AccountCapabilities, LoginRequired, EnableLiveTV,
+        EnableSearch
+    }
 
     def _login(self, username: str, password: str):
 
@@ -248,11 +250,10 @@ class AtresplayerExtractor(BaseExtractor):
             'description'] if 'description' in season_json else ''
         return season
 
-    def get_episodes_from_season(
-        self,
-        season: Season = None,
-        season_id: str = None,
-    ) -> list[Episode]:
+    def get_episodes_from_season(self,
+                                 season: Season = None,
+                                 season_id: str = None,
+                                 get_partial_episodes=False) -> list[Episode]:
 
         season_id = season.id if season is not None else season_id
         episodes = []
@@ -281,7 +282,13 @@ class AtresplayerExtractor(BaseExtractor):
             # Update the number of total pages
             total_pages = page_json['pageInfo']['totalPages']
             for episode in page_json['itemRows']:
-                yield self.get_episode_info(episode_id=episode['contentId'])
+                e = Episode(title=episode['title'], id=episode['contentId'])
+                passes = self.check_episode(e)
+                if passes and not get_partial_episodes:
+                    yield self.get_episode_info(
+                        episode_id=episode['contentId'])
+                elif passes and get_partial_episodes:
+                    yield e
 
             page += 1
 
