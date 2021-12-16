@@ -91,6 +91,11 @@ def change_options(new_options: dict):
     dict_merge(options, new_options, True)
 
 
+class ConfigError(Exception):
+    def __init__(self, msg: str = 'Failed to load configuration') -> None:
+        super().__init__(msg)
+
+
 # Part 1: Define default configurations
 
 # Base path for configuration files
@@ -199,44 +204,38 @@ __internal_lang = {
     'code': 'internal',
     'author': 'Aveeryy',
     'main': {
-        'no_tasks': 'nothing to do, exiting',
         'exit_msg': 'exiting'
     },
     # Argument string group
     'args': {
-        'added_arg': 'Added arg "%s" from %s',
+        'added_arg': 'added arg "%s" from %s',
         # Argument groups string sub-group
         'groups': {
-            'general': 'General opts',
-            'download': 'Download opts',
+            'general': 'general opts',
+            'download': 'download opts',
             'extractor': '%s options',
-            'sync': 'Synchronization options',
-            'debug': 'Debugging options'
+            'debug': 'debug options'
         },
         # Argument help string sub-group
         'help': {
-            'add_to_sync': 'Add urls to sync list',
             'all_extractors': 'Print info from extractors',
             'debug_dump_options': 'Writes options to the debug directory',
             'debug_print_options': 'Prints options, and exits',
-            'download_dir_series': 'Download directory for tv series',
-            'download_dir_movies': 'Download directory for movies',
-            'extended_help': "Show args' options",
+            'download_dir_series': 'download dir for tv series',
+            'download_dir_movies': 'download dir for movies',
+            'extended_help': "show argument options",
             'format_episode': "Formatting for episodes' filenames",
             'format_movie': "Formatting for movies' filenames",
             'format_season': "Formatting for seasons' directories",
             'format_series': "Formatting for tv series' directories",
-            'help': 'Shows help',
-            'postprocessing': 'Toggles extractor-specific post-processing',
+            'help': 'shows help',
             'redownload': 'Redownload previously downloaded episodes',
             'resolution': 'Preferred video resolution',
-            'search':
-            'Search for content in sites with extractors that support it',
-            'status_file': 'Report download status to file',
-            'sync_refresh': 'Interval the sync list gets updated, on minutes',
-            'update_git': 'Update to the latest git release ',
-            'url': 'Input URLs',
-            'verbose': 'Verbosity level'
+            'search': 'search content in extractors',
+            'update': 'update to latest release',
+            'update_git': 'update to latest git commit',
+            'url': 'input urls',
+            'verbose': 'verbose level'
         },
         'metavar': {
             'proxy': '<path>',
@@ -248,12 +247,11 @@ __internal_lang = {
         'all_tasks_finished': 'finished',
         'available_languages': 'available languages:',
         'language_format': '%s (%s) by %s',
-        'no_urls': 'Error: nothing inputted.',
         'use_help': 'Use --help to display all options',
         'use': 'Usage: ',
-        'search_no_results': 'no results',
+        'search_no_results': 'no results from search %s',
         'search_term': 'term: ',
-        'update_available': 'version %s available, update with --update',
+        'update_available': 'version %s available',
         'usage': 'Polarity <url(s)> [OPTIONS]',
         'using_version': 'using ver. %s',
         'except': {
@@ -261,14 +259,14 @@ __internal_lang = {
         }
     },
     'singularity': {
-        'extracting_keys': 'Extracting Widevine keys',
-        'using__version__': 'Using Singularity %s'
+        'extracting_keys': 'extracting keys',
+        'using__version__': 'using ver. %s'
     },
     'dl': {
         'cannot_download_content': '%s "%s" can\'t be downloaded: %s',
         'content_id': 'content id',
-        'download_successful': 'Downloaded %s "%s"',
-        'downloading_content': 'Downloading %s "%s"',
+        'download_successful': 'downloaded: %s "%s"',
+        'downloading_content': 'downloading: %s "%s"',
         'fail_to_delete': "failed to delete old file",
         'fail_to_move': "failed to move file to download directory",
         'redownload_enabled': 'deleting old file',
@@ -293,15 +291,15 @@ __internal_lang = {
             'segment_downloaders': 'Number of segment downloaders'
         },
         'protocols': {
-            'getting_playlist': 'Parsing playlist',
-            'getting_stream': 'Parsing stream',
+            'getting_playlist': 'parsing: playlist',
+            'getting_stream': 'parsing: streams',
             'multiple_video_bitrates':
             'Multiple video tracks with same resolution detected',
             'picking_best_stream_0':
             'Picking video stream with best resolution',
             'picking_best_stream_1': 'Picking best video stream',
             'picking_best_stream_2': 'Picking audio stream with best bitrate',
-            'selected_stream': 'Picked stream: %s'
+            'selected_stream': 'stream: %s'
         }
     },
     'extractor': {
@@ -314,7 +312,7 @@ __internal_lang = {
         },
         'filter_check_fail': 'did not pass filter check',
         'generic_error': 'error, error msg: ',
-        'get_all_seasons': 'getting info from seasons',
+        'get_all_seasons': 'getting info: seasons',
         'get_media_info': 'getting info: %s "%s" (%s)',
         'login_failure': 'Failed to log in. error code: %s',
         'login_loggedas': 'Logged in as %s',
@@ -342,7 +340,7 @@ __internal_lang = {
         'downloading_release': 'downloading latest stable',
         'downloading_native': 'downloading latest native',
         'installing_to_path': 'installing to %s',
-        'new_release': 'new release (%s) available, use --update to update',
+        'new_release': 'new release (%s) available',
         'successful_install': 'success, exiting in %ds',
         'updating': 'updating...',
         'except': {
@@ -355,19 +353,14 @@ __internal_lang = {
             'invalid_codec': 'Invalid codec set in settings.'
         },
         'args': {
-            'codec': 'Codec preferance'
+            'codec': 'codec preferance'
         }
     },
     'crunchyroll': {
-        'alt_bearer_fail': 'OLD; REPLACE STRING',
-        'alt_bearer_no_server': 'OLD; REPLACE STRING',
-        'alt_bearer_success': 'Alternative Bearer fetch successful',
         'getting_bearer': 'fetching bearer token',
         'getting_cms': 'cms policies fetch success',
         'getting_cms_fail': 'cms policies fetch fail',
         'skip_download_reason': 'premium content, or not in your region',
-        'spoof_region_fail': 'region spoof fail',
-        'spoof_region_success': 'region spoof success, region: "%s"',
         'using_method': 'login method "%s"',
         'args': {
             'subs': 'subt languages',
@@ -377,8 +370,6 @@ __internal_lang = {
             'email': "account email",
             'pass': "account password",
             'region': 'change content region',
-            'use_alt_bearer': '==DO NOT USE==',
-            'alt_bearer_server': '==DO NOT USE=='
         }
     }
 }
@@ -450,14 +441,22 @@ elif any(a in sys.argv for a in ('-q', '--quiet')):
     # Quiet parameter passed,
     verbose_level['print'] = 0
 elif any(a in sys.argv for a in ('-v', '--verbose')):
-    verbose_level['print'] = int(get_argument_value(('-v', '--verbose')))
+    value = get_argument_value(('-v', '--verbose'))
+    if value is None or int(value) not in [*range(0, 6)]:
+        raise ConfigError(lang['polarity']['except']['verbose_error'] % value)
+    verbose_level['print'] = int(value)
 elif 'verbose' in config:
     verbose_level['print'] = int(config['verbose'])
 
 # Set logging verbosity level
-if '--verbose-logs' in sys.argv:
-    verbose_level['log'] = get_argument_value(('--verbose-logs'))
-elif 'verbose-logs' in config:
+if '--log-verbose' in sys.argv:
+    log_value = get_argument_value('--log-verbose')
+    # Check if value is valid
+    if log_value is None or int(log_value) not in [*range(0, 6)]:
+        raise ConfigError(lang['polarity']['except']['verbose_error'] %
+                          log_value)
+    verbose_level['log'] = int(log_value)
+elif 'verbose_logs' in config:
     verbose_level['log'] = config['verbose_logs']
 
 # Part 3: Load options from the rest of command line arguments
@@ -577,11 +576,18 @@ def argument_parser() -> dict:
     general.add_argument('--extended-help',
                          help=lang_help['extended_help'],
                          action='store_true')
+    general.add_argument('-V',
+                         '--version',
+                         action='store_true',
+                         help='~TEMP~ print version')
     general.add_argument('-v',
                          '--verbose',
                          choices=['0', '1', '2', '3', '4', '5'],
                          help=lang_help['verbose'],
                          metavar=lang_meta['verbose'])
+    general.add_argument('--log-verbose',
+                         choices=['0', '1', '2', '3', '4', '5'],
+                         help='~TEMP~ logging verbose level')
     general.add_argument('-m',
                          '--mode',
                          choices=['download', 'search', 'print', 'livetv'],
