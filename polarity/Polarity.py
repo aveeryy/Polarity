@@ -8,15 +8,18 @@ from typing import Union
 
 from tqdm import TqdmWarning
 
-import polarity.utils
+from datetime import datetime
+
 from polarity.config import (USAGE, ConfigError, change_verbose_level, lang,
                              options, paths, verbose_level)
+from polarity.extractor import EXTRACTORS, flags
 from polarity.types import Episode, Movie, Season, Series
+from polarity.types import search
 from polarity.types.thread import Thread
 from polarity.types.filter import Filter, build_filter
 from polarity.types.search import SearchResult
-from polarity.update import (check_for_updates, language_install,
-                             windows_install)
+from polarity.version import (check_for_updates, language_install,
+                              windows_install)
 from polarity.utils import (dict_merge, filename_datetime,
                             get_compatible_extractor, is_content_id,
                             normalize_integer, sanitize_path, thread_vprint,
@@ -39,9 +42,23 @@ class Polarity:
         :param _verbose_level: override print verbose lvl
         :param _logging_level: override log verbose lvl
         '''
+
+        if 'version' in options:
+            # Print the version number
+            print(f'Polarity {__version__}')
+            print('Mass downloader for streaming platforms')
+            print(f'Copyright (C) {datetime.now().year} Aveeryy\n')
+            print(
+                '''This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.''')
+            os._exit(0)
+
         # Print Polarity version
         vprint(lang['polarity']['using_version'] % __version__, 3, 'polarity',
                'debug')
+
         self.status = {
             'pool': urls,
             'extraction': {
@@ -50,15 +67,18 @@ class Polarity:
             }
         }
         self.status['pool'] = urls
+
         if opts is not None:
             # Merge user's script options with processed options
             dict_merge(options, opts)
+
         # Scripting only, override the session verbose level,
         # since verbose level is set before options merge.
         if _verbose_level is not None:
             change_verbose_level(_verbose_level, True)
         if _logging_level is not None:
             change_verbose_level(_logging_level, False, True)
+
         # Check if verbose level is valid
         if verbose_level['print'] not in range(
                 0, 6) or verbose_level['log'] not in range(0, 6):
@@ -73,21 +93,28 @@ class Polarity:
         self.extracted_items = []
 
     def start(self):
+        def create_tasks(name: str, _range: int,
+                         _target: object) -> list[Thread]:
+            tasks = []
+            for _ in range(_range):
+                t = Thread(f'{name}_Task', target=_target, daemon=True)
+                tasks.append(t)
+            return tasks
+
         # Pre-start functions
 
-        # Windows dependency install
+        # Check for updates
         if options['check_for_updates']:
-            if check_for_updates():
-                # Import latest server version now, if imported before
-                # it'll just be None
-                from polarity.update import latest_version_on_server
-                vprint(
-                    lang['polarity']['update_available'] %
-                    latest_version_on_server, 1, 'update')
+            update, last_version = check_for_updates()
+            if update:
+                vprint(lang['polarity']['update_available'] % last_version, 1,
+                       'update')
+        # Windows dependency install
         if 'install_windows' in options:
             windows_install()
         if 'dump' in options:
             self.dump_information()
+
         # Language file update
         # if options['auto_update_languages'] or options[
         #        'update_languages']:
@@ -110,41 +137,45 @@ class Polarity:
             if 'filters' in options:
                 self.process_filters(filters=options['filters'])
 
-            # TODO: better names
-            workers = []
-            _workers = []
+            tasks = {
+                'extraction':
+                create_tasks('Extraction',
+                             options['extractor']['active_extractions'],
+                             self._extract_task),
+                'download':
+                create_tasks('Download',
+                             options['download']['active_downloads'],
+                             self._download_task),
+                'metadata': []
+            }
             if options['extractor']['active_extractions'] > len(self.pool):
                 options['extractor']['active_extractions'] = len(self.pool)
-            # Create worker processes
-            for _ in range(options['extractor']['active_extractions']):
-                w = Thread('Extractor_Worker',
-                           target=self._extract_task,
-                           daemon=True)
-                w.start()
-                workers.append(w)
 
-            for _ in range(options['download']['active_downloads']):
-                w = Thread('Download_Worker',
-                           target=self._download_task,
-                           daemon=True)
-                w.start()
-                _workers.append(w)
+            # Start the tasks
+            for task_group in tasks.values():
+                for task in task_group:
+                    task.start()
 
             # Wait until workers finish
             while True:
-                if not [w for w in workers if w.is_alive()]:
+                if not [w for w in tasks['extraction'] if w.is_alive()]:
+                    if not self.status['extraction']['finished']:
+                        vprint('~TEMP~ extraction tasks finished')
                     self.status['extraction']['finished'] = True
-                    if not [w for w in _workers if w.is_alive()]:
+                    if not [w for w in tasks['download'] if w.is_alive()]:
                         break
                 time.sleep(0.1)
             vprint(lang['polarity']['all_tasks_finished'])
 
         if options['mode'] == 'search':
             search_string = ' '.join(self.pool)
+            self.search(search_string)
 
     @classmethod
     def search(string: str) -> list[SearchResult]:
-        pass
+        compatible_extractors = [
+            e for e in EXTRACTORS.values() if flags.EnableSearch in e.FLAGS
+        ]
 
     def dump_information(self) -> None:
         'Dump requested debug information to current directory'
@@ -166,7 +197,6 @@ class Polarity:
 
         if 'requests' in options['dump']:
             vprint('Enabled dumping of HTTP requests', error_level='debug')
-            polarity.utils.dump_requests = True
 
     def process_filters(self, filters: str, link=True) -> list[Filter]:
         'Create Filter objects from a string and link them to their respective links'
@@ -234,7 +264,6 @@ class Polarity:
         while True:
             item = take_item()
             if item is None:
-                vprint('~TEMP~ extraction tasks finished')
                 break
             _extractor = get_compatible_extractor(url=item['url'])
             if _extractor is None:
@@ -258,18 +287,17 @@ class Polarity:
                             media = (extracted_info, episode._season, episode)
                         elif type(episode) is Movie:
                             media = Episode
-                        media_object = self._format_filenames(media, name)
+                        media_object = self._format_filenames(media)
                         self.download_pool.append(media_object)
             elif type(extracted_info) is Movie:
                 while not extracted_info._extracted:
                     time.sleep(0.1)
-                media_object = self._format_filenames(extracted_info, name)
+                media_object = self._format_filenames(extracted_info)
                 self.download_pool.append(media_object)
 
     def _download_task(self) -> None:
         while True:
             if not self.download_pool and self.status['extraction']['finished']:
-
                 break
             elif not self.download_pool:
                 time.sleep(1)
@@ -278,18 +306,17 @@ class Polarity:
             item = self.download_pool.pop(0)
             if item.skip_download is not None and item.skip_download != lang[
                     'extractor']['filter_check_fail']:
-                thread_vprint(
+                vprint(
                     lang['dl']['cannot_download_content'] %
                     type(item).__name__, item.short_name, item)
+
+            vprint(lang['dl']['downloading_content'] %
+                   (item.short_name, item.title))
+
             # ~TEMP~ Set the downloader to Penguin
             _downloader = PenguinDownloader
 
-            downloader = _downloader(stream=item.get_preferred_stream(),
-                                     short_name=item.short_name,
-                                     media_id=item.id,
-                                     extra_audio=item.get_extra_audio(),
-                                     extra_subs=item.get_extra_subs(),
-                                     output=item.output)
+            downloader = _downloader(item=item)
 
             downloader.start()
 
@@ -300,8 +327,8 @@ class Polarity:
         '''
         Write metadata files
         '''
-        def make_series_metadata(self) -> dict:
-            base = {'tvshow': {}}
+        def make_series_metadata(self, series: Series) -> dict:
+            base = {'tvshow': {'title': series.title}}
 
         while True:
             for item in self.extracted_items:
@@ -313,14 +340,17 @@ class Polarity:
                         [self.extracted_items.index(item)])
 
     @staticmethod
-    def _format_filenames(media_obj: Union[tuple[Series, Season, Episode],
-                                           Movie],
-                          extractor: str,
-                          separate=False) -> Union[Episode, Movie, tuple[str]]:
+    def _format_filenames(
+        media_obj: Union[tuple[Series, Season, Episode], Movie],
+    ) -> Union[Episode, Movie, tuple[str]]:
+        '''
+        Create an output path out of an MediaType object metadata
+        :param media_obj: a tuple with a series, season and episode object, in that order, or a movie object
+        '''
         if type(media_obj) is tuple:
             series_dir = options['download']['series_format'].format(
                 # Extractor's name
-                W=extractor,
+                W=media_obj[0]._extractor,
                 # Series' title
                 S=media_obj[0].title,
                 # Series' identifier
@@ -329,7 +359,7 @@ class Polarity:
                 y=media_obj[0].year)
             season_dir = options['download']['season_format'].format(
                 # Extractor's name
-                W=extractor,
+                W=media_obj[0]._extractor,
                 # Series' title
                 S=media_obj[0].title,
                 # Season's title
@@ -342,7 +372,7 @@ class Polarity:
                 Sn=media_obj[1].number)
             output_filename = options['download']['episode_format'].format(
                 # Extractor's name
-                W=extractor,
+                W=media_obj[0]._extractor,
                 # Series' title
                 S=media_obj[0].title,
                 # Season's title
@@ -367,7 +397,7 @@ class Polarity:
         if type(media_obj) is Movie:
             output_filename = options['download']['movie_format'].format(
                 # Extractor's name
-                W=extractor,
+                W=media_obj._extractor,
                 # Movie's title
                 E=media_obj.title,
                 # Movie's identifier
