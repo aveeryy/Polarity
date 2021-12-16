@@ -420,6 +420,7 @@ def request_webpage(url: str, method: str = 'get', **kwargs) -> Response:
     global dump_requests
     # Create a cloudscraper session
     # Spoof an Android Firefox browser to bypass Captcha v2
+    vprint(f'~TEMP~ requesting {url}', 5, 'cloudscraper', 'debug')
     r = cloudscraper.create_scraper(browser=browser)
     start_time = time()
     request = getattr(r, method.lower())(url, **kwargs)
@@ -506,11 +507,16 @@ def get_proxy_by_country(country_code: str) -> dict:
 def get_argument_value(args: list):
     'Returns the value of one or more command line arguments'
     _arg = None
-    for arg in args:
-        if arg in sys.argv:
-            _arg = arg
-            break
+    if type(args) is not str:
+        for arg in args:
+            if arg in sys.argv:
+                _arg = arg
+                break
+    elif type(args) is str:
+        _arg = args
     if _arg is None:
+        return
+    elif sys.argv.index(_arg) + 1 > len(sys.argv):
         return
     return sys.argv[sys.argv.index(_arg) + 1]
 
