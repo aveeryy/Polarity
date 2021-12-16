@@ -18,10 +18,10 @@ def main():
 
 if __name__ == '__main__':
     if '--update' in sys.argv:
-        from polarity.update import selfupdate
+        from polarity.version import selfupdate
         selfupdate(mode='release')
     elif '--update-git' in sys.argv:
-        from polarity.update import selfupdate
+        from polarity.version import selfupdate
         selfupdate(mode='git')
     try:
         main()
