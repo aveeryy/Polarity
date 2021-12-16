@@ -57,7 +57,7 @@ class Segment(MediaType, metaclass=MetaMediaType):
 
 @dataclass
 class SegmentPool(MediaType, metaclass=MetaMediaType):
-    segments: list
+    segments: list[Segment]
     format: str
     id: str
     track_id: str

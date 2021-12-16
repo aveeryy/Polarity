@@ -44,9 +44,6 @@ class ProgressBar(tqdm.tqdm):
         if head is not None:
             desc = f'{color}[{head}]{Fore.RESET} {desc}'
 
-        from polarity.config import progress_bars
-        progress_bars.append(self)
-        self.closed_bar = False
         super().__init__(iterable=iterable,
                          desc=desc,
                          total=total,
@@ -74,14 +71,3 @@ class ProgressBar(tqdm.tqdm):
                          delay=delay,
                          gui=gui,
                          **kwargs)
-
-    def update(self, n=1):
-        if self.closed_bar:
-            return
-        super().update(n=n)
-
-    def close(self):
-        if self.closed_bar:
-            return
-        self.closed_bar = True
-        return super().close()
