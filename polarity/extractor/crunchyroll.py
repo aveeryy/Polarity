@@ -606,11 +606,12 @@ class CrunchyrollExtractor(BaseExtractor):
 
         return _season
 
-    def get_episodes_from_season(self,
-                                 season_id: str = None,
-                                 season: Season = None,
-                                 return_raw_info=False,
-                                 threaded=True) -> Union[list[Episode], dict]:
+    def get_episodes_from_season(
+            self,
+            season_id: str = None,
+            season: Season = None,
+            return_raw_info=False,
+            get_partial_episodes=False) -> Union[list[Episode], dict]:
         '''
         Return a list with full Episode objects from the episodes of the
         season
@@ -623,32 +624,6 @@ class CrunchyrollExtractor(BaseExtractor):
         :return: Returns a Full Episode object (with streams) if
         return_raw_info is False, else returns unparsed JSON dict
         '''
-        def worker(pool: list, out: Queue) -> Episode:
-            while pool:
-                item = pool.pop()
-                # Make a partial episode object, to check if needs
-                # to be filtered out
-                e = Episode(
-                    title=item['title'],
-                    id=item['id'],
-                    number=item['episode_number'],
-                )
-                e._season = season if season is not None else None
-                # This check is *not* necessary on other extractors,
-                # since Crunchyroll returns the exact same info from
-                # the season's episode list and the episode info page,
-                # it would be stupid to waste time getting the exact
-                # information again, and the `get_episode_info` and
-                # `check_episode_wrapper` are skipped, so the filter check
-                # must be done separately
-                if not self.check_episode(e):
-                    vprint(f'~TEMP~ Skipping episode {e.id}', 5, 'cr')
-                    if hasattr(self, 'progress_bar'):
-                        self.progress_bar.update()
-                    continue
-                parsed_episode = self._parse_episode_info(item)
-                out.put(parsed_episode)
-
         identifier = season_id if season_id is not None else season.id
         if identifier is None:
             raise ExtractorError('~TEMP~ No indentifier inputted')
@@ -669,34 +644,18 @@ class CrunchyrollExtractor(BaseExtractor):
             _season = season if season is not None else self.season
             _season.episode_count = len(unparsed_list['items'])
 
-        # Reverse the list so last episodes do not come first
-        unparsed_list['items'].reverse()
-
-        episode_threads = []
-        parsed_episodes = Queue()
-
-        for _ in range(self.options['episode_threads'] if threaded else 1):
-            _thread = Thread('__Episode_Extractor',
-                             daemon=True,
-                             target=worker,
-                             kwargs={
-                                 'pool': unparsed_list['items'],
-                                 'out': parsed_episodes
-                             })
-            _thread.start()
-            episode_threads.append(_thread)
-
-        while True:
-            if not [t for t in episode_threads if t.is_alive()
-                    ] and not parsed_episodes.queue:
-                break
-            while True:
-                if not parsed_episodes.queue:
-                    break
-                episode = parsed_episodes.get()
-                if hasattr(self, 'progress_bar'):
-                    self.progress_bar.update()
-                yield episode
+        for episode in unparsed_list['items']:
+            # Create a partial episode object to check if passes filter check
+            e = Episode(title=episode['title'],
+                        id=episode['id'],
+                        number=episode['episode_number'])
+            e._season = season if season is not None else None
+            if self.check_episode(episode=e) and not get_partial_episodes:
+                yield self._parse_episode_info(episode)
+            elif self.check_episode(episode=e) and get_partial_episodes:
+                yield e
+            if hasattr(self, 'progress_bar'):
+                self.progress_bar.update()
 
     @check_episode_wrapper
     def get_episode_info(self,
@@ -889,6 +848,7 @@ class CrunchyrollExtractor(BaseExtractor):
 
             season_threads = []
 
+            # TODO: remove threading here
             for season in self.get_seasons(series_id=series_guid):
                 if 'all' not in self.options['crunchyroll']['dub_language'] \
                     and season._crunchyroll_dub not in self.options['crunchyroll']['dub_language']:

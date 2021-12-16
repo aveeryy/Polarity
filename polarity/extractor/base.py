@@ -10,7 +10,6 @@ from polarity.extractor.flags import *
 from polarity.types import Episode, Season, Series, Movie
 from polarity.types.filter import MatchFilter, NumberFilter
 from polarity.types.thread import Thread
-from polarity.types.progressbar import ProgressBar
 from polarity.utils import dict_merge, mkfile, vprint
 
 
@@ -23,22 +22,23 @@ class BaseExtractor:
         from polarity.config import options as user_options
 
         self.url = url
-        self.extractor_name = self.__class__.__name__.replace('Extractor',
-                                                              '').lower()
+        self.extractor_name = self.__class__.__name__.replace('Extractor', '')
         if options is None:
-            options = {self.extractor_name: {}}
-        if self.extractor_name != 'base':
+            options = {self.extractor_name.lower(): {}}
+        if self.extractor_name.lower() != 'base':
             # self.options = dict_merge(user_options['extractor'],
             #                           options,
             #                           overwrite=True,
             #                           modify=False)
             self.options = user_options['extractor']
-            self.__opts = user_options['extractor'][self.extractor_name]
-            self.extractor_lang = lang[self.extractor_name]
+            self.__opts = user_options['extractor'][
+                self.extractor_name.lower()]
+            self.extractor_lang = lang[self.extractor_name.lower()]
+            self._validate_extractor()
 
             if AccountCapabilities in self.FLAGS:
                 # Account Capabilities is enabled, use the extractor's cookiejar
-                cjar_path = f"{paths['account']}{self.extractor_name}.cjar"
+                cjar_path = f"{paths['account']}{self.extractor_name.lower()}.cjar"
 
                 if not os.path.exists(cjar_path):
                     # Create the cookiejar
@@ -91,8 +91,6 @@ class BaseExtractor:
         _watchdog_thread = Thread('__Extraction_Watchdog',
                                   target=self._watchdog,
                                   daemon=True)
-        # Make the thread a child of current one
-        # self.set_child(child=extractor)
         self._extractor.start()
         _watchdog_thread.start()
         # Return a partial information object
@@ -113,18 +111,20 @@ class BaseExtractor:
 
     def _validate_extractor(self) -> bool:
         '''Check if extractor has all needed variables'''
-        def check_variables(_vars: list):
+        def check_variables(*_vars):
             '''
             Raise an ExtractorError if a variable does not exist in
             class scope
             '''
-            missing = (v for v in _vars if not hasattr(self, v))
+            missing = [v for v in _vars if not hasattr(self, v)]
             if missing:
-                raise ExtractorError(
-                    f'Invalid extractor! Missing variables: {missing}')
+                raise InvalidExtractorError(
+                    f'Extractor {self.extractor_name.lower()} is invalid! Missing variables: {missing}'
+                )
 
-        if self.extractor_name == 'base':
+        if self.extractor_name.lower() == 'base':
             return
+
         # Check if extractor has all necessary variables
         check_variables(
             'HOST',
@@ -138,18 +138,13 @@ class BaseExtractor:
 
         if VideoExtractor in self.FLAGS:
             # Identification methods
-            check_variables(
-                'get_series_info',
-                'get_season_info',
-                'get_seasons',
-                'get_episodes_from_seasons',
-                'get_episode_info',
-                '_get_streams',
-            )
+            check_variables('get_series_info', 'get_season_info',
+                            'get_seasons', 'get_episodes_from_season',
+                            'get_episode_info', '_get_streams')
 
         if AccountCapabilities in self.FLAGS:
             # Check if extractor has necessary login variables
-            check_variables(('_login', 'is_logged_in'))
+            check_variables('_login', 'is_logged_in')
         return True
 
     def _has_cookiejar(func):
@@ -339,4 +334,8 @@ class ExtractorError(Exception):
 
 
 class InvalidURLError(Exception):
+    pass
+
+
+class InvalidExtractorError(Exception):
     pass
