@@ -406,28 +406,28 @@ class AtresplayerExtractor(BaseExtractor):
     # Extra stuff
 
     @classmethod
-    def get_all_genres(self):
+    def get_all_genres(self) -> dict[str, str]:
         '''Returns a list of dicts containing name,
         id and API url of every Atresplayer genre'''
-        self.genres = {}
-        self.list_index = 0
+        genres = {}
+        list_index = 0
         while True:
-            self.genre_list = request_json(
+            genre_list = request_json(
                 url=f'{self.API_URL}client/v1/row/search',
                 params={
                     'entityType': 'ATPGenre',
                     'size': '100',
-                    'page': self.list_index
+                    'page': list_index
                 })[0]
-            for genre in self.genre_list['itemRows']:
-                self.genres[genre['title']] = {
+            for genre in genre_list['itemRows']:
+                genres[genre['title']] = {
                     'id': genre['contentId'],
                     'api_url': genre['link']['href']
                 }
-            if self.genre_list['pageInfo']['last']:
+            if genre_list['pageInfo']['last']:
                 break
-            self.list_index += 1
-        return self.genres
+            list_index += 1
+        return genres
 
     @check_login_wrapper
     def get_account_info(self):
@@ -457,42 +457,31 @@ class AtresplayerExtractor(BaseExtractor):
             url=f'{self.API_URL}player/v1/live/{self.livetv_id}')[0]
         return self.channel_info['sources'][0]['src']
 
-    def search(self, term: str):
-        # TODO: rework
-        # Search within the FORMAT category
-        format_results = request_json(url=self.API_URL +
-                                      'client/v1/row/search',
-                                      params={
-                                          'entityType': 'ATPFormat',
-                                          'text': term,
-                                          'size': 30
-                                      })[0]
-        episode_results = request_json(url=self.API_URL +
-                                       'client/v1/row/search',
-                                       params={
-                                           'entityType': 'ATPEpisode',
-                                           'text': term,
-                                           'size': 30
-                                       })[0]
-        if 'itemRows' in format_results and format_results['itemRows']:
-            for item in format_results['itemRows']:
-                result = SearchResult(item['title'], Series, item['contentId'],
-                                      item['link']['url'])
-                self.search_results.append(result)
-        else:
-            vprint(f'No results found in category FORMAT using term "{term}"',
-                   2, 'atresplayer', 'warning')
-        if 'itemRows' in format_results and format_results['itemRows']:
-            for item in episode_results['itemRows']:
-                item_type = Episode if not 'tv-movies' in item['link'][
-                    'url'] else Movie
-                result = SearchResult(item['title'], item_type,
-                                      item['contentId'], item['link']['url'])
-                self.search_results.append(result)
-        else:
-            vprint(f'No results found in category EPISODE using term "{term}"',
-                   2, 'atresplayer', 'warning')
-        return self.search_results
+    def _search(self, term: str, max: int, max_per_type: int):
+        results = {Series: [], Season: [], Episode: []}
+        for media_type, entity in ((Series, 'ATPFormat'), (Episode,
+                                                           'AtpEpisode')):
+            search_results = request_json(url=self.API_URL +
+                                          'client/v1/row/search',
+                                          params={
+                                              'entityType': entity,
+                                              'text': term,
+                                              'size': max_per_type
+                                          })[0]
+
+            if 'itemRows' in search_results and search_results['itemRows']:
+                for item in search_results['itemRows']:
+                    if len(sum(results.values())) >= max:
+                        break
+                    result = SearchResult(item['title'], media_type,
+                                          item['contentId'],
+                                          item['link']['url'])
+                    results[media_type].append(result)
+            else:
+                vprint(
+                    f'~TEMP~ No results found in category {media_type} using term "{term}"',
+                    2, 'atresplayer', 'warning')
+        return results
 
     def _extract(self):
         url_type, identifiers = self.identify_url(url=self.url)
