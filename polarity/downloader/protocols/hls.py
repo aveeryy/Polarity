@@ -75,6 +75,11 @@ class HTTPLiveStream(StreamProtocol):
                     ext=get_extension(s['uri']),
                     byte_range=None) for s in self.parsed_stream['segments']
             ]
+            l = 0
+            for segment in segments:
+                segment.time = l
+                l += segment.duration
+
             seg_pool = SegmentPool(
                 segments, media_type,
                 f'{media_type}{self.processed_tracks[media_type]}', None,
