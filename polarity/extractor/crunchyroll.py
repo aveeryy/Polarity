@@ -806,15 +806,6 @@ class CrunchyrollExtractor(BaseExtractor):
 
         return streams
 
-    def _threaded_episodes_from_season(self, season: Season) -> None:
-        if not any(s in ('all', season._crunchyroll_dub)
-                   for s in self.options['crunchyroll']['dub_language']):
-            return
-        self.get_season_info(season=season)
-        self.info.link_season(season=season)
-        for episode in self.get_episodes_from_season(season=season):
-            season.link_episode(episode=episode)
-
     def search(self, term: str):
         # TODO: search
         search_results = request_json(
@@ -855,16 +846,10 @@ class CrunchyrollExtractor(BaseExtractor):
                     vprint('~TEMP~ Skipping season, unwanted dub')
                     continue
 
-                _thread = Thread('__Subextractor',
-                                 daemon=True,
-                                 target=self._threaded_episodes_from_season,
-                                 kwargs={'season': season})
-                _thread.start()
-                season_threads.append(_thread)
-
-            while [t for t in season_threads if t.is_alive()]:
-                time.sleep(0.1)
-            self.progress_bar.close()
+                self.get_season_info(season=season)
+                self.info.link_season(season=season)
+                for episode in self.get_episodes_from_season(season=season):
+                    season.link_episode(episode=episode)
 
         elif url_type == Episode:
             # Get series and season info
