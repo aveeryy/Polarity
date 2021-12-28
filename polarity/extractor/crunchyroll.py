@@ -110,7 +110,7 @@ class CrunchyrollExtractor(BaseExtractor):
 
     API_URL = 'https://beta-api.crunchyroll.com/'
 
-    FLAGS = {AccountCapabilities}
+    FLAGS = {AccountCapabilities, EnableSearch}
 
     LANG_CODES = {
         'en-US': {
