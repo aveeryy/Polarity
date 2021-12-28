@@ -299,7 +299,6 @@ class PenguinDownloader(BaseDownloader):
                     # TODO: rework
                     self.resume_stats['do_binary_concat'] = True
                 self.output_data['segment_pools'].append(pool)
-                self.output_data['segment'][pool.id] = len(pool.segments)
                 self.output_data['inputs'].append(
                     self.create_input(pool=pool, stream=stream))
             return
