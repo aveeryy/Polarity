@@ -481,18 +481,15 @@ def get_compatible_extractor(url: str) -> Union[tuple[str, object], None]:
     else:
         parsed_id = parse_content_id(id=url)
         extractor_name = parsed_id.extractor
-        if not extractor_name in EXTRACTORS:
+        _EXTRACTORS = {k.lower(): v for k, v in EXTRACTORS.items()}
+        if not extractor_name in _EXTRACTORS:
             return
-        return (EXTRACTORS[extractor_name][0], EXTRACTORS[extractor_name][1])
+        return (extractor_name, _EXTRACTORS[extractor_name])
 
 
 ###################
 # Region spoofing #
 ###################
-
-
-def enable_passive_spoofing():
-    pass
 
 
 def get_proxy_by_country(country_code: str) -> dict:
