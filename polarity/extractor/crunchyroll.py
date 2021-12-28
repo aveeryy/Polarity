@@ -10,10 +10,7 @@ from polarity.extractor.base import (BaseExtractor, ExtractorError,
                                      InvalidURLError, check_episode_wrapper,
                                      check_season_wrapper)
 from polarity.extractor.flags import *
-from polarity.types import Episode, Season, Series, Stream
-from polarity.types.base import MediaType
-from polarity.types.progressbar import ProgressBar
-from polarity.types.thread import Thread
+from polarity.types import Episode, Season, Series, Movie, Stream, SearchResult, ProgressBar, MediaType
 from polarity.utils import (is_content_id, order_dict, parse_content_id,
                             request_json, request_webpage, vprint)
 
@@ -81,13 +78,6 @@ class CrunchyrollExtractor(BaseExtractor):
                 lang['crunchyroll']['args']['hard'],
             },
             'variable': 'hardsub_language'
-        },
-        {
-            'args': ['--crunchyroll-spoof-region'],
-            'attrib': {
-                'help': lang['crunchyroll']['args']['region']
-            },
-            'variable': 'region_spoof'
         },
         {
             'args': ['--crunchyroll-email'],
@@ -451,10 +441,10 @@ class CrunchyrollExtractor(BaseExtractor):
                                  proxies=self.proxy)
         if not 'access_token' in token_req[0]:
             # TODO: better error message
-            vprint('Failed to get Bearer', 1, 'crunchyroll', 'error')
+            vprint('~TEMP~ Failed to get Bearer', 1, 'crunchyroll', 'error')
             if method == 'etp_rt_cookie':
-                vprint('Login expired, cleaning cookie jar', 1, 'crunchyroll',
-                       'warning')
+                vprint('~TEMP~ Login expired, cleaning cookie jar', 1,
+                       'crunchyroll', 'warning')
                 self.cjar.clear()
                 # Save the cookie jar
                 self.cjar.save()
@@ -530,10 +520,13 @@ class CrunchyrollExtractor(BaseExtractor):
 
         return self.info
 
-    def get_seasons(self, series_id: str) -> list[Season]:
+    def get_seasons(self,
+                    series_id: str,
+                    return_raw_info=False) -> list[Season]:
 
         season_list = []
         vprint(lang['extractor']['get_all_seasons'], 2, 'crunchyroll')
+
         api_season_list = request_json(
             self.CMS_API_URL + '/seasons',
             params={
@@ -543,6 +536,8 @@ class CrunchyrollExtractor(BaseExtractor):
                 'Policy': self.account_info['policy'],
                 'Key-Pair-Id': self.account_info['key_pair_id']
             })[0]
+        if return_raw_info:
+            return api_season_list
 
         for season in api_season_list['items']:
             # Get dub language from the title using regex
@@ -581,6 +576,7 @@ class CrunchyrollExtractor(BaseExtractor):
         '''
         _season = season if season is not None else Season()
         _season_id = season.id if season is not None else season_id
+
         season_json = request_json(
             self.CMS_API_URL + '/seasons/' + _season_id,
             headers={'Authorization': self.account_info['bearer']},
@@ -590,6 +586,9 @@ class CrunchyrollExtractor(BaseExtractor):
                 'Policy': self.account_info['policy'],
                 'Key-Pair-Id': self.account_info['key_pair_id']
             })[0]
+        if return_raw_info:
+            return season_json
+
         vprint(
             lang['extractor']['get_media_info'] %
             (lang['types']['alt']['season'], season_json['title'], _season_id),
@@ -627,6 +626,7 @@ class CrunchyrollExtractor(BaseExtractor):
         identifier = season_id if season_id is not None else season.id
         if identifier is None:
             raise ExtractorError('~TEMP~ No indentifier inputted')
+
         unparsed_list = request_json(
             self.CMS_API_URL + '/episodes',
             params={
@@ -700,7 +700,7 @@ class CrunchyrollExtractor(BaseExtractor):
     def _parse_episode_info(self,
                             episode_info: dict,
                             get_streams=True) -> Episode:
-        'Parses info from an episode\'s JSON'
+        '''Parses info from an episode's JSON'''
         vprint(
             lang['extractor']['get_media_info'] %
             (lang['types']['alt']['episode'], episode_info['title'],
@@ -806,8 +806,32 @@ class CrunchyrollExtractor(BaseExtractor):
 
         return streams
 
-    def search(self, term: str):
-        # TODO: search
+    def _search(self, term: str, maximum: int,
+                max_per_type: int) -> list[SearchResult]:
+        def parse_group(data: dict, media_type: MediaType):
+            parsed_items = 0
+            for result in data['items']:
+                # Halt if surpassed the per type limit
+                if parsed_items >= max_per_type and max_per_type > 0:
+                    break
+                # Create a SearchResult object
+                parsed_result = SearchResult(result['title'],
+                                             media_type,
+                                             result['id'],
+                                             url=build_url(
+                                                 result['id'], media_type),
+                                             extractor=self.extractor_name)
+                # Add parsed result to respective list
+                results[media_type].append(parsed_result)
+                parsed_items += 1
+
+        def build_url(id: str, media_type: MediaType) -> str:
+            '''Builds a valid Crunchyroll URL from the inputted id and type'''
+            component = {Series: 'series', Episode: 'watch', Movie: 'watch'}
+
+            return f'https://crunchyroll.com/{component[media_type]}/{id}'
+
+        results = {Series: [], Season: [], Episode: [], Movie: []}
         search_results = request_json(
             url=self.API_URL + 'content/v1/search',
             headers={
@@ -815,10 +839,15 @@ class CrunchyrollExtractor(BaseExtractor):
             },
             params={
                 'q': term,
-                'n': 30,
+                'n': maximum if maximum > 0 else 1000,
                 'locale': self.options['crunchyroll']['meta_language']
-            })
-        print(search_results)
+            })[0]
+
+        for n, group in enumerate((Series, Movie, Episode)):
+            # Get the results
+            parse_group(search_results['items'][n + 1], group)
+
+        return results
 
     def _extract(self):
         url_type, url_ids = self.identify_url(url=self.url)
@@ -837,9 +866,6 @@ class CrunchyrollExtractor(BaseExtractor):
             # the progress bar will be inaccurate
             self._print_filter_warning()
 
-            season_threads = []
-
-            # TODO: remove threading here
             for season in self.get_seasons(series_id=series_guid):
                 if 'all' not in self.options['crunchyroll']['dub_language'] \
                     and season._crunchyroll_dub not in self.options['crunchyroll']['dub_language']:

@@ -166,6 +166,20 @@ __defaults = {
         # 3 * 3 * 5 = 45 active threads assuming at least 3 URLs
         'episode_threads': 5,
     },
+    'search': {
+        # Absolute maximum for results
+        'max_results': 100,
+        # Maximum results per extractor
+        'max_results_per_extractor': 100,
+        # Maximum results per
+        'max_results_per_type': 100,
+        # Format for results
+        # Default format: Title (Polarity content ID [extractor/type-id])
+        # Default example: Pokémon (atresplayer/series-000000)
+        # Available format codes:
+        # https://github.com/aveeryy/Polarity/tree/main/polarity/docs/format.md
+        'result_format': '{n} ({I})'
+    },
     'flags': []
 }
 
@@ -213,29 +227,31 @@ __internal_lang = {
         'groups': {
             'general': 'general opts',
             'download': 'download opts',
-            'extractor': '%s options',
-            'debug': 'debug options'
+            'extractor': '%s opts',
+            'debug': 'debug opts',
+            'search': 'search opts'
         },
         # Argument help string sub-group
         'help': {
-            'all_extractors': 'Print info from extractors',
-            'debug_dump_options': 'Writes options to the debug directory',
-            'debug_print_options': 'Prints options, and exits',
             'download_dir_series': 'download dir for tv series',
             'download_dir_movies': 'download dir for movies',
-            'extended_help': "show argument options",
-            'format_episode': "Formatting for episodes' filenames",
-            'format_movie': "Formatting for movies' filenames",
-            'format_season': "Formatting for seasons' directories",
-            'format_series': "Formatting for tv series' directories",
+            'extended_help': "shows help with argument options",
+            'format_episode': "formatting for episodes' filenames",
+            'format_movie': "formatting for movies' filenames",
+            'format_season': "formatting for seasons' directories",
+            'format_series': "formatting for tv series' directories",
             'help': 'shows help',
-            'redownload': 'Redownload previously downloaded episodes',
+            'language': 'specify polarity\'s language',
+            'mode': '',
+            'redownload': 'allow episode redownload',
             'resolution': 'Preferred video resolution',
             'search': 'search content in extractors',
             'update': 'update to latest release',
             'update_git': 'update to latest git commit',
             'url': 'input urls',
-            'verbose': 'verbose level'
+            'verbose': 'verbose level',
+            'verbose_log': 'verbose level for logging',
+            'version': 'print polarity\'s version'
         },
         'metavar': {
             'proxy': '<path>',
@@ -547,7 +563,7 @@ def argument_parser() -> dict:
                         format='%(asctime)s - %(levelname)s - %(message)s',
                         level=logging.DEBUG)
     # Set options' base dictionaries
-    opts = {'download': {}, 'sync': {}, 'extractor': {}}
+    opts = {'download': {}, 'search': {}, 'sync': {}, 'extractor': {}}
     args_map = {}
 
     from polarity.downloader import DOWNLOADERS
@@ -579,7 +595,8 @@ def argument_parser() -> dict:
     general.add_argument('-V',
                          '--version',
                          action='store_true',
-                         help='~TEMP~ print version')
+                         help=lang_help['version'])
+    # Verbose options
     general.add_argument('-v',
                          '--verbose',
                          choices=['0', '1', '2', '3', '4', '5'],
@@ -587,13 +604,11 @@ def argument_parser() -> dict:
                          metavar=lang_meta['verbose'])
     general.add_argument('--log-verbose',
                          choices=['0', '1', '2', '3', '4', '5'],
-                         help='~TEMP~ logging verbose level')
+                         help=lang_help['verbose_log'])
     general.add_argument('-m',
                          '--mode',
                          choices=['download', 'search', 'print', 'livetv'],
                          default='download')
-    general.add_argument('-e', '--search-extractor', help='')
-    general.add_argument('--search-strip-names')
     general.add_argument('--language', help='')
     general.add_argument('--list-languages', choices=['local', 'remote'])
     general.add_argument('--install-languages', nargs='*')
@@ -601,8 +616,13 @@ def argument_parser() -> dict:
     general.add_argument('--update-git',
                          action='store_true',
                          help=lang_help['update_git'])
-    general.add_argument('--printer', nargs='*')
     general.add_argument('--filters', help='~TEMP~ download filters')
+
+    # Search options
+    search = parser.add_argument_group(title=lang_group['search'])
+    search.add_argument('--max-results', type=int)
+    search.add_argument('--max-results-per-category', type=int)
+    search.add_argument('--max-results-per-extractor', type=int)
 
     download = parser.add_argument_group(title=lang_group['download'])
     # Downloader options

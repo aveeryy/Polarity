@@ -13,11 +13,9 @@ from datetime import datetime
 from polarity.config import (USAGE, ConfigError, change_verbose_level, lang,
                              options, paths, verbose_level)
 from polarity.extractor import EXTRACTORS, flags
-from polarity.types import Episode, Movie, Season, Series
-from polarity.types import search
-from polarity.types.thread import Thread
+from polarity.types import Episode, Movie, Season, Series, all_types, SearchResult, Thread
+from polarity.types.base import MediaType
 from polarity.types.filter import Filter, build_filter
-from polarity.types.search import SearchResult
 from polarity.version import (check_for_updates, language_install,
                               windows_install)
 from polarity.utils import (dict_merge, filename_datetime,
@@ -66,7 +64,6 @@ the Free Software Foundation, either version 3 of the License, or
                 'tasks': []
             }
         }
-        self.status['pool'] = urls
 
         if opts is not None:
             # Merge user's script options with processed options
@@ -112,6 +109,7 @@ the Free Software Foundation, either version 3 of the License, or
         # Windows dependency install
         if 'install_windows' in options:
             windows_install()
+
         if 'dump' in options:
             self.dump_information()
 
@@ -168,14 +166,60 @@ the Free Software Foundation, either version 3 of the License, or
             vprint(lang['polarity']['all_tasks_finished'])
 
         if options['mode'] == 'search':
-            search_string = ' '.join(self.pool)
-            self.search(search_string)
+            search_string = ' '.join(self.status['pool'])
+            results = self.search(search_string)
+            for group, group_results in results.items():
+                for result in group_results:
+                    print(options['search']['result_format'].format(
+                        n=result.name,
+                        t=group,
+                        i=result.id,
+                        I=result.get_content_id(),
+                        u=result.url))
 
     @classmethod
-    def search(string: str) -> list[SearchResult]:
+    def search(self,
+               string: str,
+               absolute_max: int = -1,
+               max_per_extractor: int = -1,
+               max_per_type: int = -1) -> dict[MediaType, list[SearchResult]]:
+        '''Search'''
+        def can_add_to_list(media_type) -> bool:
+            '''Returns True if item can be added to results list'''
+            conditions = (
+                # Absolute maximum
+                (sum([len(t) for t in results.values()]), absolute_max, False),
+                # Maximum per extractor
+                (extractor_results, max_per_extractor, True),
+                # Maximum per type
+                (len(results[media_type]), max_per_type, False))
+            for cond in conditions:
+                if cond[0] >= cond[1] and cond[1] > 0:
+                    if cond[2] and cond[0] < 0:
+                        continue
+                    return False
+            return True
+
+        # Get a list of extractors with search capabilities
         compatible_extractors = [
-            e for e in EXTRACTORS.values() if flags.EnableSearch in e.FLAGS
+            e for e in EXTRACTORS.items() if flags.EnableSearch in e[1].FLAGS
         ]
+        # Create an empty dictionary for the results
+        results = {Series: [], Season: [], Episode: []}
+
+        for _, extractor in compatible_extractors:
+            # Current extractor results added to list
+            extractor_results = 0
+            # Do the search
+            search_results = extractor().search(string, max_per_extractor,
+                                                max_per_type)
+            for media_type, _results in search_results.items():
+                for result in _results:
+                    if can_add_to_list(media_type):
+                        # Add item to respective list
+                        results[media_type].append(result)
+                        extractor_results += 1
+        return results
 
     def dump_information(self) -> None:
         'Dump requested debug information to current directory'
@@ -268,8 +312,8 @@ the Free Software Foundation, either version 3 of the License, or
             _extractor = get_compatible_extractor(url=item['url'])
             if _extractor is None:
                 vprint(lang['dl']['no_extractor'] %
-                       lang['dl']['url'] if not is_content_id(item['url']) else
-                       lang['dl']['content_id'])
+                       (lang['dl']['url'] if not is_content_id(item['url'])
+                        else lang['dl']['content_id'], item['url']))
                 continue
             name, extractor = _extractor
             extracted_info = extractor(item['url'], item['filters']).extract()
