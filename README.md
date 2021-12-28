@@ -21,17 +21,16 @@
 
 \* `not in current branch`
 
-
 ## Installation
 - ### [Windows Installation <img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#windows-)
 - ### [Linux Installation <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#linux-)
 - ### [Android Installation <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#android-)
 
 ## Supported websites
-| | Premium | Subtitles | Search | New extractor format
-|:-:|:-:|:-:|:-:|:-:|
-| Atresplayer | ✔️ | ✔️ | ✔️ | ❌ 
-| Crunchyroll  | ✔️ | ✔️ | ❌ | ❌
+| | Premium | Subtitles | Search
+|:-:|:-:|:-:|:-:|
+| Atresplayer | ✔️ | ✔️ | ✔️ 
+| Crunchyroll  | ✔️ | ✔️ | ✔️️
 
 > Note: "🍝" means in progress
 

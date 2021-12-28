@@ -81,7 +81,9 @@ class AtresplayerExtractor(BaseExtractor):
         content_id = is_content_id(url)
         if content_id:
             parsed_content_id = parse_content_id(url)
-        content_type = self._get_url_type(url=url)
+            content_type = parsed_content_id.content_type
+        elif not content_id:
+            content_type = self._get_url_type(url=url)
         if content_type is None:
             return (None, {})
 
@@ -436,8 +438,9 @@ class AtresplayerExtractor(BaseExtractor):
                             cookies=self.cjar)[0]
 
     @classmethod
-    def get_live_stream(self, channel: str):
+    def get_live_tv_stream(self, channel: str):
         'Gets the m3u8 stream of a live tv channel'
+
         _CHANNEL_IDS = {
             'antena3': '5a6a165a7ed1a834493ebf6a',
             'lasexta': '5a6a172c7ed1a834493ebf6b',
@@ -446,21 +449,19 @@ class AtresplayerExtractor(BaseExtractor):
             'mega': '5a6a18357ed1a834493ebf6f',
             'atreseries': '5a6a189a7ed1a834493ebf70',
         }
+
         if channel not in _CHANNEL_IDS:
-            vprint('Unsupported channel',
-                   0,
-                   module_name='atresplayer',
-                   error_level='error')
             return
+
         self.livetv_id = _CHANNEL_IDS[channel]
         self.channel_info = request_json(
             url=f'{self.API_URL}player/v1/live/{self.livetv_id}')[0]
         return self.channel_info['sources'][0]['src']
 
-    def _search(self, term: str, max: int, max_per_type: int):
+    def _search(self, term: str, maximum: int, max_per_type: int):
         results = {Series: [], Season: [], Episode: []}
         for media_type, entity in ((Series, 'ATPFormat'), (Episode,
-                                                           'AtpEpisode')):
+                                                           'ATPEpisode')):
             search_results = request_json(url=self.API_URL +
                                           'client/v1/row/search',
                                           params={
@@ -471,12 +472,14 @@ class AtresplayerExtractor(BaseExtractor):
 
             if 'itemRows' in search_results and search_results['itemRows']:
                 for item in search_results['itemRows']:
-                    if len(sum(results.values())) >= max:
-                        break
-                    result = SearchResult(item['title'], media_type,
-                                          item['contentId'],
-                                          item['link']['url'])
+                    result = SearchResult(
+                        item['title'], media_type, item['contentId'],
+                        f"https://atresplayer.com{item['link']['url']}",
+                        self.extractor_name)
                     results[media_type].append(result)
+                    if sum([len(t) for t in results.values()
+                            ]) >= maximum and maximum > 0:
+                        break
             else:
                 vprint(
                     f'~TEMP~ No results found in category {media_type} using term "{term}"',
