@@ -1,5 +1,4 @@
 import os
-import re
 from getpass import getpass
 from http.cookiejar import CookieJar, LWPCookieJar
 from time import sleep
@@ -7,15 +6,14 @@ from typing import Union
 
 from polarity.config import config, lang, paths
 from polarity.extractor.flags import *
-from polarity.types import Episode, Season, Series, Movie
+from polarity.types import Episode, Season, Series, Movie, SearchResult, Thread
 from polarity.types.filter import MatchFilter, NumberFilter
-from polarity.types.thread import Thread
-from polarity.utils import dict_merge, mkfile, vprint
+from polarity.utils import mkfile, vprint
 
 
 class BaseExtractor:
     def __init__(self,
-                 url: str,
+                 url: str = '',
                  filter_list: list = None,
                  options: dict = None) -> None:
 
@@ -72,6 +70,9 @@ class BaseExtractor:
             # Parse the filter list
             self._parse_filters()
             self._using_filters = True
+
+        if hasattr(self, '__post_init__'):
+            self.__post_init__()
 
     def _watchdog(self):
         '''Set the extraction flag in case of the extraction thread dying'''
@@ -226,6 +227,12 @@ class BaseExtractor:
         if password is None:
             password = getpass(lang['extractor']['base']['password_prompt'])
         return self._login(username=username, password=password)
+
+    def search(self,
+               term: str,
+               max: int = -1,
+               max_per_category: int = -1) -> list[SearchResult]:
+        return self._search(term, max, max_per_category)
 
     def check_episode(self, episode: Episode) -> bool:
         '''Returns True if episode passes filters check'''
