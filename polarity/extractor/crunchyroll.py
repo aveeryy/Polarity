@@ -178,11 +178,7 @@ class CrunchyrollExtractor(BaseExtractor):
         },
     }
 
-    def __init__(self,
-                 url: str,
-                 filter_list: list = None,
-                 options: dict = None) -> None:
-        super().__init__(url, filter_list=filter_list, options=options)
+    def __post_init__(self) -> None:
         self.proxy = {}
         self.get_bearer_token()
         self.get_cms_tokens()
