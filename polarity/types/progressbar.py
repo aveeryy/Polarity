@@ -1,13 +1,11 @@
-from colorama import Fore
-
-import sys
 import tqdm
+from colorama import Fore
 
 
 class ProgressBar(tqdm.tqdm):
     '''
     Progress bar with a small head identifier, based on tqdm, for tasks
-    >>> ProgressBar(head='download', name='Series S01E01', ...)
+    >>> ProgressBar(head='download', desc='Series S01E01', ...)
     [download] Series S01E01 |     | 0% 0.03MB/1.43GB[00:12>01:03:32, 31.49kb/s]
     '''
     def __init__(self,
@@ -38,11 +36,8 @@ class ProgressBar(tqdm.tqdm):
                  gui=False,
                  head=None,
                  **kwargs):
-        # Set head color to magenta if platform is not Windows
-        # Unsupported on Windows due to Powershell being absolute shit
-        color = Fore.MAGENTA if sys.platform != 'win32' else ''
         if head is not None:
-            desc = f'{color}[{head}]{Fore.RESET} {desc}'
+            desc = f'\033[1m{Fore.MAGENTA}[{head}]{Fore.RESET}\033[0m {desc}'
 
         super().__init__(iterable=iterable,
                          desc=desc,
