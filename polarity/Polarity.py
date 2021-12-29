@@ -7,7 +7,7 @@ from threading import Lock
 from typing import Union
 
 from tqdm import TqdmWarning
-
+from colorama import Fore
 from datetime import datetime
 
 from polarity.config import (USAGE, ConfigError, change_verbose_level, lang,
@@ -16,6 +16,7 @@ from polarity.extractor import EXTRACTORS, flags
 from polarity.types import Episode, Movie, Season, Series, all_types, SearchResult, Thread
 from polarity.types.base import MediaType
 from polarity.types.filter import Filter, build_filter
+from polarity.types.progressbar import ProgressBar
 from polarity.version import (check_for_updates, language_install,
                               windows_install)
 from polarity.utils import (dict_merge, filename_datetime,
@@ -165,7 +166,7 @@ the Free Software Foundation, either version 3 of the License, or
                 time.sleep(0.1)
             vprint(lang['polarity']['all_tasks_finished'])
 
-        if options['mode'] == 'search':
+        elif options['mode'] == 'search':
             search_string = ' '.join(self.status['pool'])
             results = self.search(search_string)
             for group, group_results in results.items():
@@ -176,6 +177,15 @@ the Free Software Foundation, either version 3 of the License, or
                         i=result.id,
                         I=result.get_content_id(),
                         u=result.url))
+
+        elif options['mode'] == 'debug':
+            if 'debug_vprint' in options:
+                # Test for
+                vprint('demo', 0, 'demo')
+                vprint('demo', 0, 'demo', 'warning')
+                vprint('demo', 0, 'demo', 'error')
+                vprint('demo', 0, 'demo', 'debug')
+                ProgressBar(head='demo', desc='progress_bar', total=1)
 
     @classmethod
     def search(self,
@@ -435,7 +445,6 @@ the Free Software Foundation, either version 3 of the License, or
                 En=media_obj[2].number)
             output_path = os.path.join(options['download']['series_directory'],
                                        series_dir, season_dir, output_filename)
-            # Not using f-strings for readibility
             media_obj[2].output = sanitize_path(output_path)
             return media_obj[2]
         if type(media_obj) is Movie:
