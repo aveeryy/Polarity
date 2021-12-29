@@ -242,6 +242,10 @@ __internal_lang = {
             'format_series': "formatting for tv series' directories",
             'help': 'shows help',
             'language': 'specify polarity\'s language',
+            'max_results': 'maximum number of results',
+            'max_results_per_extractor':
+            'maximum number of results per extractor',
+            'max_results_per_type': 'maximum number of results per media type',
             'mode': '',
             'redownload': 'allow episode redownload',
             'resolution': 'Preferred video resolution',
@@ -264,7 +268,7 @@ __internal_lang = {
         'available_languages': 'available languages:',
         'language_format': '%s (%s) by %s',
         'use_help': 'Use --help to display all options',
-        'use': 'Usage: ',
+        'use': '\033[1mUsage: \033[0m',
         'search_no_results': 'no results from search %s',
         'search_term': 'term: ',
         'update_available': 'version %s available',
@@ -480,11 +484,56 @@ elif 'verbose_logs' in config:
 
 # Argument parsing
 class HelpFormatter(argparse.HelpFormatter):
+    class _Section(object):
+        def __init__(self, formatter, parent, heading=None):
+            self.formatter = formatter
+            self.parent = parent
+            self.heading = heading
+            self.items = []
+
+        def format_help(self):
+            # format the indented section
+            if self.parent is not None:
+                self.formatter._indent()
+            join = self.formatter._join_parts
+            item_help = join([func(*args) for func, args in self.items])
+            if self.parent is not None:
+                self.formatter._dedent()
+
+            # return nothing if the section was empty
+            if not item_help:
+                return ''
+
+            # add the heading if the section was non-empty
+            if self.heading != '==SUPRESS==' and self.heading is not None:
+                current_indent = self.formatter._current_indent
+                heading = '%*s%s\n%s\n' % (
+                    current_indent + 1,
+                    '',
+                    # Bold header
+                    f'\033[1m{self.heading}\033[0m',
+                    # Underline
+                    '\u2500' * (len(self.heading) + 2))
+            else:
+                heading = ''
+
+            # join the section-initial newline, the heading and the help
+            return join(['\n', heading, item_help, '\n'])
+
+    def _format_usage(self, usage, actions, groups, prefix: str) -> str:
+        # Change the usage text to the language provided one
+        prefix = f"\033[1m{lang['polarity']['use']}\033[0m"
+        return super()._format_usage(usage, actions, groups, prefix)
+
+    def _format_text(self, text: str) -> str:
+        # Make the text below the usage string bold
+        return super()._format_text(f'\033[1m{text}\033[0m')
+
     def _format_action_invocation(self, action):
         return ', '.join(action.option_strings)
 
 
-class ExtendedFormatter(argparse.HelpFormatter):
+class ExtendedFormatter(HelpFormatter):
     def _format_action_invocation(self, action):
         if not action.option_strings or action.nargs == 0:
             return super()._format_action_invocation(action)
@@ -586,7 +635,6 @@ def argument_parser() -> dict:
 
     general.add_argument('-h',
                          '--help',
-                         '--ayuda',
                          action='store_true',
                          help=lang_help['help'])
     general.add_argument('--extended-help',
@@ -620,9 +668,15 @@ def argument_parser() -> dict:
 
     # Search options
     search = parser.add_argument_group(title=lang_group['search'])
-    search.add_argument('--max-results', type=int)
-    search.add_argument('--max-results-per-category', type=int)
-    search.add_argument('--max-results-per-extractor', type=int)
+    search.add_argument('--max-results',
+                        type=int,
+                        help=lang_help['max_results'])
+    search.add_argument('--max-results-per-extractor',
+                        type=int,
+                        help=lang_help['max_results_per_extractor'])
+    search.add_argument('--max-results-per-type',
+                        type=int,
+                        help=lang_help['max_results_per_type'])
 
     download = parser.add_argument_group(title=lang_group['download'])
     # Downloader options
@@ -658,6 +712,7 @@ def argument_parser() -> dict:
     debug.add_argument('--exit-after-dump',
                        action='store_true',
                        help='Exit after a dump')
+    debug.add_argument('--debug-vprint', action='store_true')
 
     # Add extractor arguments
     for name, extractor in EXTRACTORS.items():
@@ -676,6 +731,12 @@ def argument_parser() -> dict:
     process_args()
 
     options = dict_merge(config, opts, overwrite=True, modify=False)
+
+    # See if list / debug mode needs to be set
+    if any(s in sys.argv for s in ('--debug-vprint', '--a')):
+        vprint('~TEMP~ enabled debug mode')
+        change_verbose_level(0, True, True)
+        options['mode'] = 'debug'
 
     return (args.url, options)
 
