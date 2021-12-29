@@ -257,11 +257,6 @@ __internal_lang = {
             'verbose_log': 'verbose level for logging',
             'version': 'print polarity\'s version'
         },
-        'metavar': {
-            'proxy': '<path>',
-            'search': '<search term>',
-            'verbose': '<level>'
-        }
     },
     'polarity': {
         'all_tasks_finished': 'finished',
@@ -534,6 +529,46 @@ class HelpFormatter(argparse.HelpFormatter):
 
 
 class ExtendedFormatter(HelpFormatter):
+    def _format_args(self, action, default_metavar):
+        get_metavar = self._metavar_formatter(action, default_metavar)
+        if action.nargs is None:
+            result = '%s' % get_metavar(1)
+        elif action.nargs == argparse.OPTIONAL:
+            result = '[%s]' % get_metavar(1)
+        elif action.nargs == argparse.ZERO_OR_MORE:
+            metavar = get_metavar(1)
+            result = '[%s ...]' % metavar
+        elif action.nargs == argparse.ONE_OR_MORE:
+            result = '%s ...' % get_metavar(1)
+        elif action.nargs == argparse.REMAINDER:
+            result = '...'
+        elif action.nargs == argparse.PARSER:
+            result = '%s ...' % get_metavar(1)
+        elif action.nargs == argparse.SUPPRESS:
+            result = ''
+        else:
+            try:
+                formats = ['%s' for _ in range(action.nargs)]
+            except TypeError:
+                raise ValueError("invalid nargs value") from None
+            result = ' '.join(formats) % get_metavar(action.nargs)
+        return result
+
+    def _metavar_formatter(self, action, default_metavar):
+        if action.choices is not None:
+            choice_strs = [str(choice) for choice in action.choices]
+            result = '(%s)' % ','.join(choice_strs)
+        else:
+            result = ''
+
+        def format(tuple_size):
+            if isinstance(result, tuple):
+                return result
+            else:
+                return (result, ) * tuple_size
+
+        return format
+
     def _format_action_invocation(self, action):
         if not action.option_strings or action.nargs == 0:
             return super()._format_action_invocation(action)
@@ -604,7 +639,6 @@ def argument_parser() -> dict:
 
     # Set language dictionaries
     lang_help = lang['args']['help']
-    lang_meta = lang['args']['metavar']
     lang_group = lang['args']['groups']
     # Set logging filename and configuration
     log_filename = paths['log'] + f'log_{filename_datetime()}.log'
@@ -648,8 +682,7 @@ def argument_parser() -> dict:
     general.add_argument('-v',
                          '--verbose',
                          choices=['0', '1', '2', '3', '4', '5'],
-                         help=lang_help['verbose'],
-                         metavar=lang_meta['verbose'])
+                         help=lang_help['verbose'])
     general.add_argument('--log-verbose',
                          choices=['0', '1', '2', '3', '4', '5'],
                          help=lang_help['verbose_log'])
