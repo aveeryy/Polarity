@@ -122,7 +122,6 @@ the Free Software Foundation, either version 3 of the License, or
         # Actual start-up
         if options['mode'] == 'download':
             if not self.status['pool']:
-                vprint(lang['main']['no_tasks'], level=2, error_level='error')
                 print(f"{lang['polarity']['use']}{USAGE}\n")
                 print(lang['polarity']['use_help'])
                 os._exit(1)
