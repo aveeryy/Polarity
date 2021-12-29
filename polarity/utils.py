@@ -90,7 +90,7 @@ def vprint(
 
     if level <= int(verbose_level['print']):
         # Print the message
-        tqdm.write(f'{head} {message}', end=end)
+        tqdm.write(f'\033[1m{head}\033[0m {message}', end=end)
 
     # Redact emails out for logs
     if type(message) is not str:
