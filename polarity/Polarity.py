@@ -52,9 +52,9 @@ class Polarity:
             print(f'Copyright (C) {datetime.now().year} Aveeryy\n')
             print(
                 '''This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.''')
+                it under the terms of the GNU General Public License as published by
+                the Free Software Foundation, either version 3 of the License, or
+                (at your option) any later version.'''.replace(' ' * 4, ''))
             os._exit(0)
 
         # Print Polarity version
