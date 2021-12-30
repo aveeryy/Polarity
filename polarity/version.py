@@ -85,7 +85,10 @@ def windows_setup() -> None:
     from polarity.config import paths
 
     if sys.platform != 'win32':
-        raise NotImplementedError('Unsupported OS')
+        vprint('Not running on Windows, exiting...',
+               module_name='update',
+               error_level='error')
+        os._exit(1)
 
     vprint('Downloading FFmpeg', module_name='update')
     download = get(FFMPEG, stream=True)
