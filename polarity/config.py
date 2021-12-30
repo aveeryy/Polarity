@@ -1,11 +1,13 @@
 import argparse
-import atoml
 import logging
-import re
 import os
+import re
 import sys
 
-from polarity.utils import filename_datetime, get_argument_value, get_home_path, dict_merge, vprint
+import atoml
+
+from polarity.utils import (dict_merge, filename_datetime, get_argument_value,
+                            get_home_path, strip_extension, vprint)
 from polarity.version import __version__
 
 
@@ -70,6 +72,10 @@ def change_language(language_code: str) -> dict:
             # Merge internal language with loaded one, avoids errors due
             # missing strings
     return lang
+
+
+def get_installed_languages() -> list[str]:
+    return [strip_extension(f.name) for f in os.scandir(paths['lang'])]
 
 
 def change_verbose_level(new_level: int, change_print=True, change_log=False):
@@ -201,12 +207,8 @@ paths = {
     }.items()
 }
 
+# Predefine configuration variables
 lang = {}
-
-# Create status lists
-processes = []
-progress_bars = []
-
 verbose_level = {'print': 1, 'log': 4}
 
 # Integrated language
@@ -407,7 +409,7 @@ __path_arguments = {
     '--binaries-directory': 'bin',
     '--config-file': 'cfg',
     '--download-log-file': 'dl_log',
-    '--dumps-directory': 'dump',
+    '--dump-directory': 'dump',
     '--language-directory': 'lang',
     '--log-directory': 'log',
     '--temp-directory': 'tmp'
@@ -419,7 +421,8 @@ for arg, path_name in __path_arguments.items():
         _value = sys.argv[sys.argv.index(arg) + 1]
         paths[path_name] = _value
         # Create the directory if it does not exist
-        os.makedirs(_value, exist_ok=True)
+        if 'directory' in arg:
+            os.makedirs(_value, exist_ok=True)
 
 # If config file is specified and does not exist, create it
 if paths['cfg'] and not os.path.exists(paths['cfg']):
@@ -428,8 +431,8 @@ if paths['cfg'] and not os.path.exists(paths['cfg']):
 # Load configuration from file
 config = load_config(paths['cfg'])
 
-from polarity.extractor import EXTRACTORS
 from polarity.downloader import DOWNLOADERS
+from polarity.extractor import EXTRACTORS
 
 for name, downloader in DOWNLOADERS.items():
     merge_external_config(downloader, name, config['download'])
@@ -438,7 +441,6 @@ for name, extractor in EXTRACTORS.items():
 
 # Add new configuration entries to user's configuration and save to file
 dict_merge(config, __defaults)
-
 save_config(paths['cfg'], config)
 
 # Load language file if specified
@@ -563,6 +565,8 @@ class ExtendedFormatter(HelpFormatter):
         return result
 
     def _metavar_formatter(self, action, default_metavar):
+        if action.metavar is not None:
+            result = action.metavar
         if action.choices is not None:
             choice_strs = [str(choice) for choice in action.choices]
             result = '(%s)' % ','.join(choice_strs)
@@ -703,13 +707,15 @@ def argument_parser() -> dict:
                          choices=['download', 'search', 'print', 'livetv'],
                          default='download')
     general.add_argument('--language', help='')
-    general.add_argument('--list-languages', choices=['local', 'remote'])
+    general.add_argument('--installed-languages', action='store_true')
     general.add_argument('--install-languages', nargs='*')
+    general.add_argument('--update-languages', action='store_true')
     general.add_argument('--update', action='store_true')
     general.add_argument('--update-git',
                          action='store_true',
                          help=lang_help['update_git'])
     general.add_argument('--filters', help='~TEMP~ download filters')
+    general.add_argument('--accounts-directory', dest=None)
 
     # Search options
     search = parser.add_argument_group(title=lang_group['search'])

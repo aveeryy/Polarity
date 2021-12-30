@@ -1,33 +1,38 @@
 import json
-from logging import error
 import os
 import re
 import time
 import warnings
+from datetime import datetime
+from logging import error
 from threading import Lock
 from typing import Union
 
-from tqdm import TqdmWarning
 from colorama import Fore
-from datetime import datetime
+from tqdm import TqdmWarning
 
-from polarity.config import (USAGE, ConfigError, change_verbose_level, lang,
-                             options, paths, verbose_level)
+from polarity.config import (USAGE, ConfigError, change_verbose_level,
+                             get_installed_languages, lang, options, paths,
+                             verbose_level)
+from polarity.downloader import PenguinDownloader
 from polarity.extractor import EXTRACTORS, flags
-from polarity.types import Episode, Movie, Season, Series, all_types, SearchResult, Thread
+from polarity.types import (Episode, Movie, SearchResult, Season, Series,
+                            Thread, all_types)
 from polarity.types.base import MediaType
 from polarity.types.filter import Filter, build_filter
 from polarity.types.progressbar import ProgressBar
-from polarity.version import (check_for_updates, language_install,
+from polarity.utils import (
+    dict_merge,
+    filename_datetime,
+    get_compatible_extractor,
+    is_content_id,
+    normalize_integer,
+    sanitize_path,
+    thread_vprint,
+    vprint,
+)
+from polarity.version import (__version__, check_for_updates, language_install,
                               windows_setup)
-from polarity.utils import (dict_merge, filename_datetime,
-                            get_compatible_extractor, is_content_id,
-                            normalize_integer, sanitize_path, thread_vprint,
-                            vprint)
-from polarity.version import __version__
-
-# ~TEMP~
-from polarity.downloader import PenguinDownloader
 
 warnings.filterwarnings('ignore', category=TqdmWarning)
 
@@ -105,9 +110,12 @@ class Polarity:
         # Pre-start functions
 
         # Language installation / update
-
         # First update old languages
-        # if options['install_languages']
+        if options['update_languages'] or options['auto_update_languages']:
+            language_install(get_installed_languages())
+        # Then, install new languages
+        if options['install_languages']:
+            language_install(options['install_languages'])
 
         # Windows dependency install
         if options['windows_setup']:
@@ -122,11 +130,6 @@ class Polarity:
 
         if options['dump']:
             self.dump_information()
-
-        # Language file update
-        # if options['auto_update_languages'] or options[
-        #        'update_languages']:
-        #    language_install(get_installed_languages())
 
         # Actual start-up
         if options['mode'] == 'download':
