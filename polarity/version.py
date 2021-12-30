@@ -9,63 +9,44 @@ from zipfile import ZipFile
 from polarity.utils import vprint, humanbytes, request_webpage, request_json, version_to_tuple
 
 __version__ = '2021.12.15'
-PYTHON_GIT = 'https://github.com/Aveeryy/Polarity/archive/refs/heads/main.zip'
-UPDATE_ENDPOINT = 'https://api.github.com/repos/Aveeryy/Polarity/releases'
+GIT_REPO = 'https://github.com/aveeryy/Polarity.git'
+UPDATE_ENDPOINT = 'https://api.github.com/repos/aveeryy/Polarity/releases'
 
 
 def check_for_updates() -> tuple[bool, str]:
+    '''Check if a new stable Polarity release has been uploaded'''
     releases = request_json(UPDATE_ENDPOINT)
     latest = releases[0][0]
     return (version_to_tuple(__version__) < version_to_tuple(
         latest['tag_name']), latest['tag_name'])
 
 
-def selfupdate(mode: str = 'git'):
-    'Self-update Polarity from the latest release'
+def selfupdate(mode: str = 'git', version: str = None, branch: str = 'main'):
+    '''Update Polarity to the latest release / git commit using pip'''
 
-    from polarity.config import paths
     if sys.argv[0].endswith('.py'):
         # Update python package
-        # Get path where Polarity is currently installed
-        installation_path = os.path.dirname(
-            sys.argv[0]).removesuffix('polarity')
-        vprint(f'Installing to {installation_path}')
+        # Try to import pip
+        import pip
         if mode == 'release':
             vprint('Downloading latest stable release using pip')
-            # Check if pip is installed in enviroment
-            try:
-                import pip
-            except ImportError:
-                raise ImportError('Cannot continue, pip not installed')
-            pip.main(['install', '--upgrade', 'Polarity'])
-            os._exit()
+            command = ['install', '--upgrade', 'Polarity']
+            if version is not None:
+                # If version is specified append it to the command
+                # It should result in the command being
+                # ['install', '--upgrade', 'Polarity=={version}']
+                command[-1] += f'=={version}'
         elif mode == 'git':
-            vprint('Downloading latest git release')
-            update_zip = get(PYTHON_GIT)
-            with open('update.zip', 'wb') as f:
-                f.write(update_zip.content)
-            ZipFile('update.zip').extractall(paths["tmp"])
-            # Wipe current installation directory without removing it
-            vprint('Updating...')
-            for item in os.listdir(installation_path):
-                if os.path.isdir(f'{installation_path}/{item}'):
-                    shutil.rmtree(f'{installation_path}/{item}')
-                else:
-                    os.remove(f'{installation_path}/{item}')
-            for item in os.listdir(f'{paths["tmp"]}Polarity-main/'):
-                shutil.move(f'{paths["tmp"]}Polarity-main/{item}',
-                            installation_path)
-            # Clean up
-            os.rmdir(f'{paths["tmp"]}Polarity-main/')
-            vprint('Success! Exiting in 3 seconds')
-            sleep(3)
-            os._exit(0)
+            vprint(f'~TEMP~ updating from git repo\'s branch {branch}')
+            command = ['install', '--upgrade', f'git+{GIT_REPO}@{branch}']
+        pip.main(command)
+        os._exit(0)
     else:
         raise NotImplementedError('Updating native binaries is not supported ')
 
 
 def language_install(language_list: list):
-
+    '''Install specified language files'''
     LANGUAGE_URL = 'https://aveeryy.github.io/Polarity-Languages/%s.toml'
 
     failed = 0
