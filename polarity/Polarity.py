@@ -19,7 +19,7 @@ from polarity.types.base import MediaType
 from polarity.types.filter import Filter, build_filter
 from polarity.types.progressbar import ProgressBar
 from polarity.version import (check_for_updates, language_install,
-                              windows_install)
+                              windows_setup)
 from polarity.utils import (dict_merge, filename_datetime,
                             get_compatible_extractor, is_content_id,
                             normalize_integer, sanitize_path, thread_vprint,
@@ -110,8 +110,8 @@ class Polarity:
         # if options['install_languages']
 
         # Windows dependency install
-        if options['install_windows']:
-            windows_install()
+        if options['windows_setup']:
+            windows_setup()
 
         # Check for updates
         if options['check_for_updates']:

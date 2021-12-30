@@ -5,6 +5,6 @@ pip install --no-input -q -q -q -r requirements.txt
 :: Re-do because of "tqdm cannot delete" bug
 pip install --no-input -q -q -q -r requirements.txt
 :: Execute the python installer
-python -m polarity --install-windows
+python -m polarity --windows-setup
 echo [update] Done, press any key to exit.
 pause > nul

@@ -76,20 +76,16 @@ def language_install(language_list: list):
         change_language(lang_code)
 
 
-def windows_install() -> None:
+def windows_setup() -> None:
     'Perform installation of dependencies on Windows systems'
 
     LATEST = 'https://www.gyan.dev/ffmpeg/builds/release-version'
     FFMPEG = 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip'
 
-    TESTING_TOGGLE = True
-
     from polarity.config import paths
 
-    if sys.platform != 'win32' and not TESTING_TOGGLE:
+    if sys.platform != 'win32':
         raise NotImplementedError('Unsupported OS')
-
-    hb = humanbytes
 
     vprint('Downloading FFmpeg', module_name='update')
     download = get(FFMPEG, stream=True)
@@ -99,7 +95,7 @@ def windows_install() -> None:
         for chunk in download.iter_content(chunk_size=1024):
             output.write(chunk)
             downloaded += len(chunk)
-            vprint(f'{hb(downloaded)} / {hb(total)}    ',
+            vprint(f'{humanbytes(downloaded)} / {humanbytes(total)}    ',
                    end='\r',
                    module_name='update')
     vprint('Extracting FFmpeg', module_name='update')
@@ -115,7 +111,7 @@ def windows_install() -> None:
               f'{paths["bin"]}ffprobe.exe')
     vprint('Cleaning up', module_name='update')
     shutil.rmtree(f'{paths["tmp"]}{version_str}')
-    vprint('Installation complete', module_name='update')
-    vprint('Exiting installer in 2 seconds', module_name='update')
+    vprint('Setup complete', module_name='update')
+    vprint('Exiting setup in 2 seconds', module_name='update')
     sleep(2)
     os._exit(0)

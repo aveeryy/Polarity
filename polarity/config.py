@@ -53,8 +53,10 @@ def change_language(language_code: str) -> dict:
     __lang_path = f"{paths['lang']}{language_code}.toml"
     if language_code is None:
         dict_merge(lang, __internal_lang)
+    elif language_code == 'internal':
+        return __internal_lang
     elif not os.path.exists(__lang_path):
-        vprint('error!! lang file not found', error_level='error')
+        vprint('error: language file not found', error_level='error')
         dict_merge(lang, __internal_lang, True)
     elif os.path.exists(__lang_path):
         lang_code = language_code
@@ -265,7 +267,7 @@ __internal_lang = {
         'finished_extraction': 'finished: extraction tasks',
         'language_format': '%s (%s) by %s',
         'use_help': 'use --help to display all options',
-        'use': '\033[1musage: \033[0m',
+        'use': 'usage: ',
         'search_no_results': 'no results from search %s',
         'search_term': 'term: ',
         'update_available': 'version %s available',
@@ -323,6 +325,10 @@ __internal_lang = {
         'base': {
             'email_prompt': 'email/username: ',
             'password_prompt': 'password: ',
+            'check_failed':
+            'failed: check for feature %s, conditions are false: %s',
+            'alt_check_failed':
+            'failed: check for feature %s, variables %s are missing, but variables %s are present',
             'except': {
                 'argument_variable_empty': 'error: variable argument is empty',
             }
@@ -668,7 +674,7 @@ def argument_parser() -> dict:
 
     parser.add_argument('url', help=argparse.SUPPRESS, nargs='*')
     # Windows install finisher
-    parser.add_argument('--install-windows',
+    parser.add_argument('--windows-setup',
                         help=argparse.SUPPRESS,
                         action='store_true')
 
