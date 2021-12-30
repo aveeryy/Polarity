@@ -63,6 +63,7 @@ def vprint(
     try:
         from polarity.config import verbose_level
     except ImportError:
+        # Set verbose levels to default if cannot import from config
         verbose_level = {'print': 1, 'log': 4}
 
     # Colors
@@ -96,6 +97,7 @@ def vprint(
     if type(message) is not str:
         message = str(message)
 
+    # Redact emails when logging
     message = re.sub(r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)',
                      '[REDACTED]', message)
 
@@ -304,6 +306,12 @@ def dict_merge(dct: dict,
     Thanks angstwad!
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
+
+    if type(dct) is not dict:
+        dct = dict(dct)
+    if type(merge_dct) is not dict:
+        merge_dct = dict(merge_dct)
+
     if not modify:
         # Make a copy of dct to not modify the obj directly
         dct = deepcopy(dct)
@@ -313,6 +321,7 @@ def dict_merge(dct: dict,
             dict_merge(dct[k], merge_dct[k], overwrite, True)
         elif overwrite or k not in dct:
             dct[k] = merge_dct[k]
+
     # Return added to maintain compatibility
     return dct
 
