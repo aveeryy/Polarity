@@ -1,4 +1,5 @@
 import json
+from logging import error
 import os
 import re
 import time
@@ -42,7 +43,9 @@ class Polarity:
         :param _logging_level: override log verbose lvl
         '''
 
-        if 'version' in options:
+        self.urls = urls
+
+        if options['print_version']:
             # Print the version number
             print(f'Polarity {__version__}')
             print('Mass downloader for streaming platforms')
@@ -101,17 +104,23 @@ the Free Software Foundation, either version 3 of the License, or
 
         # Pre-start functions
 
+        # Language installation / update
+
+        # First update old languages
+        # if options['install_languages']
+
+        # Windows dependency install
+        if options['install_windows']:
+            windows_install()
+
         # Check for updates
         if options['check_for_updates']:
             update, last_version = check_for_updates()
             if update:
                 vprint(lang['polarity']['update_available'] % last_version, 1,
                        'update')
-        # Windows dependency install
-        if 'install_windows' in options:
-            windows_install()
 
-        if 'dump' in options:
+        if options['dump']:
             self.dump_information()
 
         # Language file update
@@ -132,7 +141,7 @@ the Free Software Foundation, either version 3 of the License, or
                 'reserved': False
             } for url in self.status['pool']]
 
-            if 'filters' in options:
+            if options['filters']:
                 self.process_filters(filters=options['filters'])
 
             tasks = {
@@ -158,7 +167,7 @@ the Free Software Foundation, either version 3 of the License, or
             while True:
                 if not [w for w in tasks['extraction'] if w.is_alive()]:
                     if not self.status['extraction']['finished']:
-                        vprint('~TEMP~ extraction tasks finished')
+                        vprint(lang['polarity']['finished_extraction'])
                     self.status['extraction']['finished'] = True
                     if not [w for w in tasks['download'] if w.is_alive()]:
                         break
@@ -178,7 +187,7 @@ the Free Software Foundation, either version 3 of the License, or
                         u=result.url))
 
         elif options['mode'] == 'debug':
-            if 'debug_vprint' in options:
+            if options['debug_vprint']:
                 # Test for
                 vprint('demo', 0, 'demo')
                 vprint('demo', 0, 'demo', 'warning')
@@ -242,11 +251,11 @@ the Free Software Foundation, either version 3 of the License, or
                 json.dump(options, f, indent=4)
 
         if 'urls' in options['dump']:
-            vprint('Dumping URLs to file')
+            vprint('Dumping URLs to file', 3, error_level='debug')
             with open(f'./{dump_time}_Polarity_dump_urls.txt',
                       'w',
                       encoding='utf-8') as f:
-                f.write(' \n'.join(self.pool))
+                f.write('\n'.join(self.urls))
 
         if 'requests' in options['dump']:
             vprint('Enabled dumping of HTTP requests', error_level='debug')
