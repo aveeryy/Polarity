@@ -178,7 +178,7 @@ __defaults = {
         # Default example: Pokémon (atresplayer/series-000000)
         # Available format codes:
         # https://github.com/aveeryy/Polarity/tree/main/polarity/docs/format.md
-        'result_format': '{n} ({I})'
+        'result_format': '\033[1m{n}\033[0m ({I})'
     },
     'flags': []
 }
@@ -222,14 +222,14 @@ __internal_lang = {
     },
     # Argument string group
     'args': {
-        'added_arg': 'added arg "%s" from %s',
+        'added_arg': 'added: arg "%s" from %s',
         # Argument groups string sub-group
         'groups': {
-            'general': 'general opts',
-            'download': 'download opts',
-            'extractor': '%s opts',
-            'debug': 'debug opts',
-            'search': 'search opts'
+            'general': 'general options',
+            'download': 'download options',
+            'extractor': '%s options',
+            'debug': 'debug options',
+            'search': 'search options'
         },
         # Argument help string sub-group
         'help': {
@@ -248,7 +248,7 @@ __internal_lang = {
             'max_results_per_type': 'maximum number of results per media type',
             'mode': '',
             'redownload': 'allow episode redownload',
-            'resolution': 'Preferred video resolution',
+            'resolution': 'preferred resolution',
             'search': 'search content in extractors',
             'update': 'update to latest release',
             'update_git': 'update to latest git commit',
@@ -261,9 +261,11 @@ __internal_lang = {
     'polarity': {
         'all_tasks_finished': 'finished',
         'available_languages': 'available languages:',
+        'finished_download': 'finished: download tasks',
+        'finished_extraction': 'finished: extraction tasks',
         'language_format': '%s (%s) by %s',
-        'use_help': 'Use --help to display all options',
-        'use': '\033[1mUsage: \033[0m',
+        'use_help': 'use --help to display all options',
+        'use': '\033[1musage: \033[0m',
         'search_no_results': 'no results from search %s',
         'search_term': 'term: ',
         'update_available': 'version %s available',
@@ -274,8 +276,8 @@ __internal_lang = {
         }
     },
     'singularity': {
-        'extracting_keys': 'extracting keys',
-        'using__version__': 'using ver. %s'
+        'extracting_keys': 'extracting: keys',
+        'using_version': 'using ver: %s'
     },
     'dl': {
         'cannot_download_content': '%s "%s" can\'t be downloaded: %s',
@@ -284,21 +286,20 @@ __internal_lang = {
         'downloading_content': 'downloading: %s "%s"',
         'fail_to_delete': "failed to delete old file",
         'fail_to_move': "failed to move file to download directory",
-        'redownload_enabled': 'deleting old file',
-        'no_extractor': 'skipping %s "%s". no extractor',
-        'no_redownload': 'skipping %s "%s". already downloaded',
+        'no_extractor': 'skipping: %s "%s". no extractor',
+        'no_redownload': 'skipping: %s "%s". already downloaded',
         'url': 'url'
     },
     'penguin': {
-        'doing_binary_concat': 'Doing binary segment concat on track %s of %s',
-        'doing_decryption': 'Decrypting track %s of %s using key "%s"',
-        'debug_already_downloaded': 'Skipping segment %s, already downloaded',
-        'debug_time_download': 'Segment download took: %s',
-        'debug_time_remux': 'Remux took: %s',
-        'resuming': 'resuming %s...',
-        'segment_downloaded': 'Successfully downloaded segment %s',
-        'segment_retry': 'Download of segment %s failed, retrying...',
-        'thread_started': 'Started downloader "%s"',
+        'doing_binary_concat': 'binary concat: track %s of %s',
+        'doing_decryption': 'decrypting: track %s of %s with key "%s"',
+        'debug_already_downloaded': 'skipping segment: %s',
+        'debug_time_download': 'segment download took: %s',
+        'debug_time_remux': 'remux took: %s',
+        'resuming': 'resuming: %s...',
+        'segment_downloaded': 'downloaded: segment %s',
+        'segment_retry': 'failed: segment %s download',
+        'thread_started': 'start: downloader "%s"',
         'threads_started': 'start: %d download threads',
         'args': {
             'ffmpeg_codec': 'Postprocessing codification settings',
@@ -309,33 +310,35 @@ __internal_lang = {
             'getting_playlist': 'parsing: playlist',
             'getting_stream': 'parsing: streams',
             'multiple_video_bitrates':
-            'Multiple video tracks with same resolution detected',
+            'multiple stream with same resolution detected',
             'picking_best_stream_0':
-            'Picking video stream with best resolution',
-            'picking_best_stream_1': 'Picking best video stream',
-            'picking_best_stream_2': 'Picking audio stream with best bitrate',
+            'picking: video stream with highest resolution',
+            'picking_best_stream_1':
+            'picking: video stream with highest bitrate',
+            'picking_best_stream_2': 'picking: audio stream',
             'selected_stream': 'stream: %s'
         }
     },
     'extractor': {
         'base': {
-            'email_prompt': 'Email/Username: ',
-            'password_prompt': 'Password: ',
+            'email_prompt': 'email/username: ',
+            'password_prompt': 'password: ',
             'except': {
-                'argument_variable_empty': 'Variable argument is empty',
+                'argument_variable_empty': 'error: variable argument is empty',
             }
         },
-        'filter_check_fail': 'did not pass filter check',
+        'filter_check_fail': 'didn\'t pass filter check',
         'generic_error': 'error, error msg: ',
         'get_all_seasons': 'getting info: seasons',
         'get_media_info': 'getting info: %s "%s" (%s)',
-        'login_failure': 'Failed to log in. error code: %s',
-        'login_loggedas': 'Logged in as %s',
-        'login_success': 'Login successful',
-        'search_no_results': 'No results found on category %s with term %s',
-        'waiting_for_login': 'Waiting for login',
+        'login_failure': 'failed to login, error code: %s',
+        'login_loggedas': 'logged in as: %s',
+        'login_success': 'login successful',
+        'search_no_results': 'no results: category %s with term %s',
+        'skip_dl_premium': 'premium content, or not in your region',
+        'waiting_for_login': 'waiting for login',
         'except': {
-            'cannot_identify_url': 'Failed to identify URL'
+            'cannot_identify_url': 'failed to identify URL'
         }
     },
     'types': {
@@ -365,7 +368,7 @@ __internal_lang = {
     'atresplayer': {
         'no_content_in_season': 'no episodes in %s (%s)',
         'except': {
-            'invalid_codec': 'Invalid codec set in settings.'
+            'invalid_codec': 'invalid codec'
         },
         'args': {
             'codec': 'codec preferance'
@@ -375,7 +378,6 @@ __internal_lang = {
         'getting_bearer': 'fetching bearer token',
         'getting_cms': 'cms policies fetch success',
         'getting_cms_fail': 'cms policies fetch fail',
-        'skip_download_reason': 'premium content, or not in your region',
         'using_method': 'login method "%s"',
         'args': {
             'subs': 'subt languages',
@@ -410,7 +412,7 @@ for arg, path_name in __path_arguments.items():
     if arg in sys.argv:
         _value = sys.argv[sys.argv.index(arg) + 1]
         paths[path_name] = _value
-        # Create directories if not existing
+        # Create the directory if it does not exist
         os.makedirs(_value, exist_ok=True)
 
 # If config file is specified and does not exist, create it
@@ -450,7 +452,7 @@ if any(a in sys.argv
        for a in ('--mode', '-m')) and any(a in sys.argv
                                           for a in ('print', 'livetv')):
     # Mode is set to one designed to output a parsable string
-    # This is forced to 0 to avoid any status string breaking any script
+    # This is forced to 0 to avoid any status msg breaking any script
     verbose_level['print'] = 0
 elif any(a in sys.argv for a in ('-q', '--quiet')):
     # Quiet parameter passed,
@@ -609,13 +611,16 @@ def argument_parser() -> dict:
             elif group.title == lang_group['download']:
                 # Change active options dict to download
                 _active_dict = opts['download']
+            elif group.title == lang_group['search']:
+                _active_dict = opts['search']
             for entry in group._group_actions:
                 # Get argument value
                 _value = getattr(args, entry.dest)
                 if type(_value) is str and _value.isdigit():
                     _value = int(_value)
-                if _value not in (None, False):
+                if _value or entry.dest not in _active_dict:
                     _active_dict[entry.dest] = _value
+
         # Process external arguments
         _process_external_args()
 
@@ -646,7 +651,7 @@ def argument_parser() -> dict:
                         format='%(asctime)s - %(levelname)s - %(message)s',
                         level=logging.DEBUG)
     # Set options' base dictionaries
-    opts = {'download': {}, 'search': {}, 'sync': {}, 'extractor': {}}
+    opts = {'download': {}, 'search': {}, 'extractor': {}}
     args_map = {}
 
     from polarity.downloader import DOWNLOADERS
@@ -677,6 +682,7 @@ def argument_parser() -> dict:
     general.add_argument('-V',
                          '--version',
                          action='store_true',
+                         dest='print_version',
                          help=lang_help['version'])
     # Verbose options
     general.add_argument('-v',
@@ -740,7 +746,7 @@ def argument_parser() -> dict:
     debug = parser.add_argument_group(title=lang_group['debug'])
     debug.add_argument('--dump',
                        choices=['options', 'urls'],
-                       nargs='*',
+                       nargs='+',
                        help='Dump to file')
     debug.add_argument('--exit-after-dump',
                        action='store_true',

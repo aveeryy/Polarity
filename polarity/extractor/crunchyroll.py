@@ -690,7 +690,7 @@ class CrunchyrollExtractor(BaseExtractor):
         if not self.check_episode(episode=episode):
             if not hasattr(episode, 'skip_download'):
                 # If episode has not a skip reason already, add one
-                episode.skip_download = '~TEMP~ Did not pass name filter check'
+                episode.skip_download = lang['extractor']['filter_check_fail']
         return episode
 
     def _parse_episode_info(self,
@@ -717,7 +717,7 @@ class CrunchyrollExtractor(BaseExtractor):
         if get_streams and 'playback' in episode_info:
             episode.streams = self._get_streams(episode_info['playback'])
         elif get_streams and 'playback' not in episode_info:
-            episode.skip_download = '~TEMP~ Unavailable'  # TODO: better string
+            episode.skip_download = lang['extractor']['skip_dl_premium']
 
         return episode
 
