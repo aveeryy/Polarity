@@ -51,6 +51,7 @@ class Segment(MediaType, metaclass=MetaMediaType):
     duration: float
     init: bool
     ext: str
+    time: float = float('9' * 15)
     byte_range: str = None
     _finished = False
 
