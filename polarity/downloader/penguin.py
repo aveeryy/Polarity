@@ -41,7 +41,7 @@ class PenguinDownloader(BaseDownloader):
     DEFAULTS = {
         'segment_downloaders': 10,
         # Delete segments as these are merged to the final file
-        'delete_merged_segments': True,
+        # 'delete_merged_segments': True,
         'ffmpeg': {
             'codecs': {
                 'v': 'copy',
@@ -476,21 +476,22 @@ class PenguinDownloader(BaseDownloader):
                 except IndexError:
                     sleep(0.2)
                     continue
-            if self.options['penguin']['delete_merged_segments']:
-                # Convert the ffmpeg time string into an unix timestamp
-                current_time = sum(x * int(t) for x, t in zip(
-                    [3600, 60, 1], stats['out_time'].split(":")))
-                for segment, time in segments:
-                    # If segment time is smaller than the current
-                    # time minus 10 seconds, delete the segment file
-                    # The 10 seconds are a small handicap to avoid errors
-                    if time < current_time - 10:
-                        # Remove the segment from the list
-                        del segments[segments.index((segment, time))]
-                        vprint(
-                            f'removed {segment} {time} < {current_time + 10}',
-                            5, 'penguin/remux', 'debug')
-                        os.remove(f'{self.temp_path}/{segment}')
+            # TODO: rework
+            # if self.options['penguin']['delete_merged_segments']:
+            #     # Convert the ffmpeg time string into an unix timestamp
+            #     current_time = sum(x * int(t) for x, t in zip(
+            #         [3600, 60, 1], stats['out_time'].split(":")))
+            #     for segment, time in segments:
+            #         # If segment time is smaller than the current
+            #         # time minus 10 seconds, delete the segment file
+            #         # The 10 seconds are a small handicap to avoid errors
+            #         if time < current_time - 10:
+            #             # Remove the segment from the list
+            #             del segments[segments.index((segment, time))]
+            #             vprint(
+            #                 f'removed {segment} {time} < {current_time + 10}',
+            #                 5, 'penguin/remux', 'debug')
+            #             os.remove(f'{self.temp_path}/{segment}')
             self.remux_bar.update(int(stats['total_size']) - last_update)
             last_update = int(stats['total_size'])
             sleep(0.5)
