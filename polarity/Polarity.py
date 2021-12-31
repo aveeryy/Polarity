@@ -27,6 +27,7 @@ from polarity.utils import (
     get_compatible_extractor,
     is_content_id,
     normalize_integer,
+    parse_content_id,
     sanitize_path,
     thread_vprint,
     vprint,
@@ -133,7 +134,8 @@ class Polarity:
 
         # Actual start-up
         if options['mode'] == 'download':
-            if not self.status['pool']:
+            if not self.urls:
+                # Exit if not urls have been inputted
                 print(f"{lang['polarity']['use']}{USAGE}\n")
                 print(lang['polarity']['use_help'])
                 os._exit(1)
@@ -142,7 +144,7 @@ class Polarity:
                 'url': url,
                 'filters': [],
                 'reserved': False
-            } for url in self.status['pool']]
+            } for url in self.urls]
 
             if options['filters']:
                 self.process_filters(filters=options['filters'])
@@ -189,13 +191,21 @@ class Polarity:
                         I=result.get_content_id(),
                         u=result.url))
 
+        elif options['mode'] == 'livetv':
+            # TODO: add check for urls
+            channel = self.get_live_tv_channel(self.urls[0])
+            if channel is None:
+                vprint('~TEMP~ channel not found', error_level='error')
+            print(channel)
+
         elif options['mode'] == 'debug':
-            if options['debug_vprint']:
-                # Test for
+            if options['debug_colors']:
+                # Test for different color printing
                 vprint('demo', 0, 'demo')
                 vprint('demo', 0, 'demo', 'warning')
                 vprint('demo', 0, 'demo', 'error')
                 vprint('demo', 0, 'demo', 'debug')
+                ProgressBar(head='demo', desc='progress_bar', total=0)
                 ProgressBar(head='demo', desc='progress_bar', total=1)
 
     @classmethod
@@ -204,7 +214,7 @@ class Polarity:
                absolute_max: int = -1,
                max_per_extractor: int = -1,
                max_per_type: int = -1) -> dict[MediaType, list[SearchResult]]:
-        '''Search'''
+        '''Search for content in compatible extractors'''
         def can_add_to_list(media_type) -> bool:
             '''Returns True if item can be added to results list'''
             conditions = (
@@ -241,6 +251,17 @@ class Polarity:
                         results[media_type].append(result)
                         extractor_results += 1
         return results
+
+    @classmethod
+    def get_live_tv_channel(self, id: str) -> str:
+        extractors = {
+            n.lower(): e
+            for n, e in EXTRACTORS.items() if flags.EnableLiveTV in e.FLAGS
+        }
+        parsed_id = parse_content_id(id)
+        if parsed_id.extractor not in extractors:
+            return
+        return extractors[parsed_id.extractor].get_live_tv_stream(parsed_id.id)
 
     def dump_information(self) -> None:
         'Dump requested debug information to current directory'

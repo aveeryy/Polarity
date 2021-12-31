@@ -111,6 +111,22 @@ __main_path = f'{get_home_path()}/.Polarity/'
 # Default base path for downloads
 __download_path = f'{get_home_path()}/Polarity Downloads/'
 
+# Default paths
+paths = {
+    k: __main_path + v
+    for k, v in {
+        'account': 'Accounts/',
+        'bin': 'Binaries/',
+        'cfg': 'config.toml',
+        'dl_log': 'download.log',
+        'dump': 'Dumps/',
+        'lang': 'Languages/',
+        'log': 'Logs/',
+        'sync_list': 'sync.json',
+        'tmp': 'Temp/'
+    }.items()
+}
+
 # Default config values
 __defaults = {
     # Verbosity level
@@ -118,9 +134,6 @@ __defaults = {
     'verbose': 1,
     # Log verbosity level
     # This must be 4 to report an issue
-    # Please for the sake of your hard drive's available space
-    # Do NOT put this to 5, there's nothing to avoid you doing it,
-    # it's just a personal recommendation lmao
     'verbose_logs': 4,
     # Language file to use
     # Leave empty to use internal language
@@ -164,15 +177,6 @@ __defaults = {
     # Extractor options
     'extractor': {
         'active_extractions': 5,
-        # Number of threads to be used in season extraction
-        'season_threads': 3,
-        # Number of threads to be used in episode extraction of a season
-        # Maximum number of simultaneous episode extractions can be
-        # calculated using this formula:
-        # active_extractions * season_threads * episode_threads
-        # So by default:
-        # 3 * 3 * 5 = 45 active threads assuming at least 3 URLs
-        'episode_threads': 5,
     },
     'search': {
         # Absolute maximum for results
@@ -189,22 +193,6 @@ __defaults = {
         'result_format': '\033[1m{n}\033[0m ({I})'
     },
     'flags': []
-}
-
-# Default paths
-paths = {
-    k: __main_path + v
-    for k, v in {
-        'account': 'Accounts/',
-        'bin': 'Binaries/',
-        'cfg': 'config.toml',
-        'dl_log': 'download.log',
-        'dump': 'Dumps/',
-        'lang': 'Languages/',
-        'log': 'Logs/',
-        'sync_list': 'sync.json',
-        'tmp': 'Temp/'
-    }.items()
 }
 
 # Predefine configuration variables
@@ -763,7 +751,8 @@ def argument_parser() -> dict:
     debug.add_argument('--exit-after-dump',
                        action='store_true',
                        help='Exit after a dump')
-    debug.add_argument('--debug-vprint', action='store_true')
+    debug.add_argument('--list-tv-channels', action='store_true')
+    debug.add_argument('--debug-colors', action='store_true')
 
     # Add extractor arguments
     for name, extractor in EXTRACTORS.items():
@@ -784,7 +773,7 @@ def argument_parser() -> dict:
     options = dict_merge(config, opts, overwrite=True, modify=False)
 
     # See if list / debug mode needs to be set
-    if any(s in sys.argv for s in ('--debug-vprint', '--a')):
+    if any(s in sys.argv for s in ('--debug-colors', '--a')):
         vprint('~TEMP~ enabled debug mode')
         change_verbose_level(0, True, True)
         options['mode'] = 'debug'

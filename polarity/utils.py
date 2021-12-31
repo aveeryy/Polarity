@@ -331,33 +331,6 @@ def filename_datetime() -> str:
     return str(datetime.now()).replace(" ", "_").replace(":", ".")
 
 
-def run_ffprobe(input, show_programs=True, extra_params=''):
-    ffprobe_tries = 0
-    vprint('Getting stream information', 1, 'ffprobe')
-    params = [
-        'ffprobe', '-v', 'error', '-print_format', 'json', '-show_format',
-        '-show_streams'
-    ]
-    if show_programs:
-        params.append('-show_programs')
-    # Extra parameters
-    for e in re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', extra_params):
-        e = e.replace('"', '')
-        params.append(e)
-    params.append(input)
-    while True:
-        try:
-            _json = json.loads(subprocess.check_output(params))
-            break
-        except subprocess.CalledProcessError:
-            vprint('Ffprobe failed, retrying...', 1, 'ffprobe')
-            ffprobe_tries += 1
-            if ffprobe_tries > 3:
-                raise
-            continue
-    return _json
-
-
 #########################
 #  Content Identifiers  #
 #########################
@@ -371,7 +344,7 @@ class ContentIdentifier:
     id: str
 
 
-content_id_regex = r'(?P<extractor>[\w]+)/(?P<type>[\w]+)-(?P<id>[\S]+)'
+content_id_regex = r'(?P<extractor>[\w]+)/(?:(?P<type>[\w]+|)-|)(?P<id>[\S]+)'
 
 
 def is_content_id(text: str) -> bool:
@@ -424,7 +397,7 @@ def request_webpage(url: str, method: str = 'get', **kwargs) -> Response:
     Make a HTTP request using cloudscraper
     `url` url to make the request to
     `method` http request method
-    `cloudscraper_kwargs` extra cloudscraper arguments, for more info check the `requests wiki`
+    `kwargs` extra requests arguments, for more info check the `requests wiki`
     '''
     global dump_requests
     # Create a cloudscraper session
@@ -511,7 +484,7 @@ def get_proxy_by_country(country_code: str) -> dict:
 
 
 def get_argument_value(args: list):
-    'Returns the value of one or more command line arguments'
+    '''Returns the value of one or more command line arguments'''
     _arg = None
     if type(args) is not str:
         for arg in args:
@@ -552,7 +525,7 @@ def get_home_path() -> str:
     return os.path.expanduser('~')
 
 
-def version_to_tuple(version_string: str) -> tuple:
+def version_to_tuple(version_string: str) -> tuple[str]:
     'Splits a version string into a tuple'
     version = version_string.split('.')
     # Split the revision number
