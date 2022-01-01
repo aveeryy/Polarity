@@ -316,12 +316,21 @@ __internal_lang = {
             'email_prompt': 'email/username: ',
             'password_prompt': 'password: ',
             'check_failed':
-            'failed: check for feature %s, conditions are false: %s',
+            'failed: check for feature \033[1m%s\033[0m, conditions are false: %s',
             'alt_check_failed':
             'failed: check for feature %s, variables %s are missing, but variables %s are present',
             'except': {
                 'argument_variable_empty': 'error: variable argument is empty',
             }
+        },
+        'check': {
+            'features': {
+                'base': 'base_functionality',
+                'login': 'login',
+                'search': 'search',
+                'livetv': 'live_tv'
+            },
+            'invalid_extractor': 'extractor %s is invalid'
         },
         'filter_check_fail': 'didn\'t pass filter check',
         'generic_error': 'error, error msg: ',
