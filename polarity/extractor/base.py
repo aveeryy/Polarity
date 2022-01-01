@@ -1,10 +1,11 @@
+from dataclasses import dataclass
 import os
 from getpass import getpass
 from http.cookiejar import CookieJar, LWPCookieJar
 from time import sleep
 from typing import Union
 
-from polarity.config import config, lang, paths
+from polarity.config import lang, paths
 from polarity.extractor.flags import *
 from polarity.types import Episode, Season, Series, Movie, SearchResult, Thread
 from polarity.types.filter import MatchFilter, NumberFilter
@@ -32,7 +33,11 @@ class BaseExtractor:
             self.__opts = user_options['extractor'][
                 self.extractor_name.lower()]
             self.extractor_lang = lang[self.extractor_name.lower()]
+
+            # Do extractor validation
             self._validate_extractor()
+            if not self._valid_extractor:
+                return
 
             if AccountCapabilities in self.FLAGS:
                 # Account Capabilities is enabled, use the extractor's cookiejar
@@ -112,41 +117,93 @@ class BaseExtractor:
 
     def _validate_extractor(self) -> bool:
         '''Check if extractor has all needed variables'''
-        def check_variables(*_vars):
-            '''
-            Raise an ExtractorError if a variable does not exist in
-            class scope
-            '''
-            missing = [v for v in _vars if not hasattr(self, v)]
-            if missing:
-                raise InvalidExtractorError(
-                    f'Extractor {self.extractor_name.lower()} is invalid! Missing variables: {missing}'
-                )
+        @dataclass(frozen=True)
+        class Condition:
+            name: str
+            condition: bool
+
+        @dataclass(frozen=True)
+        class Feature:
+            name: str
+            conditions: list[Condition]
+            function: object
+
+            def __post_init__(self):
+                self.function(self)
+
+        def check_all_or_none(feature: Feature) -> bool:
+            checked = [v.condition for v in feature.conditions]
+            valid = all(checked) or not any(checked)
+            if not valid:
+                vprint(
+                    lang['extractor']['base']['check_failed'] %
+                    (feature.name,
+                     [v.name for v in feature.conditions if not v.condition]),
+                    error_level='error')
+                if self._valid_extractor:
+                    self._valid_extractor = False
+
+        def check_all(feature: Feature) -> bool:
+            checked = [v.condition for v in feature.conditions]
+            valid = all(checked)
+            if not valid:
+                vprint(
+                    lang['extractor']['base']['check_failed'] %
+                    (feature.name,
+                     [v.name for v in feature.conditions if not v.condition]),
+                    error_level='error')
+                if self._valid_extractor:
+                    self._valid_extractor = False
 
         if self.extractor_name.lower() == 'base':
             return
 
-        # Check if extractor has all necessary variables
-        check_variables(
-            'HOST',
-            'ARGUMENTS',
-            'DEFAULTS',
-            'FLAGS',
-            '_extract',
-            'identify_url',
-            '_get_url_type',
-        )
+        self._valid_extractor = True
+        features = lang['extractor']['check']['features']
 
-        if VideoExtractor in self.FLAGS:
-            # Identification methods
-            check_variables('get_series_info', 'get_season_info',
-                            'get_seasons', 'get_episodes_from_season',
-                            'get_episode_info', '_get_streams')
+        # The base functionality for a polarity extractor
+        Feature(features['base'], [
+            Condition('variable.HOST', hasattr(self, 'HOST')),
+            Condition('variable.ARGUMENTS', hasattr(self, 'ARGUMENTS')),
+            Condition('variable.DEFAULTS', hasattr(self, 'DEFAULTS')),
+            Condition('variable.FLAGS', hasattr(self, 'FLAGS')),
+            Condition('variable.TESTS', hasattr(self, 'TESTS')),
+            Condition('function._extract', hasattr(self, '_extract')),
+            Condition('function.identify_url', hasattr(self, 'identify_url')),
+            Condition('function._get_url_type', hasattr(self,
+                                                        '_get_url_type')),
+        ], check_all)
 
-        if AccountCapabilities in self.FLAGS:
-            # Check if extractor has necessary login variables
-            check_variables('_login', 'is_logged_in')
-        return True
+        # Check if extractor is already invalid, cannot continue testing
+        if not self._valid_extractor:
+            raise InvalidExtractorError(
+                '~TEMP~ extractor did not pass basic funcionality test')
+
+        Feature(features['login'], [
+            Condition('flag.AccountCapabilities', AccountCapabilities
+                      in self.FLAGS),
+            Condition('function._login', hasattr(self, '_login')),
+            Condition('function.is_logged_in', hasattr(self, 'is_logged_in')),
+        ], check_all_or_none)
+
+        Feature(features['search'], [
+            Condition('flag.EnableSearch', EnableSearch in self.FLAGS),
+            Condition('function._search', hasattr(self, '_search')),
+        ], check_all_or_none)
+
+        Feature(features['livetv'], [
+            Condition('flag.EnableLiveTV', EnableLiveTV in self.FLAGS),
+            Condition('function.get_live_tv_stream',
+                      hasattr(self, 'get_live_tv_stream'))
+        ], check_all_or_none)
+
+        # if VideoExtractor in self.FLAGS:
+        #     # Identification methods
+        #     check_all_or_none('', 'get_series_info', 'get_season_info',
+        #                       'get_seasons', 'get_episodes_from_season',
+        #                       'get_episode_info', '_get_streams')
+
+        return self._valid_extractor
 
     def _has_cookiejar(func):
         '''
@@ -157,7 +214,7 @@ class BaseExtractor:
             if not hasattr(self,
                            'cjar') or AccountCapabilities not in self.FLAGS:
 
-                raise ExtractorError('no cookiejar')
+                raise ExtractorError('~TEMP~ no cookiejar')
             return func(self, *args, **kwargs)
 
         return wrapper
