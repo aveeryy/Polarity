@@ -167,7 +167,6 @@ class BaseExtractor:
             Condition('variable.ARGUMENTS', hasattr(self, 'ARGUMENTS')),
             Condition('variable.DEFAULTS', hasattr(self, 'DEFAULTS')),
             Condition('variable.FLAGS', hasattr(self, 'FLAGS')),
-            Condition('variable.TESTS', hasattr(self, 'TESTS')),
             Condition('function._extract', hasattr(self, '_extract')),
             Condition('function.identify_url', hasattr(self, 'identify_url')),
             Condition('function._get_url_type', hasattr(self,
