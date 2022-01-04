@@ -400,9 +400,10 @@ def request_webpage(url: str, method: str = 'get', **kwargs) -> Response:
     `kwargs` extra requests arguments, for more info check the `requests wiki`
     '''
     global dump_requests
+    from polarity.config import lang
     # Create a cloudscraper session
     # Spoof an Android Firefox browser to bypass Captcha v2
-    vprint(f'~TEMP~ requesting {url}', 5, 'cloudscraper', 'debug')
+    vprint(lang['polarity']['requesting'] % url, 5, 'cloudscraper', 'debug')
     r = cloudscraper.create_scraper(browser=browser)
     start_time = time()
     request = getattr(r, method.lower())(url, **kwargs)

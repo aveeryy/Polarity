@@ -208,7 +208,7 @@ __internal_lang = {
     # Language metadata
     'name': 'Polarity Internal language',
     'code': 'internal',
-    'author': 'Aveeryy',
+    'author': 'aveeryy',
     'main': {
         'exit_msg': 'exiting'
     },
@@ -225,25 +225,39 @@ __internal_lang = {
         },
         # Argument help string sub-group
         'help': {
+            'accounts_dir': 'custom directory for account files',
+            'binaries_dir': 'custom directory with ffmpeg binaries',
+            'config_file': 'custom configuration file path',
+            'language_dir': 'custom directory for language files',
+            'log_dir': 'custom directory for logs',
+            'log_file': 'custom download log file path',
+            'temp_dir': 'custom directory for temporary files',
             'download_dir_series': 'download dir for tv series',
             'download_dir_movies': 'download dir for movies',
+            'dump': 'dump information to a file',
+            'exit_after_dump': 'exit after dumping information',
             'extended_help': "shows help with argument options",
+            'install_languages': 'install specified languages',
+            'installed_languages': 'list installed languages',
+            'filters': 'extraction and download filters',
             'format_episode': "formatting for episodes' filenames",
             'format_movie': "formatting for movies' filenames",
             'format_season': "formatting for seasons' directories",
             'format_series': "formatting for tv series' directories",
             'help': 'shows help',
-            'language': 'specify polarity\'s language',
+            'language': 'identifier of the language to load',
             'max_results': 'maximum number of results',
             'max_results_per_extractor':
             'maximum number of results per extractor',
             'max_results_per_type': 'maximum number of results per media type',
-            'mode': '',
+            # TODO: better 'mode' string
+            'mode': 'execution mode',
             'redownload': 'allow episode redownload',
             'resolution': 'preferred resolution',
             'search': 'search content in extractors',
             'update': 'update to latest release',
             'update_git': 'update to latest git commit',
+            'update_languages': 'update installed language files',
             'url': 'input urls',
             'verbose': 'verbose level',
             'verbose_log': 'verbose level for logging',
@@ -253,13 +267,19 @@ __internal_lang = {
     'polarity': {
         'all_tasks_finished': 'finished',
         'available_languages': 'available languages:',
+        'changed_index': 'changed index: %s',
+        'created_filter': 'created: %s object with params "%s" and filter "%s"',
+        'dump_options': 'dumping: options',
+        'enabled_debug': 'enabled debug mode',
         'finished_download': 'finished: download tasks',
         'finished_extraction': 'finished: extraction tasks',
         'language_format': '%s (%s) by %s',
         'use_help': 'use --help to display all options',
         'use': 'usage: ',
+        'requesting': 'requesting %s',
         'search_no_results': 'no results from search %s',
         'search_term': 'term: ',
+        'unknown_channel': 'unknown channel',
         'update_available': 'version %s available',
         'usage': 'Polarity <url(s)> [OPTIONS]',
         'using_version': 'using ver. %s',
@@ -276,8 +296,6 @@ __internal_lang = {
         'content_id': 'content id',
         'download_successful': 'downloaded: %s "%s"',
         'downloading_content': 'downloading: %s "%s"',
-        'fail_to_delete': "failed to delete old file",
-        'fail_to_move': "failed to move file to download directory",
         'no_extractor': 'skipping: %s "%s". no extractor',
         'no_redownload': 'skipping: %s "%s". already downloaded',
         'url': 'url'
@@ -288,15 +306,25 @@ __internal_lang = {
         'debug_already_downloaded': 'skipping segment: %s',
         'debug_time_download': 'segment download took: %s',
         'debug_time_remux': 'remux took: %s',
+        'incompatible_stream': 'incompatible stream: %s',
+        # Output file
+        'output_file_broken': 'failed to load output data file, recreating',
+        # Resume file
+        'resume_file_backup_broken':
+        'error: failed to load backup of resume data, recreating',
+        'resume_file_broken':
+        'error: failed to load resume data file, using backup',
+        'resume_file_recreation': 'recreating: resume data',
         'resuming': 'resuming: %s...',
         'segment_downloaded': 'downloaded: segment %s',
         'segment_retry': 'failed: segment %s download',
+        'segment_skip': 'skipping: segment %s',
+        'segment_start': 'start: download of segment %s',
         'thread_started': 'start: downloader "%s"',
         'threads_started': 'start: %d download threads',
         'args': {
             'ffmpeg_codec': 'Postprocessing codification settings',
-            'retries': 'Number of retries to download a segment',
-            'segment_downloaders': 'Number of segment downloaders'
+            'segment_downloaders': 'number of threads per download'
         },
         'protocols': {
             'getting_playlist': 'parsing: playlist',
@@ -313,14 +341,15 @@ __internal_lang = {
     },
     'extractor': {
         'base': {
-            'email_prompt': 'email/username: ',
-            'password_prompt': 'password: ',
             'check_failed':
             'failed: check for feature \033[1m%s\033[0m, conditions are false: %s',
-            'alt_check_failed':
-            'failed: check for feature %s, variables %s are missing, but variables %s are present',
+            'email_prompt': 'email/username: ',
+            'password_prompt': 'password: ',
+            'using_filters': 'using filters, total count will be inaccurate',
             'except': {
-                'argument_variable_empty': 'error: variable argument is empty',
+                'argument_variable_empty': 'variable argument is empty',
+                'failed_load_cookiejar': 'failed to load cookiejar: %s',
+                'no_cookiejar': 'extractor has no cookiejar'
             }
         },
         'check': {
@@ -336,6 +365,7 @@ __internal_lang = {
         'generic_error': 'error, error msg: ',
         'get_all_seasons': 'getting info: seasons',
         'get_media_info': 'getting info: %s "%s" (%s)',
+        'login_expired': 'login expired, cleaning cookiejar',
         'login_failure': 'failed to login, error code: %s',
         'login_loggedas': 'logged in as: %s',
         'login_success': 'login successful',
@@ -343,7 +373,9 @@ __internal_lang = {
         'skip_dl_premium': 'premium content, or not in your region',
         'waiting_for_login': 'waiting for login',
         'except': {
-            'cannot_identify_url': 'failed to identify URL'
+            'cannot_identify_url': 'failed to identify URL',
+            'no_id': 'no id inputted',
+            'no_url': 'no url inputted'
         }
     },
     'types': {
@@ -359,13 +391,10 @@ __internal_lang = {
         }
     },
     'update': {
-        'downloading_git': 'downloading latest git',
-        'downloading_release': 'downloading latest stable',
+        'downloading_git': 'updating from git repo\'s branch %s',
+        'downloading_release': 'updating to latest release',
         'downloading_native': 'downloading latest native',
-        'installing_to_path': 'installing to %s',
         'new_release': 'new release (%s) available',
-        'successful_install': 'success, exiting in %ds',
-        'updating': 'updating...',
         'except': {
             'unsupported_native': 'native binary update is not supported yet'
         }
@@ -380,15 +409,18 @@ __internal_lang = {
         }
     },
     'crunchyroll': {
-        'getting_bearer': 'fetching bearer token',
-        'getting_cms': 'cms policies fetch success',
-        'getting_cms_fail': 'cms policies fetch fail',
+        'bearer_fetch': 'fetching: bearer token',
+        'bearer_fetch_fail': 'failed: bearer token fetch',
+        'cms_fetch': 'fetching: cms policies',
+        'cms_fetch_success': 'success: cms policies fetch',
+        'cms_fetch_fail': 'failed: cms policies fetch',
+        'unwanted_season': 'skip: season "%s", unwanted dub',
         'using_method': 'login method "%s"',
         'args': {
             'subs': 'subt languages',
             'dubs': 'dub languages',
             'meta': 'metadata language',
-            'hard': 'get a hardsub version',
+            'hard': 'get a hardsubbed version',
             'email': "account email",
             'pass': "account password",
             'region': 'change content region',
@@ -400,13 +432,11 @@ lang = __internal_lang
 
 # Part 2: Load options from configuration file (and some arguments)
 
-# TODO: add arguments to argparse
 __path_arguments = {
     '--accounts-directory': 'account',
     '--binaries-directory': 'bin',
     '--config-file': 'cfg',
     '--download-log-file': 'dl_log',
-    '--dump-directory': 'dump',
     '--language-directory': 'lang',
     '--log-directory': 'log',
     '--temp-directory': 'tmp'
@@ -652,6 +682,7 @@ def argument_parser() -> dict:
     # Set language dictionaries
     lang_help = lang['args']['help']
     lang_group = lang['args']['groups']
+
     # Set logging filename and configuration
     log_filename = paths['log'] + f'log_{filename_datetime()}.log'
     logging.basicConfig(filename=log_filename,
@@ -665,7 +696,7 @@ def argument_parser() -> dict:
 
     parser = argparse.ArgumentParser(
         usage=USAGE,
-        description='Polarity %s | https://github.com/Aveeryy/Polarity/' %
+        description='Polarity %s | https://github.com/aveeryy/Polarity/' %
         (__version__),
         prog='Polarity',
         add_help=False,
@@ -703,16 +734,33 @@ def argument_parser() -> dict:
                          '--mode',
                          choices=['download', 'search', 'print', 'livetv'],
                          default='download')
-    general.add_argument('--language', help='')
-    general.add_argument('--installed-languages', action='store_true')
-    general.add_argument('--install-languages', nargs='*')
-    general.add_argument('--update-languages', action='store_true')
-    general.add_argument('--update', action='store_true')
+    general.add_argument('--language', help=lang_help['language'])
+    general.add_argument('--installed-languages',
+                         action='store_true',
+                         help=lang_help['installed_languages'])
+    general.add_argument('--install-languages',
+                         nargs='*',
+                         help=lang_help['install_languages'])
+    general.add_argument('--update-languages',
+                         action='store_true',
+                         help=lang_help['update_languages'])
+    general.add_argument('--update',
+                         action='store_true',
+                         help=lang_help['update'])
     general.add_argument('--update-git',
                          action='store_true',
                          help=lang_help['update_git'])
-    general.add_argument('--filters', help='~TEMP~ download filters')
-    general.add_argument('--accounts-directory', dest=None)
+    general.add_argument('--filters', help=lang_help['filters'])
+    general.add_argument('--accounts-directory',
+                         help=lang_help['accounts_dir'])
+    general.add_argument('--binaries-directory',
+                         help=lang_help['binaries_dir'])
+    general.add_argument('--config-file', help=lang_help['config_file'])
+    general.add_argument('--download-log-file', help=lang_help['log_file'])
+    general.add_argument('--language-directory',
+                         help=lang_help['language_dir'])
+    general.add_argument('--log-directory', help=lang_help['log_dir'])
+    general.add_argument('--temp-directory', help=lang_help['temp_dir'])
 
     # Search options
     search = parser.add_argument_group(title=lang_group['search'])
@@ -754,13 +802,13 @@ def argument_parser() -> dict:
                             downloader_name)
     debug = parser.add_argument_group(title=lang_group['debug'])
     debug.add_argument('--dump',
-                       choices=['options', 'urls'],
+                       choices=['options'],
                        nargs='+',
-                       help='Dump to file')
+                       help=lang_help['dump'])
     debug.add_argument('--exit-after-dump',
                        action='store_true',
-                       help='Exit after a dump')
-    debug.add_argument('--list-tv-channels', action='store_true')
+                       help=lang_help['exit_after_dump'])
+    # debug.add_argument('--list-tv-channels', action='store_true')
     debug.add_argument('--debug-colors', action='store_true')
 
     # Add extractor arguments
@@ -783,7 +831,7 @@ def argument_parser() -> dict:
 
     # See if list / debug mode needs to be set
     if any(s in sys.argv for s in ('--debug-colors', '--a')):
-        vprint('~TEMP~ enabled debug mode')
+        vprint(lang['polarity']['enabled_debug'], error_level='debug')
         change_verbose_level(0, True, True)
         options['mode'] = 'debug'
 

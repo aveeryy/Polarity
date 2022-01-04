@@ -89,7 +89,7 @@ class BaseExtractor:
         self.extraction = True
         # Return if no URL is inputted
         if not self.url or self.url is None:
-            raise ExtractorError('~TEMP~ No URL inputted')
+            raise ExtractorError(lang['extractor']['except']['no_url'])
         # Create a thread to execute the extraction function in the background
         self._extractor = Thread('__Extraction_Executor',
                                  target=self._extract,
@@ -109,11 +109,10 @@ class BaseExtractor:
     def _print_filter_warning(self) -> None:
         if not self._using_filters:
             return
-        vprint(
-            '~TEMP~ Using filters, total count in progress bar will be inaccurate',
-            module_name=self.__class__.__name__.lower().replace(
-                'extractor', ''),
-            error_level='warning')
+        vprint(lang['extractor']['base']['using_filters'],
+               module_name=self.__class__.__name__.lower().replace(
+                   'extractor', ''),
+               error_level='warning')
 
     def _validate_extractor(self) -> bool:
         '''Check if extractor has all needed variables'''
@@ -175,8 +174,7 @@ class BaseExtractor:
 
         # Check if extractor is already invalid, cannot continue testing
         if not self._valid_extractor:
-            raise InvalidExtractorError(
-                '~TEMP~ extractor did not pass basic funcionality test')
+            return False
 
         Feature(features['login'], [
             Condition('flag.AccountCapabilities', AccountCapabilities
@@ -210,10 +208,9 @@ class BaseExtractor:
         functions
         '''
         def wrapper(self, *args, **kwargs):
-            if not hasattr(self,
-                           'cjar') or AccountCapabilities not in self.FLAGS:
-
-                raise ExtractorError('~TEMP~ no cookiejar')
+            if not hasattr(self, 'cjar'):
+                raise ExtractorError(
+                    lang['extractor']['base']['except']['no_cookiejar'])
             return func(self, *args, **kwargs)
 
         return wrapper

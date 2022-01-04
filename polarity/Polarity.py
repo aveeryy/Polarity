@@ -55,7 +55,7 @@ class Polarity:
             # Print the version number
             print(f'Polarity {__version__}')
             print('Mass downloader for streaming platforms')
-            print(f'Copyright (C) {datetime.now().year} Aveeryy\n')
+            print(f'Copyright (C) {datetime.now().year} aveeryy\n')
             print(
                 '''This program is free software: you can redistribute it and/or modify
                 it under the terms of the GNU General Public License as published by
@@ -160,6 +160,8 @@ class Polarity:
                              self._download_task),
                 'metadata': []
             }
+            # If there are more desired extraction tasks than urls
+            # set the number of extraction tasks to the number of urls
             if options['extractor']['active_extractions'] > len(self.pool):
                 options['extractor']['active_extractions'] = len(self.pool)
 
@@ -195,7 +197,9 @@ class Polarity:
             # TODO: add check for urls
             channel = self.get_live_tv_channel(self.urls[0])
             if channel is None:
-                vprint('~TEMP~ channel not found', error_level='error')
+                vprint(lang['polarity']['unknown_channel'],
+                       error_level='error')
+                return
             print(channel)
 
         elif options['mode'] == 'debug':
@@ -268,21 +272,14 @@ class Polarity:
         dump_time = filename_datetime()
 
         if 'options' in options['dump']:
-            vprint('Dumping options to file', 3, error_level='debug')
-            with open(f'./{dump_time}_Polarity_dump_options.json',
+            vprint(lang['polarity']['dump_options'], 3, error_level='debug')
+            with open(f'{paths["log"]}/options_{dump_time}.json',
                       'w',
                       encoding='utf-8') as f:
                 json.dump(options, f, indent=4)
 
-        if 'urls' in options['dump']:
-            vprint('Dumping URLs to file', 3, error_level='debug')
-            with open(f'./{dump_time}_Polarity_dump_urls.txt',
-                      'w',
-                      encoding='utf-8') as f:
-                f.write('\n'.join(self.urls))
-
-        if 'requests' in options['dump']:
-            vprint('Enabled dumping of HTTP requests', error_level='debug')
+        #if 'requests' in options['dump']:
+        #    vprint('Enabled dumping of HTTP requests', error_level='debug')
 
     def process_filters(self, filters: str, link=True) -> list[Filter]:
         'Create Filter objects from a string and link them to their respective links'
@@ -304,7 +301,8 @@ class Polarity:
                 elif specifier.group(1) != 'global':
                     current_index = int(specifier.group(2))
                 vprint(
-                    f'Changed index to: {current_index if current_index is not None else "global"}',
+                    lang['polarity']['changed_index'] %
+                    current_index if current_index is not None else 'global',
                     4, 'polarity', 'debug')
             else:
                 _index = filters.index(filter, indexed)
@@ -317,11 +315,11 @@ class Polarity:
                 _filter, filter_type = build_filter(params=filter,
                                                     filter=raw_filter)
                 filter_list.append(_filter)
-                vprint(
-                    f'Created a {filter_type.__name__} object with params: "{filter}" and filter: "{raw_filter}"',
-                    level=4,
-                    module_name='polarity',
-                    error_level='debug')
+                vprint(lang['polarity']['created_filter'] %
+                       (filter_type.__name__, filter, raw_filter),
+                       level=4,
+                       module_name='polarity',
+                       error_level='debug')
                 # Append to respective url's filter list
                 if link:
                     if current_index is not None:

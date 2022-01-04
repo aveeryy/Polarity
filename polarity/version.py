@@ -24,12 +24,14 @@ def check_for_updates() -> tuple[bool, str]:
 def selfupdate(mode: str = 'git', version: str = None, branch: str = 'main'):
     '''Update Polarity to the latest release / git commit using pip'''
 
+    from polarity.config import lang
+
     if sys.argv[0].endswith('.py'):
         # Update python package
         # Try to import pip
         import pip
         if mode == 'release':
-            vprint('Downloading latest stable release using pip')
+            vprint(lang['update']['downloading_release'])
             command = ['install', '--upgrade', 'Polarity']
             if version is not None:
                 # If version is specified append it to the command
@@ -37,12 +39,13 @@ def selfupdate(mode: str = 'git', version: str = None, branch: str = 'main'):
                 # ['install', '--upgrade', 'Polarity=={version}']
                 command[-1] += f'=={version}'
         elif mode == 'git':
-            vprint(f'~TEMP~ updating from git repo\'s branch {branch}')
+            vprint(lang['update']['downloading_git'] % branch)
             command = ['install', '--upgrade', f'git+{GIT_REPO}@{branch}']
         pip.main(command)
         os._exit(0)
     else:
-        raise NotImplementedError('Updating native binaries is not supported ')
+        raise NotImplementedError(
+            lang['update']['except']['unsupported_native'])
 
 
 def language_install(language_list: list):
