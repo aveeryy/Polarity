@@ -424,23 +424,26 @@ class CrunchyrollExtractor(BaseExtractor):
             'etp_rt') and not force_client_id else 'client_id'
         vprint(self.extractor_lang['using_method'] % method, 3, 'crunchyroll',
                'debug')
-        token_req = request_json(url=self.API_URL + 'auth/v1/token',
-                                 method='post',
-                                 headers={
-                                     'Authorization':
-                                     self.account_info['basic'],
-                                     'Content-Type':
-                                     'application/x-www-form-urlencoded'
-                                 },
-                                 data={'grant_type': method},
-                                 cookies=self.cjar,
-                                 proxies=self.proxy)
+        # Request the bearer token using the basic token,
+        # to get the basic token
+        token_req = request_json(
+            url=self.API_URL + 'auth/v1/token',
+            method='post',
+            headers={
+                'Authorization': self.account_info['basic'],
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            data={'grant_type': method},
+            cookies=self.cjar,
+            proxies=self.proxy,
+        )
         if not 'access_token' in token_req[0]:
-            # TODO: better error message
-            vprint('~TEMP~ Failed to get Bearer', 1, 'crunchyroll', 'error')
+            vprint(lang['crunchyroll']['bearer_fetch_fail'], 1, 'crunchyroll',
+                   'error')
             if method == 'etp_rt_cookie':
-                vprint('~TEMP~ Login expired, cleaning cookie jar', 1,
-                       'crunchyroll', 'warning')
+                vprint(lang['extractor']['login_extractor'], 1, 'crunchyroll',
+                       'warning')
+                # TODO: BaseExtractor method
                 self.cjar.clear()
                 # Save the cookie jar
                 self.cjar.save()
@@ -454,27 +457,32 @@ class CrunchyrollExtractor(BaseExtractor):
         bucket_re = r'/(?P<country>\w{2})/(?P<madurity>M[1-3])'
         if self.account_info['bearer'] is None:
             self.get_bearer_token()
-        vprint(self.extractor_lang['getting_cms'], 3, 'crunchyroll', 'debug')
+        vprint(self.extractor_lang['cms_fetch'], 3, 'crunchyroll', 'debug')
         token_req = request_json(
             url=self.API_URL + 'index/v2',
             headers={'Authorization': self.account_info['bearer']},
             proxies=self.proxy)[0]
         if self.check_for_error(token_req):
-            raise ExtractorError(self.extractor_lang['getting_cms_fail'])
+            raise ExtractorError(self.extractor_lang['cms_fetch_fail'])
         bucket_match = re.match(bucket_re, token_req['cms']['bucket'])
+        # These variables are used in every request as request data
         self.account_info['policy'] = token_req['cms']['policy']
         self.account_info['signature'] = token_req['cms']['signature']
         self.account_info['key_pair_id'] = token_req['cms']['key_pair_id']
         # Content-availability variables
+        # Country and madurity are unused in actual extraction
         self.account_info['country'] = bucket_match.group('country')
         self.account_info['madurity'] = bucket_match.group('madurity')
+        # This determines the
         self.account_info['bucket'] = token_req['cms']['bucket']
+        # Build the final api url for the session
         self.CMS_API_URL = f'{self.API_URL}cms/v2{self.account_info["bucket"]}'
 
         return {
             'policy': self.account_info['policy'],
             'signature': self.account_info['signature'],
-            'key_pair_id': self.account_info['key_pair_id']
+            'key_pair_id': self.account_info['key_pair_id'],
+            'api_url': self.CMS_API_URL
         }
 
     def get_series_info(self,
@@ -621,7 +629,7 @@ class CrunchyrollExtractor(BaseExtractor):
         '''
         identifier = season_id if season_id is not None else season.id
         if identifier is None:
-            raise ExtractorError('~TEMP~ No indentifier inputted')
+            raise ExtractorError(lang['extractor']['except']['no_id'])
 
         unparsed_list = request_json(
             self.CMS_API_URL + '/episodes',
@@ -865,7 +873,7 @@ class CrunchyrollExtractor(BaseExtractor):
             for season in self.get_seasons(series_id=series_guid):
                 if 'all' not in self.options['crunchyroll']['dub_language'] \
                     and season._crunchyroll_dub not in self.options['crunchyroll']['dub_language']:
-                    vprint('~TEMP~ Skipping season, unwanted dub')
+                    vprint(lang['crunchyroll']['unwanted_dub'] % season.title, 2)
                     continue
 
                 self.get_season_info(season=season)
