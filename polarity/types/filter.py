@@ -11,7 +11,7 @@ class Filter:
     def __init__(self, filter: str) -> None:
         self._filter = filter
         self._properties = {}
-    
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.raw_filter})'
 
@@ -60,11 +60,11 @@ class NumberFilter(Filter):
         self.__seasons = []
         self.__episodes = []
         self.__parse_filter_obj()
-        
+
     @property
     def seasons(self) -> list[int]:
         return self.__seasons
-    
+
     @property
     def episodes(self) -> list[int]:
         return self.__episodes
@@ -108,14 +108,12 @@ class NumberFilter(Filter):
 class MatchFilter(Filter):
     def __init__(self,
                  filter: str,
-                 regex=False,
                  full=False,
                  not_match=False,
                  absolute=False) -> None:
         if full:
             filter = f'^{filter}$'
-        if regex:
-            filter = re.compile(pattern=filter)
+        filter = re.compile(pattern=filter)
         super().__init__(filter)
         self.__absolute = absolute
         self.__not_match = not_match
@@ -127,12 +125,12 @@ class MatchFilter(Filter):
     @property
     def not_match(self):
         return self.__not_match
-    
+
     def _check(self,
                title: str = "",
                season_number: int = 0,
                episode_number: int = 0):
-        match = re.search(self.filter, title)
+        match = re.search(self._filter, title)
         if self.__not_match:
             return not match
         return bool(match)

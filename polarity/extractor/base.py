@@ -314,14 +314,14 @@ class BaseExtractor:
             # Orphan Episode object, not applicable
             pass
         # Finally check if passes title check
-        return self._check_episode_by_title(episode=episode.title)
+        return self._check_episode_by_title(episode=episode)
 
     def _check_episode_by_title(self, episode: Episode) -> bool:
         '''Check if episode passes the title match filters'''
         passes = True
-        for _filter in self.filters:
+        for _filter in [f for f in self.filters if type(f) is MatchFilter]:
             match = _filter.check(title=episode.title)
-            if not match and _filter.absolutes:
+            if not match and _filter.absolute:
                 # Since absolute filters must always pass, return False
                 return False
             # Modify variable only if 'passes' is False
