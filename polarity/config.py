@@ -256,6 +256,7 @@ __internal_lang = {
             'resolution': 'preferred resolution',
             'search': 'search content in extractors',
             'update': 'update to latest release',
+            'update_check': 'check for updates on startup',
             'update_git': 'update to latest git commit',
             'update_languages': 'update installed language files',
             'url': 'input urls',
@@ -268,7 +269,8 @@ __internal_lang = {
         'all_tasks_finished': 'finished',
         'available_languages': 'available languages:',
         'changed_index': 'changed index: %s',
-        'created_filter': 'created: %s object with params "%s" and filter "%s"',
+        'created_filter':
+        'created: %s object with params "%s" and filter "%s"',
         'dump_options': 'dumping: options',
         'enabled_debug': 'enabled debug mode',
         'finished_download': 'finished: download tasks',
@@ -733,7 +735,8 @@ def argument_parser() -> dict:
     general.add_argument('-m',
                          '--mode',
                          choices=['download', 'search', 'print', 'livetv'],
-                         default='download')
+                         default='download',
+                         help=lang_help['mode'])
     general.add_argument('--language', help=lang_help['language'])
     general.add_argument('--installed-languages',
                          action='store_true',
@@ -750,6 +753,9 @@ def argument_parser() -> dict:
     general.add_argument('--update-git',
                          action='store_true',
                          help=lang_help['update_git'])
+    general.add_argument('--check-for-updates',
+                         action='store_true',
+                         help=lang_help['update_check'])
     general.add_argument('--filters', help=lang_help['filters'])
     general.add_argument('--accounts-directory',
                          help=lang_help['accounts_dir'])
