@@ -416,7 +416,7 @@ class CrunchyrollExtractor(BaseExtractor):
         # etp_rt -> logged in
         # client_id -> not logged in
 
-        vprint(self.extractor_lang['getting_bearer'],
+        vprint(self.extractor_lang['bearer_fetch'],
                level=3,
                module_name='crunchyroll',
                error_level='debug')

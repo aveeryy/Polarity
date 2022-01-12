@@ -9,9 +9,9 @@ from typing import Union
 
 from tqdm import TqdmWarning
 
-from polarity.config import (USAGE, ConfigError, change_verbose_level,
-                             get_installed_languages, lang, options, paths,
-                             verbose_level)
+from polarity.config import (USAGE, ConfigError, argument_parser,
+                             change_verbose_level, get_installed_languages,
+                             lang, options, paths, verbose_level)
 from polarity.downloader import PenguinDownloader
 from polarity.extractor import EXTRACTORS, flags
 from polarity.types import (Episode, Movie, SearchResult, Season, Series,
@@ -19,16 +19,11 @@ from polarity.types import (Episode, Movie, SearchResult, Season, Series,
 from polarity.types.base import MediaType
 from polarity.types.filter import Filter, build_filter
 from polarity.types.progressbar import ProgressBar
-from polarity.utils import (
-    dict_merge,
-    filename_datetime,
-    get_compatible_extractor,
-    is_content_id,
-    normalize_number,
-    parse_content_id,
-    sanitize_path,
-    vprint,
-)
+from polarity.types.download_log import DownloadLog
+from polarity.utils import (dict_merge, filename_datetime,
+                            get_compatible_extractor, is_content_id,
+                            normalize_number, parse_content_id, sanitize_path,
+                            vprint)
 from polarity.version import (__version__, check_for_updates, language_install,
                               windows_setup)
 
@@ -47,6 +42,8 @@ class Polarity:
         '''
 
         self.urls = urls
+        # Load the download log from the default path
+        self.__download_log = DownloadLog()
 
         if options['print_version']:
             # Print the version number
@@ -346,7 +343,7 @@ class Polarity:
             item = take_item()
             if item is None:
                 break
-            _extractor = get_compatible_extractor(url=item['url'])
+            _extractor = get_compatible_extractor(item['url'])
             if _extractor is None:
                 vprint(lang['dl']['no_extractor'] %
                        (lang['dl']['url'] if not is_content_id(item['url'])
@@ -390,6 +387,10 @@ class Polarity:
                 vprint(
                     lang['dl']['cannot_download_content'] %
                     type(item).__name__, item.short_name, item)
+            elif self.__download_log.in_log(item.content_id):
+                vprint(lang['dl']['no_redownload'] % item.short_name,
+                       error_level='warning')
+                continue
 
             vprint(lang['dl']['downloading_content'] %
                    (item.short_name, item.title))
@@ -404,21 +405,9 @@ class Polarity:
             while downloader.is_alive():
                 time.sleep(0.1)
 
-    def _metadata_task(self) -> None:
-        '''
-        Write metadata files
-        '''
-        def make_series_metadata(self, series: Series) -> dict:
-            base = {'tvshow': {'title': series.title}}
-
-        while True:
-            for item in self.extracted_items:
-                if type(item) is Series:
-                    if not item._extracted:
-                        continue
-                    # Remove item from list
-                    self.extracted_items.pop(
-                        [self.extracted_items.index(item)])
+            # Download finished, add identifier to download log
+            if downloader.success:
+                self.__download_log.add(item.content_id)
 
     @staticmethod
     def _format_filenames(

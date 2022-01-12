@@ -54,3 +54,7 @@ class Episode(MediaType, metaclass=MetaMediaType):
         return '%s S%sE%s' % (self._series.title,
                               normalize_number(self._season.number),
                               normalize_number(self.number))
+
+    @property
+    def content_id(self) -> str:
+        return f'{self._series._extractor.lower()}/episode-{self.id}'

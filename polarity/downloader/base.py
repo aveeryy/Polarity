@@ -24,6 +24,7 @@ class BaseDownloader(Thread):
         }
         self.output = item.output
         self.temp_path = f'{paths["tmp"]}{self.content["sanitized"]}'
+        self.success = False
 
     def _start(self) -> None:
         path, _ = os.path.split(self.output)

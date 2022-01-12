@@ -23,7 +23,6 @@ class Series(MediaType, metaclass=MetaMediaType):
     _extractor: str = field(init=False)
     # False if all series information is extracted, not counting seasons
     # and their respective episodes, True if not
-    # Check the wiki for more info
     _partial = True
     # True if all requested seasons and episodes have been extracted,
     # False if not

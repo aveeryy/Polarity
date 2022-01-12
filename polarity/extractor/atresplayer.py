@@ -300,8 +300,6 @@ class AtresplayerExtractor(BaseExtractor):
                          episode_id: str = None,
                          return_raw_info=False) -> Union[Episode, dict]:
 
-        # drm = False
-
         episode_id = episode.id if episode is not None else episode_id
 
         # Download episode info json
@@ -482,12 +480,15 @@ class AtresplayerExtractor(BaseExtractor):
                         break
             else:
                 vprint(
-                    f'~TEMP~ No results found in category {media_type} using term "{term}"',
-                    2, 'atresplayer', 'warning')
+                    lang['extractor']['search_no_results'] %
+                    (media_type, term), 2, 'atresplayer', 'warning')
         return results
 
     def _extract(self):
         url_type, identifiers = self.identify_url(url=self.url)
+
+        if url_type in (Series, Season) and self._using_filters:
+            self._print_filter_warning()
 
         # Get the series information
         self.get_series_info(series_id=identifiers[Series])
@@ -530,6 +531,7 @@ class AtresplayerExtractor(BaseExtractor):
             self.info.link_season(season)
             season.link_episode(episode=episode)
         elif url_type is None:
-            raise ExtractorError('~TEMP~ Invalid URL')
+            raise ExtractorError(
+                lang['extractor']['except']['cannot_identify_url'])
 
         return self.info

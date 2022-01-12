@@ -24,3 +24,7 @@ class Movie(Episode, metaclass=MetaMediaType):
         '''Sleep until extraction has finished, useful for scripting'''
         while not self._extracted:
             sleep(0.1)
+
+    @property
+    def content_id(self) -> str:
+        return f'{self._extractor.lower()}/movie-{self.id}'

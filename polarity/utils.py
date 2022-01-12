@@ -347,6 +347,10 @@ class ContentIdentifier:
     content_type: str
     id: str
 
+    @property
+    def string(self):
+        return f'{self.extractor}/{self.content_type}-{self.id}'
+
 
 content_id_regex = r'(?P<extractor>[\w]+)/(?:(?P<type>[\w]+|)-|)(?P<id>[\S]+)'
 
