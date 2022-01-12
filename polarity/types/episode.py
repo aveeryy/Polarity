@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 from polarity.types.base import MediaType, MetaMediaType
 from polarity.types.stream import Stream
-from polarity.utils import normalize_integer
+from polarity.utils import normalize_number
 
 
 @dataclass
@@ -52,5 +52,5 @@ class Episode(MediaType, metaclass=MetaMediaType):
     @property
     def short_name(self) -> str:
         return '%s S%sE%s' % (self._series.title,
-                              normalize_integer(self._season.number),
-                              normalize_integer(self.number))
+                              normalize_number(self._season.number),
+                              normalize_number(self.number))

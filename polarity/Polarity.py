@@ -4,11 +4,9 @@ import re
 import time
 import warnings
 from datetime import datetime
-from logging import error
 from threading import Lock
 from typing import Union
 
-from colorama import Fore
 from tqdm import TqdmWarning
 
 from polarity.config import (USAGE, ConfigError, change_verbose_level,
@@ -26,10 +24,9 @@ from polarity.utils import (
     filename_datetime,
     get_compatible_extractor,
     is_content_id,
-    normalize_integer,
+    normalize_number,
     parse_content_id,
     sanitize_path,
-    thread_vprint,
     vprint,
 )
 from polarity.version import (__version__, check_for_updates, language_install,
@@ -451,7 +448,7 @@ class Polarity:
                 # Season's identifier
                 i=media_obj[1].id,
                 # Season's number with trailing 0 if < 10
-                sn=normalize_integer(media_obj[1].number),
+                sn=normalize_number(media_obj[1].number),
                 # Season's number
                 Sn=media_obj[1].number)
             output_filename = options['download']['episode_format'].format(
@@ -466,11 +463,11 @@ class Polarity:
                 # Episode's identifier
                 i=media_obj[2].id,
                 # Season's number with trailing 0 if < 10
-                sn=normalize_integer(media_obj[1].number),
+                sn=normalize_number(media_obj[1].number),
                 # Season's number
                 Sn=media_obj[1].number,
                 # Episode's number with trailing 0 if < 10
-                en=normalize_integer(media_obj[2].number),
+                en=normalize_number(media_obj[2].number),
                 # Episode's number
                 En=media_obj[2].number)
             output_path = os.path.join(options['download']['series_directory'],

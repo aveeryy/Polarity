@@ -225,30 +225,32 @@ def sanitize_path(path: str, force_win32=False) -> str:
     return func.join(directory, filename)
 
 
-def sanitized_path_exists(file_path: str) -> bool:
+def sanitized_path_exists(path: str) -> bool:
     'Checks if the path, or sanitized version of that path, exists'
-    file_dir = os.path.dirname(file_path) + '/'
-    # Sanitize the path
-    sanitized_path = sanitize_path(file_dir, directory_replace=True)
-    # Sanitize the filename
-    sanitized_filename = sanitize_path(os.path.basename(file_path))
-    sanitized = os.path.join(sanitized_path, sanitized_filename)
+    sanitized = sanitize_path(path)
 
-    return os.path.exists(file_path) or os.path.exists(sanitized)
+    return os.path.exists(path) or os.path.exists(sanitized)
 
 
-def normalize_integer(number) -> str:
-    'Add a facing 0 to a number if it only has one digit'
-    if type(number) is int:
-        number = float(number)
-    elif type(number) is str:
+def normalize_number(number) -> str:
+    '''
+    Add a facing 0 to a number if it only has one digit
+
+    Example:
+    >>> normalize_number(7)
+    '07'
+    >>> normalize_number(13)
+    '13'
+    '''
+    if type(number) is str and number.isdigit():
         # Get numbers from string
         number = re.search(r'(\d)+', number)
         number = float(number.group(0))
+    number = float(number)
     if number < 10:
         number = str('0') + str(number)
-    else:
-        number = str(number)
+    # Convert the number to a string
+    number = str(number)
     # Remove decimals from float number if decimal is .0
     if number.endswith('.0'):
         number = re.sub(r'\.\d+', '', number)
@@ -272,6 +274,7 @@ def humanbytes(B) -> str:
     Return the given bytes as a human friendly KB, MB, GB, or TB string
     https://stackoverflow.com/a/31631711
     '''
+
     B = float(B)
     KB = float(1024)
     MB = float(KB**2)  # 1,048,576
@@ -303,6 +306,7 @@ def dict_merge(dct: dict,
     :param overwrite: replace existing keys
     :param modify: modify dct directly
     :return: dict
+
     Thanks angstwad!
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
@@ -372,12 +376,14 @@ def parse_content_id(id: str) -> ContentIdentifier:
     '''
     from polarity.types import str_to_type
     if not is_content_id(id):
-        vprint('Failed to parse content identifier', 1,
-               'utils/parse_content_id', 'error')
+        vprint('~TEMP~ Failed to parse content identifier',
+               level=1,
+               error_level='error')
         return
     parsed_id = re.match(content_id_regex, id)
-    extractor, media_type, _id = parsed_id.groups()
-    media_type = str_to_type(media_type)
+    extractor, _media_type, _id = parsed_id.groups()
+
+    media_type = str_to_type(_media_type)
     return ContentIdentifier(extractor, media_type, _id)
 
 
@@ -404,7 +410,8 @@ def request_webpage(url: str, method: str = 'get', **kwargs) -> Response:
     # Create a cloudscraper session
     # Spoof an Android Firefox browser to bypass Captcha v2
     vprint(lang['polarity']['requesting'] % url, 5, 'cloudscraper', 'debug')
-    r = cloudscraper.create_scraper(browser=browser)
+    r = cloudscraper.create_scraper(browser=browser,
+                                    cipherSuite='HIGH:!DH:!aNULL')
     start_time = time()
     request = getattr(r, method.lower())(url, **kwargs)
     end_time = time()
@@ -449,25 +456,28 @@ def get_country_from_ip() -> str:
 ################
 
 
-def get_compatible_extractor(url: str) -> Union[tuple[str, object], None]:
-    '''Returns a compatible extractor for the inputted url, if exists'''
+def get_compatible_extractor(text: str) -> Union[tuple[str, object], None]:
+    '''
+    Returns a compatible extractor for the inputted url or content id,
+    if exists, else returns None
+    '''
     from polarity.extractor import EXTRACTORS
-    if not is_content_id(text=url):
-        url_host = urlparse(url).netloc
+    if not is_content_id(text):
+        # get the hostname from the URL
+        url_host = urlparse(text).netloc
+        # get extractors with matching hostname
         extractor = [(name, extractor)
                      for name, extractor in EXTRACTORS.items()
                      if re.match(extractor.HOST, url_host)]
-        if not extractor:
-            return
-        # Return (name, object)
-        return (extractor[0][0], extractor[0][1])
-    else:
-        parsed_id = parse_content_id(id=url)
+        # return the first extractor
+        return extractor[0] if extractor else None
+    elif is_content_id(text):
+        parsed_id = parse_content_id(id=text)
         extractor_name = parsed_id.extractor
+        # get extractors with matching name
         _EXTRACTORS = {k.lower(): v for k, v in EXTRACTORS.items()}
-        if not extractor_name in _EXTRACTORS:
-            return
-        return (extractor_name, _EXTRACTORS[extractor_name])
+        return (extractor_name, _EXTRACTORS[extractor_name]
+                ) if extractor_name in _EXTRACTORS else None
 
 
 ###################
