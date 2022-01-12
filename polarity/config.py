@@ -463,13 +463,14 @@ config = load_config(paths['cfg'])
 from polarity.downloader import DOWNLOADERS
 from polarity.extractor import EXTRACTORS
 
+# Load new configuration entries
+dict_merge(config, __defaults)
+# Load new configuration entries from extractors and downloaders
 for name, downloader in DOWNLOADERS.items():
     merge_external_config(downloader, name, config['download'])
 for name, extractor in EXTRACTORS.items():
     merge_external_config(extractor, name, config['extractor'])
-
-# Add new configuration entries to user's configuration and save to file
-dict_merge(config, __defaults)
+# Save the configuration with the new entries to the file
 save_config(paths['cfg'], config)
 
 # Load language file if specified
