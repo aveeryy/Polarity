@@ -311,22 +311,14 @@ def dict_merge(dct: dict,
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
 
-    if type(dct) is not dict:
-        dct = dict(dct)
-    if type(merge_dct) is not dict:
-        merge_dct = dict(merge_dct)
-
     if not modify:
         # Make a copy of dct to not modify the obj directly
         dct = deepcopy(dct)
     for k in merge_dct:
-        if (k in dct and isinstance(dct[k], dict)
-                and isinstance(merge_dct[k], dict)):
+        if (k in dct and type(dct[k]) is dict and type(merge_dct[k] is dict)):
             dict_merge(dct[k], merge_dct[k], overwrite, True)
-        elif overwrite or k not in dct:
+        elif k not in dct or overwrite and merge_dct[k] not in (False, None):
             dct[k] = merge_dct[k]
-
-    # Return added to maintain compatibility
     return dct
 
 
