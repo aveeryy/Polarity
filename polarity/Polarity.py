@@ -387,7 +387,8 @@ class Polarity:
                 vprint(
                     lang['dl']['cannot_download_content'] %
                     type(item).__name__, item.short_name, item)
-            elif self.__download_log.in_log(item.content_id):
+            elif self.__download_log.in_log(
+                    item.content_id) and not options['download']['redownload']:
                 vprint(lang['dl']['no_redownload'] % item.short_name,
                        error_level='warning')
                 continue
