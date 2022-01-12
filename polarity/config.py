@@ -4,7 +4,8 @@ import os
 import re
 import sys
 
-import atoml
+import tomli
+import tomli_w
 
 from polarity.utils import (dict_merge, filename_datetime, get_argument_value,
                             get_home_path, mkfile, strip_extension, vprint)
@@ -18,7 +19,7 @@ class ConfigError(Exception):
 
 def generate_config(config_path: str) -> None:
     with open(config_path, 'w') as c:
-        atoml.dump(__defaults, c)
+        tomli_w.dump(__defaults, c)
 
 
 def load_config(config_path: str) -> dict:
@@ -28,16 +29,16 @@ def load_config(config_path: str) -> dict:
     with open(config_path, 'r', encoding='utf-8') as c:
         try:
             # Load configuration
-            config = atoml.loads(c.read())
-        except atoml.exceptions.ATOMLError:
+            config = tomli.loads(c.read())
+        except tomli.TOMLDecodeError:
             # TODO: corrupt config handler
             raise Exception
     return config
 
 
 def save_config(config_path: str, config: dict) -> None:
-    with open(config_path, 'w') as c:
-        atoml.dump(config, c)
+    with open(config_path, 'wb') as c:
+        tomli_w.dump(config, c)
 
 
 def merge_external_config(obj: object, name: str, config_path: dict) -> None:
@@ -68,7 +69,7 @@ def change_language(language_code: str) -> dict:
             # and the currently loaded overlapping
             dict_merge(lang, __internal_lang, True)
             # Now, change
-            dict_merge(lang, atoml.load(l), True)
+            dict_merge(lang, tomli.load(l), True)
             # Merge internal language with loaded one, avoids errors due
             # missing strings
     return lang
