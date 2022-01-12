@@ -1,5 +1,7 @@
-from polarity.types.base import MediaType, MetaMediaType
 from dataclasses import dataclass, field
+
+from polarity.types.base import MediaType, MetaMediaType
+from polarity.utils import get_extension
 
 
 @dataclass
@@ -50,10 +52,17 @@ class Segment(MediaType, metaclass=MetaMediaType):
     group: str
     duration: float
     init: bool
-    ext: str
     time: float = float('9' * 15)
     byte_range: str = None
     _finished = False
+    id: str = field(init=False)
+    ext: str = field(init=False)
+    filename: str = field(init=False)
+
+    def __post_init__(self):
+        self.id = f'{self.group}_{self.number}'
+        self.ext = get_extension(self.url)
+        self.filename = f'{self.id}{self.ext}'
 
 
 @dataclass

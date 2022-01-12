@@ -72,9 +72,9 @@ class HTTPLiveStream(StreamProtocol):
                     group=f'{media_type}{self.processed_tracks[media_type]}',
                     duration=s['duration'],
                     init=False,
-                    ext=get_extension(s['uri']),
                     byte_range=None) for s in self.parsed_stream['segments']
             ]
+
             l = 0
             for segment in segments:
                 segment.time = l
@@ -96,8 +96,6 @@ class HTTPLiveStream(StreamProtocol):
                         duration=None,
                         key=None,
                         group=f'{pool}{self.processed_tracks[pool]}',
-                        ext=get_extension(
-                            self.parsed_stream['segment_map']['uri']),
                         byte_range=None))
 
         self.stream_url = urljoin(self.url, stream['uri'])
@@ -133,7 +131,8 @@ class HTTPLiveStream(StreamProtocol):
                 else:
                     contents = self.scraper.get(urljoin(
                         self.url, media['uri'])).content
-                    # Fuck whoever thought it was a good idea to disguise m3u8 playlists as .vtt subtitles
+                    # Fuck whoever thought it was a good idea to disguise
+                    # m3u8 playlists as .vtt subtitles
                     if b'#EXTM3U' in contents:
                         self.get_stream_fragments(media, 'subtitles')
                         continue

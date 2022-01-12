@@ -7,7 +7,7 @@ import sys
 import atoml
 
 from polarity.utils import (dict_merge, filename_datetime, get_argument_value,
-                            get_home_path, strip_extension, vprint)
+                            get_home_path, mkfile, strip_extension, vprint)
 from polarity.version import __version__
 
 
@@ -299,7 +299,7 @@ __internal_lang = {
         'download_successful': 'downloaded: %s "%s"',
         'downloading_content': 'downloading: %s "%s"',
         'no_extractor': 'skipping: %s "%s". no extractor',
-        'no_redownload': 'skipping: %s "%s". already downloaded',
+        'no_redownload': 'skipping: %s already downloaded',
         'url': 'url'
     },
     'penguin': {
@@ -473,6 +473,9 @@ for name, extractor in EXTRACTORS.items():
 # Save the configuration with the new entries to the file
 save_config(paths['cfg'], config)
 
+# Create the download log file
+mkfile(paths['dl_log'], '')
+
 # Load language file if specified
 if '--language' in sys.argv:
     lang_code = sys.argv[sys.argv.index('--language') + 1]
@@ -496,10 +499,12 @@ elif any(a in sys.argv for a in ('-q', '--quiet')):
     # Quiet parameter passed,
     verbose_level['print'] = 0
 elif any(a in sys.argv for a in ('-v', '--verbose')):
-    value = get_argument_value(('-v', '--verbose'))
-    if value is None or int(value) not in [*range(0, 6)]:
-        raise ConfigError(lang['polarity']['except']['verbose_error'] % value)
-    verbose_level['print'] = int(value)
+    if 'shtab' not in sys.argv[0]:
+        value = get_argument_value(('-v', '--verbose'))
+        if value is None or int(value) not in [*range(0, 6)]:
+            raise ConfigError(lang['polarity']['except']['verbose_error'] %
+                              value)
+        verbose_level['print'] = int(value)
 elif 'verbose' in config:
     verbose_level['print'] = int(config['verbose'])
 
@@ -623,7 +628,7 @@ class ExtendedFormatter(HelpFormatter):
 __FORMATTER = HelpFormatter if '--extended-help' not in sys.argv else ExtendedFormatter
 
 
-def argument_parser() -> dict:
+def argument_parser(get_parser=False) -> dict:
     def parse_external_args(args: dict, dest: dict, dest_name: str) -> None:
         'Convert an ARGUMENTS object to argparse arguments'
         group_name = lang['args']['groups']['extractor'] % dest_name
@@ -824,6 +829,9 @@ def argument_parser() -> dict:
             continue
         parse_external_args(extractor.ARGUMENTS, opts['extractor'], name)
 
+    if get_parser:
+        return parser
+
     args = parser.parse_args()  # Parse arguments
 
     # Print help
@@ -845,5 +853,12 @@ def argument_parser() -> dict:
     return (args.url, options)
 
 
+def get_parser():
+    return argument_parser(get_parser=True)
+
+
 # Parse arguments
-urls, options = argument_parser()
+if 'shtab' not in sys.argv[0]:
+    urls, options = argument_parser()
+else:
+    urls = options = None

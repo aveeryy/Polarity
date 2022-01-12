@@ -18,8 +18,9 @@ from polarity.downloader.protocols import *
 from polarity.types import Episode, Movie, Thread, ProgressBar
 from polarity.types.ffmpeg import *
 from polarity.types.stream import *
-from polarity.utils import (browser, get_extension, retry_config,
-                            strip_extension, thread_vprint, vprint)
+from polarity.utils import (browser, get_extension, request_webpage,
+                            retry_config, strip_extension, thread_vprint,
+                            vprint)
 from polarity.version import __version__ as polarity_version
 from requests.adapters import HTTPAdapter
 
@@ -180,6 +181,10 @@ class PenguinDownloader(BaseDownloader):
         return stats
 
     def _start(self):
+        '''
+        Start the download process, first try to load resume and output data
+        files if those exists, if the files are corrupted 
+        '''
         super()._start()
         self.options['penguin']['segment_downloaders'] = int(
             self.options['penguin']['segment_downloaders'])
@@ -274,6 +279,8 @@ class PenguinDownloader(BaseDownloader):
         os.remove(f'{self.temp_path}_pools.json')
         os.remove(f'{self.temp_path}_ffmpeg.txt')
 
+        self.success = True
+
     # Pre-processing
 
     def generate_pool_id(self, pool_format: str) -> str:
@@ -285,9 +292,11 @@ class PenguinDownloader(BaseDownloader):
     def process_stream(self, stream: Stream) -> None:
         if not stream.preferred:
             return
+        vprint(f'~TEMP~ processing stream: {stream.id}', 4, 'penguin')
         for prot in ALL_PROTOCOLS:
             if not get_extension(stream.url) in prot.SUPPORTED_EXTENSIONS:
                 continue
+            vprint(f'~TEMP~ stream {stream.id}, protocol: {prot.__name__}')
             processed = prot(stream=stream, options=self.options).extract()
             for pool in processed['segment_pools']:
                 self.output_data['total_segments'] += len(pool.segments)
@@ -317,7 +326,6 @@ class PenguinDownloader(BaseDownloader):
                                    key=None,
                                    duration=None,
                                    init=False,
-                                   ext=get_extension(stream.url),
                                    byte_range=None)
         subtitle_pool.segments = [subtitle_segment]
         self.output_data['segment_pools'].append(subtitle_pool)
@@ -386,14 +394,12 @@ class PenguinDownloader(BaseDownloader):
 
         '''
         def download_key(segment: Segment) -> None:
-            with cloudscraper.create_scraper(browser=browser) as session:
-                session.mount('https://',
-                              HTTPAdapter(max_retries=retry_config))
-                key_contents = session.get(unquote(segment.key['video'].url))
-                # Write key to file
-                with open(f'{self.temp_path}/{pool.id}_{key_num}.key',
-                          'wb') as key_file:
-                    key_file.write(key_contents.content)
+            vprint(f'~TEMP~ downloading key of segment {segment.id}')
+            key_contents = request_webpage(unquote(segment.key['video'].url))
+
+            with open(f'{self.temp_path}/{pool.id}_{key_num}.key',
+                      'wb') as key_file:
+                key_file.write(key_contents.content)
 
         last_key = None
         key_num = 0
@@ -404,7 +410,7 @@ class PenguinDownloader(BaseDownloader):
         init_segment = [f for f in pool.segments if f.init]
         if init_segment:
             init_segment = init_segment[0]
-            playlist += f'#EXT-X-MAP:URI="{init_segment.group}_{init_segment.number}{init_segment.ext}"\n'
+            playlist += f'#EXT-X-MAP:URI="{init_segment.filename}"\n'
 
         # Add segments to playlist
         for segment in pool.segments:
@@ -415,7 +421,7 @@ class PenguinDownloader(BaseDownloader):
                     # Download the key
                     download_key(segment)
                     key_num += 1
-            playlist += f'#EXTINF:{segment.duration},\n{self.temp_path}/{segment.group}_{segment.number}{segment.ext}\n'
+            playlist += f'#EXTINF:{segment.duration},\n{self.temp_path}/{segment.filename}\n'
         # Write end of file
         playlist += '#EXT-X-ENDLIST\n'
         # Write playlist to file
@@ -587,7 +593,7 @@ class PenguinDownloader(BaseDownloader):
                                   lock=self.thread_lock)
                     continue
                 # Segment download
-                thread_vprint(message=lang['segment_start'] %
+                thread_vprint(message=lang['penguin']['segment_start'] %
                               f'{segment.group}_{segment.number}',
                               level=5,
                               module_name=thread_name,
@@ -609,8 +615,8 @@ class PenguinDownloader(BaseDownloader):
                                 headers={
                                     'range': f'bytes={segment.byte_range}'
                                 } if segment.byte_range is not None else {})
-                        except OSError as e:
-                            pass
+                        # TODO: available space checks
+                        # TODO: better exception handling
                         except BaseException as e:
                             thread_vprint(f'Exception in download: {e}',
                                           level=5,
@@ -649,14 +655,21 @@ class PenguinDownloader(BaseDownloader):
                                 r'<p.+</p>', segment_contents.decode())
                             i = 1
                             for p in subtitle_entries:
-                                begin = re.search(r'begin="([\d:.]+)"',
-                                                  p).group(1).replace(
-                                                      '.', ',')
-                                end = re.search(r'end="([\d:.]+)"',
-                                                p).group(1).replace('.', ',')
-                                contents = re.search(r'>(.+)</p>',
-                                                     p).group(1).replace(
-                                                         '<br/>', '\n')
+                                begin = re.search(
+                                    r'begin="([\d:.]+)"',
+                                    p,
+                                ).group(1).replace('.', ',')
+                                end = re.search(
+                                    r'end="([\d:.]+)"',
+                                    p,
+                                ).group(1).replace('.', ',')
+                                # Get the entries content and replace
+                                # line break tags with new lines
+                                contents = re.search(
+                                    r'>(.+)</p>',
+                                    p,
+                                ).group(1).replace('<br/>', '\n')
+                                # Cleanup
                                 contents = re.sub(r'<(|/)span>', '', p)
                                 contents = contents.replace('&gt;', '')
                                 contents = contents.strip()
