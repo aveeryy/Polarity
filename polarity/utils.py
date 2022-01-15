@@ -258,39 +258,13 @@ def normalize_number(number) -> str:
 
 
 def get_extension(url) -> str:
-    'Returns the URL\'s file extension'
+    '''Returns the URI\'s file extension'''
     result = re.search(r'(?P<ext>\.\w+)($|[^/.\w\s,])', url)
-    if result is None:
-        return ''
-    return result.group('ext')
+    return result.group('ext') if result is not None else ''
 
 
 def strip_extension(url: str) -> str:
     return url.replace(get_extension(url), '')
-
-
-def humanbytes(B) -> str:
-    '''
-    Return the given bytes as a human friendly KB, MB, GB, or TB string
-    https://stackoverflow.com/a/31631711
-    '''
-
-    B = float(B)
-    KB = float(1024)
-    MB = float(KB**2)  # 1,048,576
-    GB = float(KB**3)  # 1,073,741,824
-    TB = float(KB**4)  # 1,099,511,627,776
-
-    if B < KB:
-        return '{0} {1}'.format(B, 'Bytes' if 0 == B > 1 else 'Byte')
-    if KB <= B < MB:
-        return '{0:.2f}KB'.format(B / KB)
-    if MB <= B < GB:
-        return '{0:.2f}MB'.format(B / MB)
-    if GB <= B < TB:
-        return '{0:.2f}GB'.format(B / GB)
-    if TB <= B:
-        return '{0:.2f}TB'.format(B / TB)
 
 
 def dict_merge(dct: dict,

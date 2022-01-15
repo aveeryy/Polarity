@@ -6,9 +6,9 @@ from requests import get
 from time import sleep
 from zipfile import ZipFile
 
-from polarity.utils import vprint, humanbytes, request_webpage, request_json, version_to_tuple
+from polarity.utils import vprint, request_webpage, request_json, version_to_tuple
 
-__version__ = '2021.12.15'
+__version__ = '2022.01.15'
 GIT_REPO = 'https://github.com/aveeryy/Polarity.git'
 UPDATE_ENDPOINT = 'https://api.github.com/repos/aveeryy/Polarity/releases'
 
@@ -101,7 +101,7 @@ def windows_setup() -> None:
         for chunk in download.iter_content(chunk_size=1024):
             output.write(chunk)
             downloaded += len(chunk)
-            vprint(f'{humanbytes(downloaded)} / {humanbytes(total)}    ',
+            vprint(f'{downloaded} / {total} bytes downloaded   ',
                    end='\r',
                    module_name='update')
     vprint('Extracting FFmpeg', module_name='update')
