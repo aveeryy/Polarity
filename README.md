@@ -11,20 +11,14 @@
 - **Multi-threaded downloads**
 - **External downloader support**
 ### Other features
-- **Search in supported extractors** * 
-- **_(Minimal)_ Live TV support** *
-<!---
+- **Search in supported extractors**
+- **_(Minimal)_ Live TV support**
 
-- **Automatically download new episodes**
-- **Plex and Kodi Metadata support**
--->
-
-\* `not in current branch`
 
 ## Installation
-- ### [Windows Installation <img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#windows-)
-- ### [Linux Installation <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#linux-)
-- ### [Android Installation <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>](https://github.com/Aveeryy/Polarity/wiki/Installing#android-)
+- ### [Windows Installation <img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/>](https://github.com/aveeryy/Polarity/wiki/Installing#windows-)
+- ### [Linux Installation <img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/>](https://github.com/aveeryy/Polarity/wiki/Installing#linux-)
+- ### [Android Installation <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>](https://github.com/aveeryy/Polarity/wiki/Installing#android-)
 
 ## Supported websites
 | | Premium | Subtitles | Search

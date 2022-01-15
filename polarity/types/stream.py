@@ -6,12 +6,13 @@ from polarity.utils import get_extension
 
 @dataclass
 class ContentKey(MediaType, metaclass=MetaMediaType):
-    '''
+    """
     Available key methods:
-    
+
     - `AES-128`
     - `Widevine` (Only on Singularity)
-    '''
+    """
+
     url: str
     raw_key: str
     method: str
@@ -19,18 +20,19 @@ class ContentKey(MediaType, metaclass=MetaMediaType):
 
 @dataclass
 class Stream(MediaType, metaclass=MetaMediaType):
-    '''
+    """
     ### Stream guidelines:
     - Languages' names must be the actual name in that language
-    
+
         >>> ...
         # Bad
         >>> self.name = 'Spanish'
         # Good
         >>> self.name = 'Español'
     - Languages' codes must be [ISO 639-1 or ISO 639-2 codes](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes)
-    - On extra_* streams 
-    '''
+    - On extra_* streams
+    """
+
     url: str
     preferred: bool
     name: dict
@@ -52,7 +54,7 @@ class Segment(MediaType, metaclass=MetaMediaType):
     group: str
     duration: float
     init: bool
-    time: float = float('9' * 15)
+    time: float = float("9" * 15)
     byte_range: str = None
     _finished = False
     id: str = field(init=False)
@@ -60,9 +62,9 @@ class Segment(MediaType, metaclass=MetaMediaType):
     filename: str = field(init=False)
 
     def __post_init__(self):
-        self.id = f'{self.group}_{self.number}'
+        self.id = f"{self.group}_{self.number}"
         self.ext = get_extension(self.url)
-        self.filename = f'{self.id}{self.ext}'
+        self.filename = f"{self.id}{self.ext}"
 
 
 @dataclass
@@ -85,6 +87,6 @@ class SegmentPool(MediaType, metaclass=MetaMediaType):
         return [s for s in self.segments if s.init]
 
 
-M3U8Pool = '.m3u8'
+M3U8Pool = ".m3u8"
 
-DASHPool = '.mp4'
+DASHPool = ".mp4"

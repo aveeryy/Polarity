@@ -29,7 +29,9 @@ class Series(MediaType, metaclass=MetaMediaType):
     _extracted = False
 
     def __repr__(self) -> str:
-        return f'Series({self.title}, {self.id})[{"partial" if self._partial else "full"}]'
+        return (
+            f'Series({self.title}, {self.id})[{"partial" if self._partial else "full"}]'
+        )
 
     def link_person(self, person: Person) -> None:
         if person not in self.actors:
@@ -51,14 +53,13 @@ class Series(MediaType, metaclass=MetaMediaType):
             return match[0]
 
     def get_all_episodes(self, pop=False) -> list[Episode]:
-        '''
+        """
         :param pop: Removes episodes from the lists
         :returns: List with extracted episodes
-        '''
+        """
         if pop:
             episodes = [
-                e for s in self.seasons for e in s.episodes
-                if not hasattr(e, '_popped')
+                e for s in self.seasons for e in s.episodes if not hasattr(e, "_popped")
             ]
             for episode in episodes:
                 episode._popped = None
@@ -67,6 +68,6 @@ class Series(MediaType, metaclass=MetaMediaType):
         return [e for s in self.seasons for e in s.episodes]
 
     def halt_until_extracted(self):
-        '''Sleep until extraction has finished, useful for scripting'''
+        """Sleep until extraction has finished, useful for scripting"""
         while not self._extracted:
             sleep(0.1)

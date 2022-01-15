@@ -12,7 +12,7 @@ class Season(MediaType, metaclass=MetaMediaType):
     images: list[str] = field(default_factory=list)
     episode_count: int = 0
     finished: bool = True
-    synopsis: str = ''
+    synopsis: str = ""
     episodes: list[Episode] = field(init=False)
     _series = None
     _partial = True
@@ -30,5 +30,5 @@ class Season(MediaType, metaclass=MetaMediaType):
 
     @property
     def all_episodes(self) -> list[Episode]:
-        '''Returns all episodes, even if popped by `get_all_episodes`'''
+        """Returns all episodes, even if popped by `get_all_episodes`"""
         return self.__episodes
