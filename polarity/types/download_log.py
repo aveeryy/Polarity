@@ -1,15 +1,9 @@
 from polarity.config import paths
-from polarity.utils import ContentIdentifier, mkfile
-
-import os
-
-from time import sleep
+from polarity.utils import ContentIdentifier
 
 
 class DownloadLog:
-    def __init__(self,
-                 path: str = paths['dl_log'],
-                 update_path: bool = True) -> None:
+    def __init__(self, path: str = paths["dl_log"], update_path: bool = True) -> None:
         self.__path = path
         self.__update = update_path
         self.__entries = self._load_log()
@@ -23,7 +17,7 @@ class DownloadLog:
         self._save_log()
 
     def in_log(self, id: str) -> bool:
-        '''Returns True if content identifier is in download log'''
+        """Returns True if content identifier is in download log"""
         # update the log entries
         self.__entries = self._load_log()
         # if id is a contentidentifier object, get the raw_string
@@ -32,13 +26,13 @@ class DownloadLog:
 
     def _load_log(self) -> list[str]:
         if self.__update:
-            self.__path = paths['dl_log']
+            self.__path = paths["dl_log"]
         self.__log = open(self.__path).read()
-        return self.__log.split('\n')
+        return self.__log.split("\n")
 
     def _save_log(self):
-        with open(self.__path, 'w') as f:
-            f.write('\n'.join(self.__entries))
+        with open(self.__path, "w") as f:
+            f.write("\n".join(self.__entries))
 
     @property
     def entries(self) -> list[str]:

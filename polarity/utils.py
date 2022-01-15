@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -24,15 +25,16 @@ from requests.models import Response
 from tqdm import tqdm
 from urllib3.util.retry import Retry
 
+
 colorama.init()
 
-browser = {'browser': 'firefox', 'platform': 'windows', 'mobile': False}
+browser = {"browser": "firefox", "platform": "windows", "mobile": False}
 
 dump_requests = False
 
-retry_config = Retry(total=10,
-                     backoff_factor=1,
-                     status_forcelist=[502, 504, 504, 403, 404])
+retry_config = Retry(
+    total=10, backoff_factor=1, status_forcelist=[502, 504, 504, 403, 404]
+)
 
 ##########################
 #  Printing and logging  #
@@ -42,11 +44,11 @@ retry_config = Retry(total=10,
 def vprint(
     message,
     level: int = 1,
-    module_name: str = 'polarity',
+    module_name: str = "polarity",
     error_level: str = None,
-    end: str = '\n',
+    end: str = "\n",
 ) -> None:
-    '''
+    """
     ### Verbose print
     #### Prints a message based on verbose level
 
@@ -59,12 +61,12 @@ def vprint(
         error_level='debug')
     [demo/debug] Hello world!  # Output
     >>>
-    '''
+    """
     try:
         from polarity.config import verbose_level
     except ImportError:
         # Set verbose levels to default if cannot import from config
-        verbose_level = {'print': 1, 'log': 4}
+        verbose_level = {"print": 1, "log": 4}
 
     # Colors
     red = colorama.Fore.RED
@@ -76,40 +78,40 @@ def vprint(
     head = f'[{module_name}{f"/{error_level}" if error_level is not None else ""}]'
 
     # Apply colors to head
-    if error_level in ('error', 'critical', 'exception'):
+    if error_level in ("error", "critical", "exception"):
         # Errors and exceptions
-        head = f'{red}{head}{reset}'
-    elif error_level == 'warning':
+        head = f"{red}{head}{reset}"
+    elif error_level == "warning":
         # Warnings
-        head = f'{yel}{head}{reset}'
-    elif error_level == 'debug':
+        head = f"{yel}{head}{reset}"
+    elif error_level == "debug":
         # Debug, verbose level >= 3, strings
-        head = f'{blu}{head}{reset}'
+        head = f"{blu}{head}{reset}"
     else:
         # Rest of strings
-        head = f'{gre}{head}{reset}'
+        head = f"{gre}{head}{reset}"
 
-    if level <= int(verbose_level['print']):
+    if level <= int(verbose_level["print"]):
         # Print the message
-        tqdm.write(f'\033[1m{head}\033[0m {message}', end=end)
+        tqdm.write(f"\033[1m{head}\033[0m {message}", end=end)
 
     # Redact emails out for logs
     if type(message) is not str:
         message = str(message)
 
     # Redact emails when logging
-    message = re.sub(r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)',
-                     '[REDACTED]', message)
+    message = re.sub(
+        r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)", "[REDACTED]", message
+    )
 
-    log = logging.info if error_level is None else getattr(
-        logging, error_level)
+    log = logging.info if error_level is None else getattr(logging, error_level)
     # Log message if msg level in range of logging level
-    if level <= int(verbose_level['log']):
-        log(f'[{module_name}] {message}')
+    if level <= int(verbose_level["log"]):
+        log(f"[{module_name}] {message}")
 
 
 def thread_vprint(*args, lock, **kwargs) -> None:
-    '''
+    """
     ### Thread verbose print
     Same as verbose print
     but avoids overlapping caused by threads using Lock objects
@@ -129,7 +131,7 @@ def thread_vprint(*args, lock, **kwargs) -> None:
     [demo/debug] Hello world from Thread-0!
     [demo/debug] Hello world from Thread-1!
     [demo/debug] Hello world from Thread-2!
-    '''
+    """
 
     with lock:
         vprint(*args, **kwargs)
@@ -141,20 +143,22 @@ def thread_vprint(*args, lock, **kwargs) -> None:
 
 
 def running_on_android() -> bool:
-    'Returns True if running on an Android system'
-    return 'ANDROID_ROOT' in os.environ
+    "Returns True if running on an Android system"
+    return "ANDROID_ROOT" in os.environ
 
 
-def send_android_notification(title: str = 'Polarity',
-                              contents=str,
-                              group=str,
-                              id=str,
-                              priority: int = 0,
-                              sound=bool,
-                              vibrate_pattern=None,
-                              image_path=str,
-                              **kwargs) -> None:
-    '''
+def send_android_notification(
+    title: str = "Polarity",
+    contents=str,
+    group=str,
+    id=str,
+    priority: int = 0,
+    sound=bool,
+    vibrate_pattern=None,
+    image_path=str,
+    **kwargs,
+) -> None:
+    """
     Send an Android notification using Termux:API
     #### Priority values
     - 4: Max
@@ -162,23 +166,23 @@ def send_android_notification(title: str = 'Polarity',
     - 2: Low
     - 1: Min
     - 0: Default
-    '''
+    """
     # TODO(s): better priority explanation, finish adding values
-    if not running_on_android() or not which('termux-notification'):
+    if not running_on_android() or not which("termux-notification"):
         # Return if not running on an Android device, or if Termux-API is not installed
         return
-    args = ['termux-notification', '-t', title, '-c', contents]
+    args = ["termux-notification", "-t", title, "-c", contents]
     if group != str:
-        args.extend(['--group', group])
+        args.extend(["--group", group])
     if id != str:
-        args.extend(['-i', id])
-    args.extend(['--priority', str(priority)])
+        args.extend(["-i", id])
+    args.extend(["--priority", str(priority)])
     subprocess.run(args, check=True)
 
 
 def remove_android_notification(id: str) -> None:
-    'Remove an Android notification by it\'s identifier'
-    subprocess.run(['termux-notification-remove', id], check=True)
+    "Remove an Android notification by it's identifier"
+    subprocess.run(["termux-notification-remove", id], check=True)
 
 
 ###########################
@@ -187,20 +191,20 @@ def remove_android_notification(id: str) -> None:
 
 
 def sanitize_path(path: str, force_win32=False) -> str:
-    'Remove unsupported OS characters from file path'
+    "Remove unsupported OS characters from file path"
     forbidden_windows = {
-        '|': 'ꟾ',
-        '<': '˂',
-        '>': '˃',
+        "|": "ꟾ",
+        "<": "˂",
+        ">": "˃",
         '"': "'",
-        '?': '？',
-        '*': '＊',
-        ':': '-',
+        "?": "？",
+        "*": "＊",
+        ":": "-",
     }
 
     def sanitize(string: str, is_dir: bool = False) -> str:
         # Platform-specific sanitization
-        if platform == 'win32' or force_win32:
+        if platform == "win32" or force_win32:
             drive, string = ntpath.splitdrive(string)
             # Remove Windows forbidden characters
             for forb, char in forbidden_windows.items():
@@ -209,31 +213,31 @@ def sanitize_path(path: str, force_win32=False) -> str:
             string = drive + string
         elif running_on_android():
             # Remove Android forbidden characters
-            for char in (':', '?'):
-                string = string.replace(char, '')
+            for char in (":", "?"):
+                string = string.replace(char, "")
         if not is_dir:
             # Replace characters reserved for paths if string is a filename
-            for char in ('\\', '/'):
-                string = string.replace(char, '-')
+            for char in ("\\", "/"):
+                string = string.replace(char, "-")
         return string
 
-    func = os.path if not re.match(r'\w', path) else ntpath
+    func = os.path if not re.match(r"\w", path) else ntpath
 
-    directory = sanitize(f'{func.dirname(path)}', True)
+    directory = sanitize(f"{func.dirname(path)}", True)
     filename = sanitize(func.basename(path))
 
     return func.join(directory, filename)
 
 
 def sanitized_path_exists(path: str) -> bool:
-    'Checks if the path, or sanitized version of that path, exists'
+    "Checks if the path, or sanitized version of that path, exists"
     sanitized = sanitize_path(path)
 
     return os.path.exists(path) or os.path.exists(sanitized)
 
 
 def normalize_number(number) -> str:
-    '''
+    """
     Add a facing 0 to a number if it only has one digit
 
     Example:
@@ -241,37 +245,34 @@ def normalize_number(number) -> str:
     '07'
     >>> normalize_number(13)
     '13'
-    '''
+    """
     if type(number) is str and number.isdigit():
         # Get numbers from string
-        number = re.search(r'(\d)+', number)
+        number = re.search(r"(\d)+", number)
         number = float(number.group(0))
     number = float(number)
     if number < 10:
-        number = str('0') + str(number)
+        number = str("0") + str(number)
     # Convert the number to a string
     number = str(number)
     # Remove decimals from float number if decimal is .0
-    if number.endswith('.0'):
-        number = re.sub(r'\.\d+', '', number)
+    if number.endswith(".0"):
+        number = re.sub(r"\.\d+", "", number)
     return number
 
 
 def get_extension(url) -> str:
-    '''Returns the URI\'s file extension'''
-    result = re.search(r'(?P<ext>\.\w+)($|[^/.\w\s,])', url)
-    return result.group('ext') if result is not None else ''
+    """Returns the URI\'s file extension"""
+    result = re.search(r"(?P<ext>\.\w+)($|[^/.\w\s,])", url)
+    return result.group("ext") if result is not None else ""
 
 
 def strip_extension(url: str) -> str:
-    return url.replace(get_extension(url), '')
+    return url.replace(get_extension(url), "")
 
 
-def dict_merge(dct: dict,
-               merge_dct: dict,
-               overwrite=False,
-               modify=True) -> dict:
-    """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
+def dict_merge(dct: dict, merge_dct: dict, overwrite=False, modify=True) -> dict:
+    """Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
     updating only top-level keys, dict_merge recurses down into dicts nested
     to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
     ``dct``.
@@ -289,7 +290,7 @@ def dict_merge(dct: dict,
         # Make a copy of dct to not modify the obj directly
         dct = deepcopy(dct)
     for k in merge_dct:
-        if (k in dct and type(dct[k]) is dict and type(merge_dct[k] is dict)):
+        if k in dct and type(dct[k]) is dict and type(merge_dct[k] is dict):
             dict_merge(dct[k], merge_dct[k], overwrite, True)
         elif k not in dct or overwrite and merge_dct[k] not in (False, None):
             dct[k] = merge_dct[k]
@@ -297,7 +298,7 @@ def dict_merge(dct: dict,
 
 
 def filename_datetime() -> str:
-    'Returns a filename-friendly datetime string'
+    "Returns a filename-friendly datetime string"
     return str(datetime.now()).replace(" ", "_").replace(":", ".")
 
 
@@ -308,32 +309,32 @@ def filename_datetime() -> str:
 
 @dataclass(frozen=True)
 class ContentIdentifier:
-    'Content-unique global identifier'
+    "Content-unique global identifier"
     extractor: str
     content_type: str
     id: str
 
     @property
     def string(self):
-        return f'{self.extractor}/{self.content_type}-{self.id}'
+        return f"{self.extractor}/{self.content_type}-{self.id}"
 
 
-content_id_regex = r'(?P<extractor>[\w]+)/(?:(?P<type>[\w]+|)-|)(?P<id>[\S]+)'
+content_id_regex = r"(?P<extractor>[\w]+)/(?:(?P<type>[\w]+|)-|)(?P<id>[\S]+)"
 
 
 def is_content_id(text: str) -> bool:
-    '''
+    """
     #### Checks if inputted text is a Content Identifier
     >>> is_content_id('crunchyroll/series-000000')
         True
     >>> is_content_id('man')
         False
-    '''
+    """
     return bool(re.match(content_id_regex, text))
 
 
 def parse_content_id(id: str) -> ContentIdentifier:
-    '''
+    """
     #### Returns a `ContentIdentifier` object with all attributes
     >>> from polarity.utils import parse_content_id
     >>> a = parse_content_id('crunchyroll/series-320430')
@@ -343,12 +344,11 @@ def parse_content_id(id: str) -> ContentIdentifier:
         'series'
     >>> a.id
         '320430'
-    '''
+    """
     from polarity.types import str_to_type
+
     if not is_content_id(id):
-        vprint('~TEMP~ Failed to parse content identifier',
-               level=1,
-               error_level='error')
+        vprint("~TEMP~ Failed to parse content identifier", level=1, error_level="error")
         return
     parsed_id = re.match(content_id_regex, id)
     extractor, _media_type, _id = parsed_id.groups()
@@ -368,39 +368,33 @@ def toggle_request_dumping() -> bool:
     return dump_requests
 
 
-def request_webpage(url: str, method: str = 'get', **kwargs) -> Response:
-    '''
+def request_webpage(url: str, method: str = "get", **kwargs) -> Response:
+    """
     Make a HTTP request using cloudscraper
     `url` url to make the request to
     `method` http request method
     `kwargs` extra requests arguments, for more info check the `requests wiki`
-    '''
+    """
     global dump_requests
     from polarity.config import lang
-    # Create a cloudscraper session
-    # Spoof an Android Firefox browser to bypass Captcha v2
-    vprint(lang['polarity']['requesting'] % url, 5, 'cloudscraper', 'debug')
-    r = cloudscraper.create_scraper(browser=browser,
-                                    cipherSuite='HIGH:!DH:!aNULL')
-    start_time = time()
+
+    vprint(lang["polarity"]["requesting"] % url, 5, "cloudscraper", "debug")
+    r = cloudscraper.create_scraper(browser=browser, cipherSuite="HIGH:!DH:!aNULL")
+    # check if method is valid
+    if not hasattr(r, method.lower()):
+        raise Exception("~TEMP~ invalid method")
     request = getattr(r, method.lower())(url, **kwargs)
-    end_time = time()
-    if dump_requests:
-        # TODO(s):
-        # - add host to filename
-        # - add response data to dump
-        dump_filename = f'{filename_datetime()}.log'
-        dump = '%s\n%s\n%s %s\n%s\n%s\n%s\n\n%s\n' % (
-            f'Request time: {end_time - start_time:.2}',
-            '---------REQUEST START---------', request.method, request.url,
-            '\n'.join(f'{k}: {v}' for k, v in request.headers.items()),
-            request.body, '---------REQUEST END---------',
-            '---------RESPONSE START---------')
+
     return request
 
 
-def request_json(url=str, method='get', **kwargs):
-    'Same as request_webpage, but returns a tuple with the json as a dict and the response object'
+def request_json(url: str, method: str = "get", **kwargs):
+    """
+    Same as request_webpage, but returns a tuple with the json
+    as a dict and the response object
+    :param url:
+    """
+
     response = request_webpage(url, method, **kwargs)
     try:
         return (json.loads(response.content.decode()), response)
@@ -408,8 +402,8 @@ def request_json(url=str, method='get', **kwargs):
         return ({}, response)
 
 
-def request_xml(url=str, method='get', **kwargs):
-    'Same as request_webpage, but returns a tuple with the xml as a dict and the response object'
+def request_xml(url: str, method: str = "get", **kwargs):
+    "Same as request_webpage, but returns a tuple with the xml as a dict and the response object"
     response = request_webpage(url, method, **kwargs)
     try:
         return (xmltodict.parse(response.content.decode()), response)
@@ -418,7 +412,7 @@ def request_xml(url=str, method='get', **kwargs):
 
 
 def get_country_from_ip() -> str:
-    return requests.get('http://ipinfo.io/json').json().get('country')
+    return requests.get("http://ipinfo.io/json").json().get("country")
 
 
 ################
@@ -427,18 +421,21 @@ def get_country_from_ip() -> str:
 
 
 def get_compatible_extractor(text: str) -> Union[tuple[str, object], None]:
-    '''
+    """
     Returns a compatible extractor for the inputted url or content id,
     if exists, else returns None
-    '''
+    """
     from polarity.extractor import EXTRACTORS
+
     if not is_content_id(text):
         # get the hostname from the URL
         url_host = urlparse(text).netloc
         # get extractors with matching hostname
-        extractor = [(name, extractor)
-                     for name, extractor in EXTRACTORS.items()
-                     if re.match(extractor.HOST, url_host)]
+        extractor = [
+            (name, extractor)
+            for name, extractor in EXTRACTORS.items()
+            if re.match(extractor.HOST, url_host)
+        ]
         # return the first extractor
         return extractor[0] if extractor else None
     elif is_content_id(text):
@@ -446,17 +443,11 @@ def get_compatible_extractor(text: str) -> Union[tuple[str, object], None]:
         extractor_name = parsed_id.extractor
         # get extractors with matching name
         _EXTRACTORS = {k.lower(): v for k, v in EXTRACTORS.items()}
-        return (extractor_name, _EXTRACTORS[extractor_name]
-                ) if extractor_name in _EXTRACTORS else None
-
-
-###################
-# Region spoofing #
-###################
-
-
-def get_proxy_by_country(country_code: str) -> dict:
-    pass
+        return (
+            (extractor_name, _EXTRACTORS[extractor_name])
+            if extractor_name in _EXTRACTORS
+            else None
+        )
 
 
 ###############
@@ -465,7 +456,7 @@ def get_proxy_by_country(country_code: str) -> dict:
 
 
 def get_argument_value(args: list):
-    '''Returns the value of one or more command line arguments'''
+    """Returns the value of one or more command line arguments"""
     _arg = None
     if type(args) is not str:
         for arg in args:
@@ -482,17 +473,17 @@ def get_argument_value(args: list):
 
 
 def format_language_code(code: str) -> str:
-    '''
+    """
     Returns a correctly formatted language code
-    
+
     Example:
     >>> format_language_code('EnuS')
     'enUS'
-    '''
-    code = code.strip('-_')
+    """
+    code = code.strip("-_")
     lang = code[0:2]
     country = code[2:4]
-    return f'{lang.lower()}{country.upper()}'
+    return f"{lang.lower()}{country.upper()}"
 
 
 ###########
@@ -502,16 +493,16 @@ def format_language_code(code: str) -> str:
 
 def get_home_path() -> str:
     if running_on_android():
-        return '/storage/emulated/0'
-    return os.path.expanduser('~')
+        return "/storage/emulated/0"
+    return os.path.expanduser("~")
 
 
 def version_to_tuple(version_string: str) -> tuple[str]:
-    'Splits a version string into a tuple'
-    version = version_string.split('.')
+    "Splits a version string into a tuple"
+    version = version_string.split(".")
     # Split the revision number
-    if '-' in version[-1]:
-        minor_rev = version[-1].split('-')
+    if "-" in version[-1]:
+        minor_rev = version[-1].split("-")
         del version[-1]
         version.extend(minor_rev)
     return tuple(version)
@@ -525,6 +516,7 @@ def get_item_by_id(iterable: list, identifier: str):
 
 def get_task_by_name(task_list: list, task_name: str):
     from polarity.types.task import Task
+
     _wanted_task = None
     for task in task_list:
         # Recursively parse the subtask list
@@ -549,8 +541,7 @@ def order_dict(to_order: dict, order_definer: list):
     return {y: z for x in order_definer for y, z in to_order.items() if x == y}
 
 
-def calculate_time_left(processed: int, total: int,
-                        time_start: float) -> float:
+def calculate_time_left(processed: int, total: int, time_start: float) -> float:
     elapsed = time() - time_start
     try:
         return elapsed / processed * total - elapsed
@@ -563,7 +554,7 @@ def mkfile(
     contents: str,
     overwrite=False,
 ):
-    'Create a file POSIX\'s touch-style'
+    "Create a file POSIX's touch-style"
     if os.path.exists(path) and not overwrite:
         return
-    open(path, 'w').write(contents)
+    open(path, "w").write(contents)

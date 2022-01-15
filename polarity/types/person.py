@@ -24,6 +24,6 @@ class Artist(Person):
     album_artist: bool = False
 
 
-GENDER_MALE = 'Male'
-GENDER_FEMALE = 'Female'
-GENDER_NON_BINARY = 'Non-binary'
+GENDER_MALE = "Male"
+GENDER_FEMALE = "Female"
+GENDER_NON_BINARY = "Non-binary"

@@ -11,4 +11,4 @@ class SearchResult(MediaType, metaclass=MetaMediaType):
     extractor: str
 
     def get_content_id(self) -> str:
-        return f'{self.extractor.lower()}/{self.type.__name__.lower()}-{self.id}'
+        return f"{self.extractor.lower()}/{self.type.__name__.lower()}-{self.id}"

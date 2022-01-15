@@ -4,7 +4,7 @@
 # Requires Termux to be installed
 
 VERSION='2021.12.31 (git)'
-REPO='https://github.com/Aveeryy/Polarity.git'
+REPO='https://github.com/aveeryy/Polarity.git'
 
 echo '[-] Polarity Installer for Android' $VERSION
 

@@ -9,7 +9,7 @@ from polarity.utils import normalize_number
 class Episode(MediaType, metaclass=MetaMediaType):
     title: str
     id: str
-    synopsis: str = ''
+    synopsis: str = ""
     number: int = 0
     images: list = field(default_factory=list)
     streams: list[Stream] = field(default_factory=list)
@@ -43,18 +43,23 @@ class Episode(MediaType, metaclass=MetaMediaType):
 
     def convert_to_movie(self):
         from polarity.types.movie import Movie
-        return Movie(title=self.title,
-                     id=self.id,
-                     synopsis=self.synopsis,
-                     images=self.images,
-                     streams=self.streams)
+
+        return Movie(
+            title=self.title,
+            id=self.id,
+            synopsis=self.synopsis,
+            images=self.images,
+            streams=self.streams,
+        )
 
     @property
     def short_name(self) -> str:
-        return '%s S%sE%s' % (self._series.title,
-                              normalize_number(self._season.number),
-                              normalize_number(self.number))
+        return "%s S%sE%s" % (
+            self._series.title,
+            normalize_number(self._season.number),
+            normalize_number(self.number),
+        )
 
     @property
     def content_id(self) -> str:
-        return f'{self._series._extractor.lower()}/episode-{self.id}'
+        return f"{self._series._extractor.lower()}/episode-{self.id}"

@@ -8,19 +8,16 @@ import os
 
 class BaseDownloader(Thread):
     def __init__(self, item: Union[Episode, Movie], _options=None) -> None:
-        super().__init__(thread_type='Downloader')
+        super().__init__(thread_type="Downloader")
         from polarity.config import options, paths
+
         self.streams = item.streams
-        self.options = options['download']
+        self.options = options["download"]
         self.content = {
-            'name':
-            item.short_name,
-            'id':
-            item.id,
-            'extended':
-            f'{item.short_name} ({item.id})',
-            'sanitized':
-            sanitize_path(f'{item.short_name} ({item.id})').strip('?#')
+            "name": item.short_name,
+            "id": item.id,
+            "extended": f"{item.short_name} ({item.id})",
+            "sanitized": sanitize_path(f"{item.short_name} ({item.id})").strip("?#"),
         }
         self.output = item.output
         self.temp_path = f'{paths["tmp"]}{self.content["sanitized"]}'
