@@ -182,7 +182,7 @@ def redact_emails(string) -> str:
 
 
 def set_console_title(string) -> None:
-    print(f"\033]2;{string}\a")
+    print(f"\033]2;{string}\a", end="\r")
 
 
 #######################
