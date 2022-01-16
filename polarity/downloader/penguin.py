@@ -314,7 +314,7 @@ class PenguinDownloader(BaseDownloader):
     def process_stream(self, stream: Stream) -> None:
         if not stream.preferred:
             return
-        vprint(f"~TEMP~ processing stream: {stream.id}", 4, "penguin")
+        vprint(f"~TEMP~ processing stream: {stream.id}", "debug", "penguin")
         for prot in ALL_PROTOCOLS:
             if not get_extension(stream.url) in prot.SUPPORTED_EXTENSIONS:
                 continue

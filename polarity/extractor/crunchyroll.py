@@ -526,7 +526,7 @@ class CrunchyrollExtractor(BaseExtractor):
         vprint(
             lang["extractor"]["get_media_info"]
             % (lang["types"]["alt"]["series"], series_json["title"], series_id),
-            "crunchyroll",
+            module_name="crunchyroll",
         )
 
         self.info.set_metadata(
@@ -550,7 +550,7 @@ class CrunchyrollExtractor(BaseExtractor):
     def get_seasons(self, series_id: str, return_raw_info=False) -> list[Season]:
 
         season_list = []
-        vprint(lang["extractor"]["get_all_seasons"], "crunchyroll")
+        vprint(lang["extractor"]["get_all_seasons"], module_name="crunchyroll")
 
         api_season_list = request_json(
             self.CMS_API_URL + "/seasons",
@@ -734,7 +734,7 @@ class CrunchyrollExtractor(BaseExtractor):
                 episode_info["title"],
                 episode_info["id"],
             ),
-            "crunchyroll",
+            module_name="crunchyroll",
         )
         episode = Episode(
             title=episode_info["title"],
@@ -913,7 +913,11 @@ class CrunchyrollExtractor(BaseExtractor):
                     and season._crunchyroll_dub
                     not in self.options["crunchyroll"]["dub_language"]
                 ):
-                    vprint(lang["crunchyroll"]["unwanted_dub"] % season.title, "warning")
+                    vprint(
+                        lang["crunchyroll"]["unwanted_dub"] % season.title,
+                        "warning",
+                        "crunchyroll",
+                    )
                     continue
 
                 self.get_season_info(season=season)
