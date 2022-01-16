@@ -1,8 +1,9 @@
+# flake8: noqa
+
 # Integrated language
 # Uses very simple english words, and does not require installation
 # so pretty much failure-proof, for example, if language files have not been
 # updated it takes missing strings from here.
-
 internal_lang = {
     # Language metadata
     "name": "Polarity Internal language",
@@ -78,6 +79,7 @@ internal_lang = {
         "search_no_results": "no results from search %s",
         "search_term": "term: ",
         "unknown_channel": "unknown channel",
+        "unsupported_python": "unsupported version of python (%s), update to python 3.7 or higher",
         "update_available": "version %s available",
         "usage": "Polarity [OPTIONS] <url(s)>",
         "using_version": "Polarity %s",
