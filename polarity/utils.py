@@ -71,7 +71,7 @@ class _FormattedText:
 
     def _strip(self, string: str) -> str:
         for code in (getattr(self, n) for n in dir(self) if not n.startswith("_")):
-            string = string.replace(f"\033[{code}m", "")
+            string = string.replace(f"{code}".replace("\033", "\x1b"), "")
         return string
 
 
@@ -310,6 +310,7 @@ def get_extension(url) -> str:
 
 
 def strip_extension(url: str) -> str:
+    """Remove the file's extension from an URI"""
     return url.replace(get_extension(url), "")
 
 
@@ -517,7 +518,7 @@ def get_argument_value(args: list):
         return
     elif sys.argv[1:].index(_arg) + 1 > len(sys.argv[1:]):
         return
-    return sys.argv[1:][sys.argv.index(_arg) + 1]
+    return sys.argv[1:][sys.argv[1:].index(_arg) + 1]
 
 
 def format_language_code(code: str) -> str:
