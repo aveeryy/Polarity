@@ -12,6 +12,7 @@ from polarity.utils import (
     dict_merge,
     filename_datetime,
     get_argument_value,
+    get_config_path,
     get_home_path,
     mkfile,
     strip_extension,
@@ -26,7 +27,7 @@ class ConfigError(Exception):
 
 
 def generate_config(config_path: str) -> None:
-    with open(config_path, "w") as c:
+    with open(config_path, "wb") as c:
         tomli_w.dump(__defaults, c)
 
 
@@ -67,7 +68,7 @@ def change_language(language_code: str) -> dict:
     elif language_code == "internal":
         return internal_lang
     elif not os.path.exists(__lang_path):
-        vprint("error: language file not found", error_level="error")
+        vprint("language file not found", level="error")
         dict_merge(lang, internal_lang, True)
     elif os.path.exists(__lang_path):
         lang_code = language_code
@@ -89,8 +90,6 @@ def get_installed_languages() -> list[str]:
 
 def change_verbose_level(new_level: int, change_print=True, change_log=False):
     global verbose_level
-    if new_level not in range(0, 6):
-        raise ConfigError("tmp_string: invalid verbose level")
     if change_print:
         verbose_level["print"] = new_level
     if change_log:
@@ -119,12 +118,7 @@ def parse_arguments(get_parser=False) -> dict:
         for arg in args:
             # Add argument to group
             z.add_argument(*arg["args"], **arg["attrib"])
-            vprint(
-                lang["args"]["added_arg"] % (*arg["args"], dest_name),
-                4,
-                "polarity",
-                "debug",
-            )
+            vprint(lang["args"]["added_arg"] % (*arg["args"], dest_name), "debug")
             # Add argument to map, to later put it in it's respective
             # config entry
             arg_name = re.sub(r"^(--|-)", "", arg["args"][0]).replace("-", "_")
@@ -213,12 +207,10 @@ def parse_arguments(get_parser=False) -> dict:
     general.add_argument(
         "-v",
         "--verbose",
-        choices=["0", "1", "2", "3", "4", "5"],
         help=lang_help["verbose"],
     )
     general.add_argument(
         "--log-verbose",
-        choices=["0", "1", "2", "3", "4", "5"],
         help=lang_help["verbose_log"],
     )
     general.add_argument(
@@ -319,7 +311,7 @@ def parse_arguments(get_parser=False) -> dict:
 
     # See if list / debug mode needs to be set
     if any(s in sys.argv for s in ("--debug-colors", "--a")):
-        vprint(lang["polarity"]["enabled_debug"], error_level="debug")
+        vprint(lang["polarity"]["enabled_debug"], "debug")
         change_verbose_level(0, True, True)
         options["mode"] = "debug"
 
@@ -435,11 +427,9 @@ class ExtendedFormatter(HelpFormatter):
 
 # Set preferred help formatter
 __FORMATTER = HelpFormatter if "--extended-help" not in sys.argv else ExtendedFormatter
-
 # Part 1: Define default configurations
-
 # Base path for configuration files
-__main_path = f"{get_home_path()}/.Polarity/"
+__main_path = get_config_path()
 # Default base path for downloads
 __download_path = f"{get_home_path()}/Polarity Downloads/"
 
@@ -463,10 +453,10 @@ paths = {
 __defaults = {
     # Verbosity level
     # Does not affect logs
-    "verbose": 1,
+    "verbose": "info",
     # Log verbosity level
-    # This must be 4 to report an issue
-    "verbose_logs": 4,
+    # This must be debug to report an issue
+    "verbose_logs": "debug",
     # Language file to use
     # Leave empty to use internal language
     # 'internal' also works
@@ -529,7 +519,7 @@ __defaults = {
 
 # Predefine configuration variables
 lang = {}
-verbose_level = {"print": 1, "log": 4}
+verbose_level = {"print": "info", "log": "debug"}
 
 lang = internal_lang
 
@@ -550,9 +540,9 @@ for arg, path_name in __path_arguments.items():
     if arg in sys.argv:
         _value = sys.argv[sys.argv.index(arg) + 1]
         paths[path_name] = _value
-        # Create the directory if it does not exist
-        if "directory" in arg:
-            os.makedirs(_value, exist_ok=True)
+    # Create the directory if it does not exist
+    if "directory" in arg:
+        os.makedirs(paths[path_name], exist_ok=True)
 
 # If config file is specified and does not exist, create it
 if paths["cfg"] and not os.path.exists(paths["cfg"]):
@@ -590,27 +580,21 @@ USAGE = lang["polarity"]["usage"]
 if get_argument_value(["-m", "--mode"]) == "live_tv":
     # Mode is set to one designed to output a parsable string
     # This is forced to 0 to avoid any status msg breaking any script
-    verbose_level["print"] = 0
+    verbose_level["print"] = "quiet"
 elif any(a in sys.argv for a in ("-q", "--quiet")):
     # Quiet parameter passed,
-    verbose_level["print"] = 0
+    verbose_level["print"] = "quiet"
 elif any(a in sys.argv for a in ("-v", "--verbose")):
     # Avoid collision with shtab --verbose argument
     if "shtab" not in sys.argv[0]:
-        value = get_argument_value(("-v", "--verbose"))
-        if value is None or int(value) not in [*range(0, 6)]:
-            raise ConfigError(lang["polarity"]["except"]["verbose_error"] % value)
-        verbose_level["print"] = int(value)
+        verbose_level["print"] = get_argument_value(("-v", "--verbose"))
+
 elif "verbose" in config:
-    verbose_level["print"] = int(config["verbose"])
+    verbose_level["print"] = config["verbose"]
 
 # Set logging verbosity level
 if "--log-verbose" in sys.argv:
-    log_value = get_argument_value("--log-verbose")
-    # Check if value is valid
-    if log_value is None or int(log_value) not in [*range(0, 6)]:
-        raise ConfigError(lang["polarity"]["except"]["verbose_error"] % log_value)
-    verbose_level["log"] = int(log_value)
+    verbose_level["log"] = get_argument_value("--log-verbose")
 elif "verbose_logs" in config:
     verbose_level["log"] = config["verbose_logs"]
 

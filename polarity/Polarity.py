@@ -5,7 +5,6 @@ import re
 import sys
 import time
 import warnings
-from datetime import datetime
 from threading import Lock
 from typing import Union
 
@@ -14,7 +13,6 @@ from tqdm import TqdmWarning
 from polarity.config import (
     USAGE,
     ConfigError,
-    argument_parser,
     change_verbose_level,
     get_installed_languages,
     lang,
@@ -31,7 +29,6 @@ from polarity.types import (
     Season,
     Series,
     Thread,
-    all_types,
 )
 from polarity.types.base import MediaType
 from polarity.types.filter import Filter, build_filter
@@ -45,6 +42,7 @@ from polarity.utils import (
     normalize_number,
     parse_content_id,
     sanitize_path,
+    set_console_title,
     vprint,
 )
 from polarity.update import (
@@ -85,13 +83,14 @@ class Polarity:
         self.extracted_items = []
 
         # Print versions
-        vprint(lang["polarity"]["using_version"] % __version__, 3, error_level="debug")
+        vprint(lang["polarity"]["using_version"] % __version__, level="debug")
         vprint(
             lang["polarity"]["python_version"]
             % (platform.python_version(), platform.platform()),
-            level=3,
-            error_level="debug",
+            level="debug",
         )
+
+        set_console_title(f"Polarity {__version__}")
 
         # Warn user of unsupported Python versions
         if sys.version_info <= (3, 6):
@@ -109,11 +108,11 @@ class Polarity:
         if _logging_level is not None:
             change_verbose_level(_logging_level, False, True)
 
-        # Check if verbose level is valid
-        if verbose_level["print"] not in range(0, 6) or verbose_level["log"] not in range(
-            0, 6
-        ):
-            raise ConfigError(lang["polarity"]["except"]["verbose_error"] % verbose_level)
+        # # Check if verbose level is valid
+        # if verbose_level["print"] not in range(0, 6) or verbose_level["log"] not in range(
+        #     0, 6
+        # ):
+        #     raise ConfigError(lang["polarity"]["except"]["verbose_error"] % verbose_level)
 
     def start(self):
         def create_tasks(name: str, _range: int, _target: object) -> list[Thread]:
@@ -141,7 +140,10 @@ class Polarity:
         if options["check_for_updates"]:
             update, last_version = check_for_updates()
             if update:
-                vprint(lang["polarity"]["update_available"] % last_version, 1, "update")
+                vprint(
+                    lang["polarity"]["update_available"] % last_version,
+                    module_name="update",
+                )
 
         if options["dump"]:
             self.dump_information(options["dump"])
@@ -214,7 +216,7 @@ class Polarity:
             # TODO: add check for urls
             channel = self.get_live_tv_channel(self.urls[0])
             if channel is None:
-                vprint(lang["polarity"]["unknown_channel"], error_level="error")
+                vprint(lang["polarity"]["unknown_channel"], level="error")
                 return
             print(channel)
 
@@ -290,7 +292,7 @@ class Polarity:
         dump_time = filename_datetime()
 
         if "options" in options["dump"]:
-            vprint(lang["polarity"]["dump_options"], 3, error_level="debug")
+            vprint(lang["polarity"]["dump_options"], "debug")
             with open(
                 f'{paths["log"]}/options_{dump_time}.json', "w", encoding="utf-8"
             ) as f:
@@ -307,7 +309,7 @@ class Polarity:
         indexed = 0
         url_specifier = r"(global|i(\d)+)"
         filters = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', filters)
-        vprint("Starting filter processing", 4, "polarity", "debug")
+        vprint("Starting filter processing", "debug", "polarity")
         for filter in filters:
             if skip_next_item:
                 skip_next_item = False
@@ -322,9 +324,7 @@ class Polarity:
                     lang["polarity"]["changed_index"] % current_index
                     if current_index is not None
                     else "global",
-                    4,
-                    "polarity",
-                    "debug",
+                    level="debug",
                 )
             else:
                 _index = filters.index(filter, indexed)
@@ -339,9 +339,7 @@ class Polarity:
                 vprint(
                     lang["polarity"]["created_filter"]
                     % (filter_type.__name__, filter, raw_filter),
-                    level=4,
-                    module_name="polarity",
-                    error_level="debug",
+                    level="debug",
                 )
                 # Append to respective url's filter list
                 if link:
@@ -357,6 +355,14 @@ class Polarity:
                 skip_next_item = True
                 indexed += 2
         return filter_list
+
+    def execute_hooks(self, name: str, content: dict) -> None:
+        if "hooks" not in options:
+            return
+        if name not in options["hooks"]:
+            return
+        for hook in options["hooks"][name]:
+            hook(content)
 
     def _extract_task(
         self,
@@ -387,6 +393,10 @@ class Polarity:
                 )
                 continue
             name, extractor = _extractor
+            self.execute_hooks(
+                "started_extraction", {"extractor": extractor, "name": name}
+            )
+
             extracted_info = extractor(item["url"], item["filters"]).extract()
             self.extracted_items.append(extracted_info)
 
@@ -427,14 +437,13 @@ class Polarity:
                     lang["dl"]["cannot_download_content"] % type(item).__name__,
                     item.short_name,
                     item,
+                    level="warning",
                 )
             elif (
                 self.__download_log.in_log(item.content_id)
                 and not options["download"]["redownload"]
             ):
-                vprint(
-                    lang["dl"]["no_redownload"] % item.short_name, error_level="warning"
-                )
+                vprint(lang["dl"]["no_redownload"] % item.short_name, level="warning")
                 continue
 
             vprint(lang["dl"]["downloading_content"] % (item.short_name, item.title))

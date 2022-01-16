@@ -18,7 +18,6 @@ from urllib.parse import urlparse
 from xml.parsers.expat import ExpatError
 
 import cloudscraper
-import colorama
 import requests
 import xmltodict
 from requests.models import Response
@@ -26,12 +25,8 @@ from tqdm import tqdm
 from urllib3.util.retry import Retry
 
 
-colorama.init()
-
 browser = {"browser": "firefox", "platform": "windows", "mobile": False}
-
 dump_requests = False
-
 retry_config = Retry(
     total=10, backoff_factor=1, status_forcelist=[502, 504, 504, 403, 404]
 )
@@ -41,11 +36,53 @@ retry_config = Retry(
 ##########################
 
 
+class _FormattedText:
+    """
+    FormattedText object
+
+    Provides an easy way to color text in the terminal
+
+    Example usage:
+    >>> # Initialize the class
+    >>> FT = _FormattedText()
+    >>> print(f'{FT.red}hi{FT.reset}')
+    """
+
+    # foreground colors
+    black = 30
+    red = 31
+    green = 32
+    yellow = 33
+    blue = 34
+    magenta = 35
+    cyan = 36
+    white = 37
+    # text stylization
+    bold = 1
+    dimmed = 2
+    # reset all colors and styles
+    reset = 0
+
+    def __init__(self):
+        for name, value in (
+            (name, getattr(self, name)) for name in dir(self) if not name.startswith("_")
+        ):
+            setattr(self, name, f"\033[{value}m")
+
+    def _strip(self, string: str) -> str:
+        for code in (getattr(self, n) for n in dir(self) if not n.startswith("_")):
+            string = string.replace(f"\033[{code}m", "")
+        return string
+
+
+# Initialize the _FormattedText class
+FormattedText = _FormattedText()
+
+
 def vprint(
     message,
-    level: int = 1,
+    level: str = "info",
     module_name: str = "polarity",
-    error_level: str = None,
     end: str = "\n",
 ) -> None:
     """
@@ -62,52 +99,53 @@ def vprint(
     [demo/debug] Hello world!  # Output
     >>>
     """
+
+    def build_head(level: str) -> str:
+        string = f"{FormattedText.bold}{table[level][1]}[{module_name}"
+        if level != "info":
+            string += f"/{level if level != 'verbose' else 'debug'}"
+        string += f"]{FormattedText.reset}"
+
+        return string
+
+    def get_logger(level: str):
+        return getattr(logging, level) if level != "verbose" else logging.debug
+
     try:
         from polarity.config import verbose_level
     except ImportError:
         # Set verbose levels to default if cannot import from config
-        verbose_level = {"print": 1, "log": 4}
+        verbose_level = {"print": "info", "log": "debug"}
 
-    # Colors
-    red = colorama.Fore.RED
-    blu = colorama.Fore.CYAN
-    yel = colorama.Fore.YELLOW
-    gre = colorama.Fore.GREEN
-    reset = colorama.Fore.RESET
+    table = {
+        "verbose": (6, FormattedText.cyan),
+        "debug": (5, FormattedText.cyan),
+        "info": (4, FormattedText.green),
+        "warning": (3, FormattedText.yellow),
+        "error": (2, FormattedText.red),
+        "critical": (1, FormattedText.red),
+        "quiet": (-8, None),
+    }
 
-    head = f'[{module_name}{f"/{error_level}" if error_level is not None else ""}]'
-
-    # Apply colors to head
-    if error_level in ("error", "critical", "exception"):
-        # Errors and exceptions
-        head = f"{red}{head}{reset}"
-    elif error_level == "warning":
-        # Warnings
-        head = f"{yel}{head}{reset}"
-    elif error_level == "debug":
-        # Debug, verbose level >= 3, strings
-        head = f"{blu}{head}{reset}"
-    else:
-        # Rest of strings
-        head = f"{gre}{head}{reset}"
-
-    if level <= int(verbose_level["print"]):
-        # Print the message
-        tqdm.write(f"\033[1m{head}\033[0m {message}", end=end)
-
-    # Redact emails out for logs
     if type(message) is not str:
         message = str(message)
 
-    # Redact emails when logging
-    message = re.sub(
-        r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)", "[REDACTED]", message
-    )
+    # build the message head
+    # example: [polarity/debug]
+    head = build_head(level)
 
-    log = logging.info if error_level is None else getattr(logging, error_level)
-    # Log message if msg level in range of logging level
-    if level <= int(verbose_level["log"]):
-        log(f"[{module_name}] {message}")
+    if table[level][0] <= table[verbose_level["print"]][0]:
+        # Print the message if level is equal or smaller
+        tqdm.write(f"{head} {message}{FormattedText.reset}", end=end)
+
+    # Redact emails when logging
+    message = redact_emails(message)
+
+    logger = get_logger(level)
+
+    # Log message if level is equal or smaller
+    if table[level][0] <= table[verbose_level["log"]][0]:
+        logger(f"[{module_name}] {message}")
 
 
 def thread_vprint(*args, lock, **kwargs) -> None:
@@ -137,6 +175,16 @@ def thread_vprint(*args, lock, **kwargs) -> None:
         vprint(*args, **kwargs)
 
 
+def redact_emails(string) -> str:
+    return re.sub(
+        r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)", "[REDACTED]", string
+    )
+
+
+def set_console_title(string) -> None:
+    print(f"\033]2;{string}\a")
+
+
 #######################
 #  Android utilities  #
 #######################
@@ -148,35 +196,29 @@ def running_on_android() -> bool:
 
 
 def send_android_notification(
-    title: str = "Polarity",
-    contents=str,
-    group=str,
-    id=str,
-    priority: int = 0,
-    sound=bool,
-    vibrate_pattern=None,
-    image_path=str,
+    title: str,
+    contents: str,
+    id: str,
+    group: str = "Polarity",
     **kwargs,
 ) -> None:
     """
     Send an Android notification using Termux:API
-    #### Priority values
-    - 4: Max
-    - 3: High
-    - 2: Low
-    - 1: Min
-    - 0: Default
     """
-    # TODO(s): better priority explanation, finish adding values
     if not running_on_android() or not which("termux-notification"):
         # Return if not running on an Android device, or if Termux-API is not installed
         return
-    args = ["termux-notification", "-t", title, "-c", contents]
-    if group != str:
-        args.extend(["--group", group])
-    if id != str:
-        args.extend(["-i", id])
-    args.extend(["--priority", str(priority)])
+    args = [
+        "termux-notification",
+        "-t",
+        title,
+        "-c",
+        contents,
+        "-i",
+        id,
+        "--group",
+        group,
+    ]
     subprocess.run(args, check=True)
 
 
@@ -314,6 +356,9 @@ class ContentIdentifier:
     content_type: str
     id: str
 
+    def __str__(self):
+        return self.string
+
     @property
     def string(self):
         return f"{self.extractor}/{self.content_type}-{self.id}"
@@ -348,7 +393,7 @@ def parse_content_id(id: str) -> ContentIdentifier:
     from polarity.types import str_to_type
 
     if not is_content_id(id):
-        vprint("~TEMP~ Failed to parse content identifier", level=1, error_level="error")
+        vprint("~TEMP~ Failed to parse content identifier", level="error")
         return
     parsed_id = re.match(content_id_regex, id)
     extractor, _media_type, _id = parsed_id.groups()
@@ -378,7 +423,7 @@ def request_webpage(url: str, method: str = "get", **kwargs) -> Response:
     global dump_requests
     from polarity.config import lang
 
-    vprint(lang["polarity"]["requesting"] % url, 5, "cloudscraper", "debug")
+    vprint(lang["polarity"]["requesting"] % url, "verbose", "cloudscraper")
     r = cloudscraper.create_scraper(browser=browser, cipherSuite="HIGH:!DH:!aNULL")
     # check if method is valid
     if not hasattr(r, method.lower()):
@@ -403,7 +448,10 @@ def request_json(url: str, method: str = "get", **kwargs):
 
 
 def request_xml(url: str, method: str = "get", **kwargs):
-    "Same as request_webpage, but returns a tuple with the xml as a dict and the response object"
+    """
+    Same as request_webpage, but returns a tuple with the xml
+    as a dict and the response object
+    """
     response = request_webpage(url, method, **kwargs)
     try:
         return (xmltodict.parse(response.content.decode()), response)
@@ -460,16 +508,16 @@ def get_argument_value(args: list):
     _arg = None
     if type(args) is not str:
         for arg in args:
-            if arg in sys.argv:
+            if arg in sys.argv[1:]:
                 _arg = arg
                 break
     elif type(args) is str:
         _arg = args
     if _arg is None:
         return
-    elif sys.argv.index(_arg) + 1 > len(sys.argv):
+    elif sys.argv[1:].index(_arg) + 1 > len(sys.argv[1:]):
         return
-    return sys.argv[sys.argv.index(_arg) + 1]
+    return sys.argv[1:][sys.argv.index(_arg) + 1]
 
 
 def format_language_code(code: str) -> str:
@@ -495,6 +543,19 @@ def get_home_path() -> str:
     if running_on_android():
         return "/storage/emulated/0"
     return os.path.expanduser("~")
+
+
+def get_config_path() -> str:
+    paths = {
+        "linux": f"{get_home_path()}/.local/share/Polarity/",
+        "win32": f"{get_home_path()}\\AppData\\Local\\Polarity\\",
+        "android": f"{get_home_path()}/.Polarity/",
+        "darwin": f"{get_home_path()}/Library/Application Support/Polarity/",
+    }
+
+    if sys.platform not in paths:
+        return f"{get_home_path()}/.Polarity/"
+    return paths[sys.platform] if not running_on_android() else paths["android"]
 
 
 def version_to_tuple(version_string: str) -> tuple[str]:

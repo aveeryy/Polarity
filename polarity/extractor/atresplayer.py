@@ -79,14 +79,13 @@ class AtresplayerExtractor(BaseExtractor):
             cookies=self.cjar,
         )
         if res[1].status_code == 200:
-            vprint(lang["extractor"]["login_success"], 1, "atresplayer")
+            vprint(lang["extractor"]["login_success"], "info", "atresplayer")
             self.save_cookies_in_jar(res[1].cookies, ["A3PSID"])
             return True
         vprint(
             lang["extractor"]["login_success"] % res[0]["error"],
-            1,
-            "atresplayer",
             "error",
+            "atresplayer",
         )
         return False
 
@@ -204,7 +203,6 @@ class AtresplayerExtractor(BaseExtractor):
                 self.__series_json["title"].strip(),
                 series_id,
             ),
-            level=1,
             module_name="atresplayer",
         )
 
@@ -227,7 +225,7 @@ class AtresplayerExtractor(BaseExtractor):
         return self.info
 
     def get_seasons(self, return_raw_info=False) -> list[Season]:
-        vprint(lang["extractor"]["get_all_seasons"], 2, "atresplayer")
+        vprint(lang["extractor"]["get_all_seasons"], "info", "atresplayer")
 
         seasons = [
             Season(
@@ -272,7 +270,6 @@ class AtresplayerExtractor(BaseExtractor):
         vprint(
             message=lang["extractor"]["get_media_info"]
             % (lang["types"]["alt"]["season"], season_json["title"], season_id),
-            level=2,
             module_name="atresplayer",
         )
 
@@ -315,9 +312,8 @@ class AtresplayerExtractor(BaseExtractor):
                 vprint(
                     self.extractor_lang["no_content_in_season"]
                     % (page_json["title"], season_id),
-                    1,
-                    "atresplayer",
                     "warning",
+                    "atresplayer",
                 )
                 break
 
@@ -351,7 +347,6 @@ class AtresplayerExtractor(BaseExtractor):
         vprint(
             message=lang["extractor"]["get_media_info"]
             % (lang["types"]["alt"]["episode"], episode_info["title"], episode_id),
-            level=3,
             module_name="atresplayer",
         )
 
@@ -518,9 +513,8 @@ class AtresplayerExtractor(BaseExtractor):
             else:
                 vprint(
                     lang["extractor"]["search_no_results"] % (media_type, term),
-                    2,
-                    "atresplayer",
                     "warning",
+                    "atresplayer",
                 )
         return results
 
