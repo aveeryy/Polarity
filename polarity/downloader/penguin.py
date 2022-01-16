@@ -168,13 +168,16 @@ class PenguinDownloader(BaseDownloader):
             except json.decoder.JSONDecodeError:
                 if use_backup:
                     # Backup file also broke, return
-                    vprint(lang["penguin"]["resume_file_backup_broken"])
+                    vprint(
+                        lang["penguin"]["resume_file_backup_broken"],
+                        module_name="penguin",
+                    )
                     return self.recreate_resume_stats()
                 vprint(lang["penguin"]["resume_file_broken"])
                 return self.load_resume_stats(True)
 
     def recreate_resume_stats(self) -> dict:
-        vprint(lang["penguin"]["resume_file_recreation"], 1, "penguin")
+        vprint(lang["penguin"]["resume_file_recreation"], module_name="penguin")
         stats = {
             "downloaded_bytes": 0,
             "total_bytes": 0,
@@ -207,11 +210,14 @@ class PenguinDownloader(BaseDownloader):
             # Open resume file
             output_data = self.load_output_data()
             if output_data is None:
-                vprint(lang["penguin"]["output_file_broken"], 2, "penguin", "error")
+                vprint(lang["penguin"]["output_file_broken"], "error", "penguin")
                 # Remove the file
                 os.remove(f"{self.temp_path}_pools.json")
             elif type(output_data) is dict:
-                vprint(lang["penguin"]["resuming"] % self.content["name"])
+                vprint(
+                    lang["penguin"]["resuming"] % self.content["name"],
+                    module_name="penguin",
+                )
                 self.output_data = output_data
         if not os.path.exists(f"{self.temp_path}_pools.json"):
             for stream in self.streams:
@@ -230,9 +236,8 @@ class PenguinDownloader(BaseDownloader):
         vprint(
             lang["penguin"]["threads_started"]
             % (self.options["penguin"]["segment_downloaders"]),
-            level=3,
             module_name="penguin",
-            error_level="debug",
+            level="debug",
         )
         for i in range(self.options["penguin"]["segment_downloaders"]):
             sdl_name = f"{threading.current_thread().name}/sdl{i}"
@@ -330,7 +335,7 @@ class PenguinDownloader(BaseDownloader):
                 )
             return
         if not stream.extra_sub:
-            vprint(lang["penguin"]["incompatible_stream"], 1, "penguin", "error")
+            vprint(lang["penguin"]["incompatible_stream"], "error", "penguin")
             return
         # Process extra subtitle streams
         subtitle_pool_id = self.generate_pool_id("subtitles")
@@ -560,7 +565,9 @@ class PenguinDownloader(BaseDownloader):
             if not pools:
                 pool = choice(unfinished)
                 vprint(
-                    f"Assisting {pool._reserved_by} with pool {pool.id}", 4, thread_name
+                    f"Assisting {pool._reserved_by} with pool {pool.id}",
+                    "debug",
+                    thread_name,
                 )
                 return pool
             pools[0]._reserved = True
@@ -571,9 +578,8 @@ class PenguinDownloader(BaseDownloader):
 
         thread_vprint(
             message=f"Started segment downloader {thread_name}",
-            level=4,
             module_name="penguin",
-            error_level="debug",
+            level="debug",
             lock=self.thread_lock,
         )
 
@@ -586,7 +592,7 @@ class PenguinDownloader(BaseDownloader):
 
             thread_vprint(
                 "Current pool: " + pool.id,
-                level=4,
+                level="debug",
                 module_name=thread_name,
                 lock=self.thread_lock,
             )
@@ -608,9 +614,8 @@ class PenguinDownloader(BaseDownloader):
                     thread_vprint(
                         message=lang["penguin"]["segment_skip"]
                         % f"{segment.group}_{segment.number}",
-                        level=5,
                         module_name="penguin",
-                        error_level="debug",
+                        level="verbose",
                         lock=self.thread_lock,
                     )
                     continue
@@ -618,12 +623,11 @@ class PenguinDownloader(BaseDownloader):
                 thread_vprint(
                     message=lang["penguin"]["segment_start"]
                     % f"{segment.group}_{segment.number}",
-                    level=5,
                     module_name=thread_name,
-                    error_level="debug",
+                    level="verbose",
                     lock=self.thread_lock,
                 )
-                while True:
+                for i in range(1, 6):
                     # Create a cloudscraper session
                     with cloudscraper.create_scraper(browser=browser) as session:
 
@@ -641,10 +645,9 @@ class PenguinDownloader(BaseDownloader):
                         # TODO: better exception handling
                         except BaseException as e:
                             thread_vprint(
-                                f"Exception in download: {e}",
-                                level=5,
+                                f"~TEMP~ Exception in download of segment {segment.id}: {e}",
                                 module_name=thread_name,
-                                error_level="error",
+                                level="error",
                                 lock=self.thread_lock,
                             )
                             sleep(0.5)
@@ -719,9 +722,8 @@ class PenguinDownloader(BaseDownloader):
                         thread_vprint(
                             lang["penguin"]["segment_downloaded"]
                             % (f"{segment.group}_{segment.number}"),
-                            level=5,
+                            level="debug",
                             module_name="penguin",
-                            error_level="debug",
                             lock=self.thread_lock,
                         )
 

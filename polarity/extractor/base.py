@@ -112,7 +112,7 @@ class BaseExtractor:
         vprint(
             lang["extractor"]["base"]["using_filters"],
             module_name=self.__class__.__name__.lower().replace("extractor", ""),
-            error_level="warning",
+            level="warning",
         )
 
     def _validate_extractor(self) -> bool:
@@ -142,7 +142,7 @@ class BaseExtractor:
                         feature.name,
                         [v.name for v in feature.conditions if not v.condition],
                     ),
-                    error_level="error",
+                    level="error",
                 )
                 if self._valid_extractor:
                     self._valid_extractor = False
@@ -157,7 +157,7 @@ class BaseExtractor:
                         feature.name,
                         [v.name for v in feature.conditions if not v.condition],
                     ),
-                    error_level="error",
+                    level="error",
                 )
                 if self._valid_extractor:
                     self._valid_extractor = False

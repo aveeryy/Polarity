@@ -65,14 +65,14 @@ def language_install(language_list: list):
             vprint(f'Language "{lang}" not found in server', 4, "update", "warning")
             failed += 1
             continue
-        vprint(f"Installing language {lang}", 4, "update")
+        vprint(f"Installing language {lang}", "debug", "update")
         with open(paths["lang"] + f"{lang}.toml", "wb") as f:
             f.write(response.content)
-        vprint(f"Language {lang} written to file", 4, "update", "debug")
+        vprint(f"Language {lang} written to file", "debug", "update", "debug")
     if failed:
-        vprint("Language installer finished with warnings", 2, "update", "warning")
+        vprint("Language installer finished with warnings", "warning" "update")
     else:
-        vprint("All languages installed successfully", 2, "update")
+        vprint("All languages installed successfully", "update")
     # After install reload the language strings
     from polarity.config import change_language, lang_code
 
@@ -92,7 +92,7 @@ def windows_setup() -> None:
         vprint(
             "Not running on Windows, exiting...",
             module_name="update",
-            error_level="error",
+            level="error",
         )
         os._exit(1)
 

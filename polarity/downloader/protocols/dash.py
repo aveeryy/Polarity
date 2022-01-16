@@ -35,9 +35,7 @@ class MPEGDASHStream(StreamProtocol):
             if adap_set["@contentType"] == "video":
                 vprint(
                     lang["penguin"]["protocols"]["picking_best_stream_0"],
-                    3,
-                    "penguin/dash",
-                    "debug",
+                    "debug" "penguin/dash",
                 )
                 for repr in adap_set["Representation"]:
                     resolution_list.append((repr, int(repr["@height"])))
@@ -49,9 +47,8 @@ class MPEGDASHStream(StreamProtocol):
                 if len(streams) > 1:
                     vprint(
                         lang["penguin"]["protocols"]["picking_best_stream_1"],
-                        3,
-                        "penguin/dash",
                         "debug",
+                        "penguin/dash",
                     )
                     bandwidth_values = [int(s[0]["@bandwidth"]) for s in streams]
                     stream = streams[bandwidth_values.index(max(bandwidth_values))][0]
@@ -59,17 +56,15 @@ class MPEGDASHStream(StreamProtocol):
                     stream = streams[0][0]
                 vprint(
                     lang["penguin"]["protocols"]["selected_stream"] % stream["BaseURL"],
-                    3,
-                    "penguin/dash",
                     "debug",
+                    "penguin/dash",
                 )
                 self.get_stream_fragments(stream, "video", "video")
             elif adap_set["@contentType"] == "audio":
                 vprint(
                     lang["penguin"]["protocols"]["picking_best_stream_2"],
-                    3,
-                    "penguin/dash",
                     "debug",
+                    "penguin/dash",
                 )
                 if type(adap_set["Representation"]) == list:
                     for repr in adap_set["Representation"]:
@@ -122,7 +117,7 @@ class MPEGDASHStream(StreamProtocol):
             )
 
         self.stream_url = urljoin(self.url, representation["BaseURL"])
-        vprint(lang["penguin"]["protocols"]["getting_stream"], 3, "penguin/dash", "debug")
+        vprint(lang["penguin"]["protocols"]["getting_stream"], "debug", "penguin/dash")
 
         if force_type is not None:
             self.segment_pool = build_segment_pool(force_type)
@@ -143,9 +138,8 @@ class MPEGDASHStream(StreamProtocol):
         }
         vprint(
             lang["penguin"]["protocols"]["getting_playlist"],
-            3,
+            "debug",
             module_name="penguin/dash",
-            error_level="debug",
         )
         self.open_playlist()
         return {"segment_pools": self.segment_pools, "tracks": self.processed_tracks}

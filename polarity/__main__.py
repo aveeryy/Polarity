@@ -25,7 +25,7 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         # Exit the program
-        vprint(lang["main"]["exit_msg"], 1)
+        vprint(lang["main"]["exit_msg"])
         os._exit(0)
     except Exception:
         # Dump exception traceback to file if exception happens in main thread

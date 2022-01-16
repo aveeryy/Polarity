@@ -214,7 +214,7 @@ class CrunchyrollExtractor(BaseExtractor):
     @staticmethod
     def check_for_error(contents: dict, error_msg: str = None) -> bool:
         if "error" in contents and contents["error"]:
-            vprint(message=error_msg, module_name="crunchyroll", error_level="error")
+            vprint(message=error_msg, module_name="crunchyroll", level="error")
             return True
         return False
 
@@ -413,7 +413,7 @@ class CrunchyrollExtractor(BaseExtractor):
             vprint(
                 lang["extractor"]["login_failure"] % (login_req[0]["message"]),
                 module_name="crunchyroll",
-                error_level="error",
+                level="error",
             )
         return login_req[0]
 
@@ -435,16 +435,15 @@ class CrunchyrollExtractor(BaseExtractor):
 
         vprint(
             self.extractor_lang["bearer_fetch"],
-            level=3,
             module_name="crunchyroll",
-            error_level="debug",
+            level="debug",
         )
         method = (
             "etp_rt_cookie"
             if self.cookie_exists("etp_rt") and not force_client_id
             else "client_id"
         )
-        vprint(self.extractor_lang["using_method"] % method, 3, "crunchyroll", "debug")
+        vprint(self.extractor_lang["using_method"] % method, "debug", "crunchyroll")
         # Request the bearer token using the basic token,
         # to get the basic token
         token_req = request_json(
@@ -459,9 +458,9 @@ class CrunchyrollExtractor(BaseExtractor):
             proxies=self.proxy,
         )
         if not "access_token" in token_req[0]:
-            vprint(lang["crunchyroll"]["bearer_fetch_fail"], 1, "crunchyroll", "error")
+            vprint(lang["crunchyroll"]["bearer_fetch_fail"], "error", "crunchyroll")
             if method == "etp_rt_cookie":
-                vprint(lang["extractor"]["login_extractor"], 1, "crunchyroll", "warning")
+                vprint(lang["extractor"]["login_extractor"], "warning" "crunchyroll")
                 # TODO: BaseExtractor method
                 self.cjar.clear()
                 # Save the cookie jar
@@ -476,7 +475,7 @@ class CrunchyrollExtractor(BaseExtractor):
         bucket_re = r"/(?P<country>\w{2})/(?P<madurity>M[1-3])"
         if self.account_info["bearer"] is None:
             self.get_bearer_token()
-        vprint(self.extractor_lang["cms_fetch"], 3, "crunchyroll", "debug")
+        vprint(self.extractor_lang["cms_fetch"], "debug", "crunchyroll")
         token_req = request_json(
             url=self.API_URL + "index/v2",
             headers={"Authorization": self.account_info["bearer"]},
@@ -527,7 +526,6 @@ class CrunchyrollExtractor(BaseExtractor):
         vprint(
             lang["extractor"]["get_media_info"]
             % (lang["types"]["alt"]["series"], series_json["title"], series_id),
-            1,
             "crunchyroll",
         )
 
@@ -552,7 +550,7 @@ class CrunchyrollExtractor(BaseExtractor):
     def get_seasons(self, series_id: str, return_raw_info=False) -> list[Season]:
 
         season_list = []
-        vprint(lang["extractor"]["get_all_seasons"], 2, "crunchyroll")
+        vprint(lang["extractor"]["get_all_seasons"], "crunchyroll")
 
         api_season_list = request_json(
             self.CMS_API_URL + "/seasons",
@@ -620,7 +618,6 @@ class CrunchyrollExtractor(BaseExtractor):
         vprint(
             lang["extractor"]["get_media_info"]
             % (lang["types"]["alt"]["season"], season_json["title"], _season_id),
-            level=2,
             module_name="crunchyroll",
         )
 
@@ -737,7 +734,6 @@ class CrunchyrollExtractor(BaseExtractor):
                 episode_info["title"],
                 episode_info["id"],
             ),
-            3,
             "crunchyroll",
         )
         episode = Episode(
@@ -917,7 +913,7 @@ class CrunchyrollExtractor(BaseExtractor):
                     and season._crunchyroll_dub
                     not in self.options["crunchyroll"]["dub_language"]
                 ):
-                    vprint(lang["crunchyroll"]["unwanted_dub"] % season.title, 2)
+                    vprint(lang["crunchyroll"]["unwanted_dub"] % season.title, "warning")
                     continue
 
                 self.get_season_info(season=season)

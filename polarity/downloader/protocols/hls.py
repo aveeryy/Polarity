@@ -104,7 +104,7 @@ class HTTPLiveStream(StreamProtocol):
             )
 
         self.stream_url = urljoin(self.url, stream["uri"])
-        vprint(lang["penguin"]["protocols"]["getting_stream"], 3, "penguin/hls", "debug")
+        vprint(lang["penguin"]["protocols"]["getting_stream"], "debug", "penguin/hls")
         self.stream_data = self.scraper.get(self.stream_url).content
         self.parsed_stream = parse(self.stream_data.decode())
         # Support for legacy m3u8 playlists
@@ -165,9 +165,8 @@ class HTTPLiveStream(StreamProtocol):
         }
         vprint(
             lang["penguin"]["protocols"]["getting_playlist"],
-            3,
+            "debug",
             module_name="penguin/hls",
-            error_level="debug",
         )
         self.scraper = cloudscraper.create_scraper(browser=self.browser)
         self.scraper.mount("https://", HTTPAdapter(max_retries=self.retries))
