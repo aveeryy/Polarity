@@ -222,11 +222,14 @@ class Polarity:
 
         elif options["mode"] == "debug":
             if options["debug_colors"]:
+
+                change_verbose_level("debug")
                 # Test for different color printing
-                vprint("demo", 0, "demo")
-                vprint("demo", 0, "demo", "warning")
-                vprint("demo", 0, "demo", "error")
-                vprint("demo", 0, "demo", "debug")
+                vprint("demo", module_name="demo")
+                vprint("demo", "warning", "demo")
+                vprint("demo", "error", "demo")
+                vprint("demo", "critical", "demo")
+                vprint("demo", "debug", "demo")
                 ProgressBar(head="demo", desc="progress_bar", total=0)
                 ProgressBar(head="demo", desc="progress_bar", total=1)
 

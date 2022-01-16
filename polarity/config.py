@@ -196,13 +196,6 @@ def parse_arguments(get_parser=False) -> dict:
     general.add_argument(
         "--extended-help", help=lang_help["extended_help"], action="store_true"
     )
-    general.add_argument(
-        "-V",
-        "--version",
-        action="store_true",
-        dest="print_version",
-        help=lang_help["version"],
-    )
     # Verbose options
     general.add_argument(
         "-v",
@@ -216,7 +209,7 @@ def parse_arguments(get_parser=False) -> dict:
     general.add_argument(
         "-m",
         "--mode",
-        choices=["download", "search", "print", "livetv"],
+        choices=["download", "search", "livetv"],
         default="download",
         help=lang_help["mode"],
     )
@@ -285,7 +278,6 @@ def parse_arguments(get_parser=False) -> dict:
     debug.add_argument(
         "--exit-after-dump", action="store_true", help=lang_help["exit_after_dump"]
     )
-    # debug.add_argument('--list-tv-channels', action='store_true')
     debug.add_argument("--debug-colors", action="store_true")
 
     # Add extractor arguments
@@ -312,7 +304,6 @@ def parse_arguments(get_parser=False) -> dict:
     # See if list / debug mode needs to be set
     if any(s in sys.argv for s in ("--debug-colors", "--a")):
         vprint(lang["polarity"]["enabled_debug"], "debug")
-        change_verbose_level(0, True, True)
         options["mode"] = "debug"
 
     return (args.url, options)
