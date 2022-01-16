@@ -575,19 +575,6 @@ def get_item_by_id(iterable: list, identifier: str):
             return item
 
 
-def get_task_by_name(task_list: list, task_name: str):
-    from polarity.types.task import Task
-
-    _wanted_task = None
-    for task in task_list:
-        # Recursively parse the subtask list
-        _wanted_task = get_task_by_name(task.subtasks, task_name)
-        if task.name == task_name:
-            _wanted_task = task
-            break
-    return _wanted_task
-
-
 def order_list(
     to_order: list,
     order_definer: list[str],

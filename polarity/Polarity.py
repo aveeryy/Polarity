@@ -392,11 +392,11 @@ class Polarity:
                     )
                 )
                 continue
+
             name, extractor = _extractor
             self.execute_hooks(
-                "started_extraction", {"extractor": extractor, "name": name}
+                "started_extraction", {"extractor": name, "name": item["url"]}
             )
-
             extracted_info = extractor(item["url"], item["filters"]).extract()
             self.extracted_items.append(extracted_info)
 

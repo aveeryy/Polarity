@@ -6,7 +6,6 @@ from .search import SearchResult
 from .season import Season
 from .series import Series
 from .stream import Stream
-from .task import Task
 from .thread import Thread
 
 from polarity.types.base import MediaType, MetaMediaType
