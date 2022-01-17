@@ -79,7 +79,7 @@ internal_lang = {
         "search_no_results": "no results from search %s",
         "search_term": "term: ",
         "unknown_channel": "unknown channel",
-        "unsupported_python": "unsupported version of python (%s), update to python 3.7 or higher",
+        "unsupported_python": "unsupported python version (%s), update to python 3.7 or higher",
         "update_available": "version %s available",
         "usage": "Polarity [OPTIONS] <url(s)>",
         "using_version": "Polarity %s",
