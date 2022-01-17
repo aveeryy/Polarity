@@ -94,7 +94,10 @@ class Polarity:
 
         # Warn user of unsupported Python versions
         if sys.version_info <= (3, 6):
-            vprint("~TEMP~ unsupported python version", error_level="warning")
+            vprint(
+                lang["polarity"]["unsupported_python"] % platform.python_version(),
+                level="warning",
+            )
 
         self.status = {"pool": urls, "extraction": {"finished": False, "tasks": []}}
 
@@ -417,11 +420,16 @@ class Polarity:
                             media = Episode
                         media_object = self._format_filenames(media)
                         self.download_pool.append(media_object)
+
             elif type(extracted_info) is Movie:
                 while not extracted_info._extracted:
                     time.sleep(0.1)
                 media_object = self._format_filenames(extracted_info)
+
                 self.download_pool.append(media_object)
+            self.execute_hooks(
+                "finished_extraction", {"extractor": name, "name": item["url"]}
+            )
 
     def _download_task(self) -> None:
         while True:
