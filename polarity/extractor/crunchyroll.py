@@ -3,6 +3,7 @@ from typing import Union
 from urllib.parse import urlparse
 
 from polarity.config import lang
+from polarity.extractor import flags
 from polarity.extractor.base import (
     BaseExtractor,
     ExtractorError,
@@ -12,14 +13,15 @@ from polarity.extractor.base import (
 )
 from polarity.types import (
     Episode,
+    MediaType,
+    Movie,
+    ProgressBar,
+    SearchResult,
     Season,
     Series,
-    Movie,
     Stream,
-    SearchResult,
-    ProgressBar,
-    MediaType,
 )
+from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO
 from polarity.utils import (
     is_content_id,
     order_dict,
@@ -28,8 +30,6 @@ from polarity.utils import (
     request_webpage,
     vprint,
 )
-
-from polarity.extractor import flags
 
 
 class CrunchyrollExtractor(BaseExtractor):
@@ -283,7 +283,7 @@ class CrunchyrollExtractor(BaseExtractor):
         # Identify if the url is a legacy one
         is_legacy = (
             url_host in ("www.crunchyroll.com", "crunchyroll.com")
-            and not "/watch/" in url
+            and "/watch/" not in url
         )
         if is_legacy:
             regexes = {
@@ -294,7 +294,7 @@ class CrunchyrollExtractor(BaseExtractor):
                 # 4. (?:/$|$) -> matches the end of the url
                 # 5. [\w-] -> matches the episode part of the url i.e episode-3...
                 # 6. media)- -> matches an episode short url
-                # 7. (?P<id>[\d]{6,}) -> matches the id on both a long and a short url, i.e 811160
+                # 7. (?P<id>[\d]{6,}) -> matches the id on both a long and a short url, 811160
                 Series: r"(?:/[a-z-]{2,5}/|/)(?:series-(?P<id>\d+)|(?!media-)[^/]+)(?:/$|$)",
                 Episode: r"(?:/[a-z-]{2,5}/|/)(?:(?:[^/]+)/[\w-]+|media)-(?P<id>[\d]{6,})(?:/$|$)",
             }
@@ -457,7 +457,7 @@ class CrunchyrollExtractor(BaseExtractor):
             cookies=self.cjar,
             proxies=self.proxy,
         )
-        if not "access_token" in token_req[0]:
+        if "access_token" not in token_req[0]:
             vprint(lang["crunchyroll"]["bearer_fetch_fail"], "error", "crunchyroll")
             if method == "etp_rt_cookie":
                 vprint(lang["extractor"]["login_extractor"], "warning" "crunchyroll")
@@ -680,9 +680,9 @@ class CrunchyrollExtractor(BaseExtractor):
                 number=episode["episode_number"],
             )
             e._season = season if season is not None else None
-            if self.check_episode(episode=e) and not get_partial_episodes:
+            if self.check_content(episode=e) and not get_partial_episodes:
                 yield self._parse_episode_info(episode)
-            elif self.check_episode(episode=e) and get_partial_episodes:
+            elif self.check_content(episode=e) and get_partial_episodes:
                 yield e
             if hasattr(self, "progress_bar"):
                 self.progress_bar.update()
@@ -719,7 +719,7 @@ class CrunchyrollExtractor(BaseExtractor):
             return episode_info
 
         episode = self._parse_episode_info(episode_info, get_streams=get_streams)
-        if not self.check_episode(episode=episode):
+        if not self.check_content(episode):
             if not hasattr(episode, "skip_download"):
                 # If episode has not a skip reason already, add one
                 episode.skip_download = lang["extractor"]["filter_check_fail"]
@@ -815,12 +815,12 @@ class CrunchyrollExtractor(BaseExtractor):
                 id="video",
                 preferred=stream["hardsub_locale"] == is_preferred,
                 name={
-                    "video": self.LANG_CODES[stream["hardsub_locale"]]["name"],
-                    "audio": self.LANG_CODES[streams_json["audio_locale"]]["name"],
+                    VIDEO: self.LANG_CODES[stream["hardsub_locale"]]["name"],
+                    AUDIO: self.LANG_CODES[streams_json["audio_locale"]]["name"],
                 },
                 language={
-                    "video": self.LANG_CODES[stream["hardsub_locale"]]["lang"],
-                    "audio": self.LANG_CODES[streams_json["audio_locale"]]["lang"],
+                    VIDEO: self.LANG_CODES[stream["hardsub_locale"]]["lang"],
+                    AUDIO: self.LANG_CODES[streams_json["audio_locale"]]["lang"],
                 },
             )
             streams.append(_stream)

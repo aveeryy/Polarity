@@ -7,10 +7,10 @@ from polarity.extractor.base import (
     BaseExtractor,
     ExtractorError,
     check_episode_wrapper,
-    check_login_wrapper,
+    requires_login,
     check_season_wrapper,
 )
-from polarity.extractor.flags import *
+from polarity.extractor import flags
 from polarity.types import (
     Episode,
     Movie,
@@ -63,11 +63,11 @@ class AtresplayerExtractor(BaseExtractor):
     ]
 
     FLAGS = {
-        VideoExtractor,
-        AccountCapabilities,
-        LoginRequired,
-        EnableLiveTV,
-        EnableSearch,
+        flags.VideoExtractor,
+        flags.AccountCapabilities,
+        flags.LoginRequired,
+        flags.EnableLiveTV,
+        flags.EnableSearch,
     }
 
     def _login(self, username: str, password: str):
@@ -290,7 +290,6 @@ class AtresplayerExtractor(BaseExtractor):
     ) -> list[Episode]:
 
         season_id = season.id if season is not None else season_id
-        episodes = []
         page = 0
         # Placeholder until the total number of pages is known
         total_pages = 727
@@ -461,7 +460,7 @@ class AtresplayerExtractor(BaseExtractor):
             list_index += 1
         return genres
 
-    @check_login_wrapper
+    @requires_login
     def get_account_info(self):
         "Requires to be logged in, returns an untouched dict containing account information like name, email or gender"
         return request_json(
