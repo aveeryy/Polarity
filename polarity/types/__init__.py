@@ -1,3 +1,4 @@
+# flake8: noqa
 from .person import Person, Actor, Director, Artist
 from .episode import Episode
 from .movie import Movie
@@ -12,6 +13,7 @@ from polarity.types.base import MediaType, MetaMediaType
 
 all_types = [v for v in globals().values() if v.__class__.__name__ == "MetaMediaType"]
 
+stringified_types = [t.__name__.lower() for t in all_types]
 
 def str_to_type(text: str) -> MediaType:
     """Get a media type by it's name"""

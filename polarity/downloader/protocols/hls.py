@@ -1,5 +1,3 @@
-import cloudscraper
-
 from m3u8 import parse
 from requests.adapters import HTTPAdapter
 from urllib.parse import urljoin
@@ -7,17 +5,18 @@ from urllib3.util.retry import Retry
 
 from polarity.config import lang
 from polarity.downloader.protocols.base import StreamProtocol
-from polarity.types.stream import *
-from polarity.utils import vprint, get_extension
+from polarity.types.stream import Stream, Segment, SegmentPool, ContentKey, M3U8Pool
+from polarity.types.ffmpeg import VIDEO, AUDIO, SUBTITLES
+from polarity.utils import vprint, request_webpage
 
 
 class HTTPLiveStream(StreamProtocol):
     SUPPORTED_EXTENSIONS = (".m3u", ".m3u8")
 
     def open_playlist(self):
-        self.manifest_data = self.scraper.get(self.url).content
+        self.manifest_data = request_webpage(self.url).content
         self.parsed_data = parse(self.manifest_data.decode())
-        self.processed_tracks = {"video": -1, "audio": -1, "unified": -1, "subtitles": -1}
+        self.processed_tracks = {VIDEO: 0, AUDIO: 0, "unified": 0, SUBTITLES: 0}
         if self.parsed_data["is_variant"]:
             # Get preferred resolution stream
             self.resolutions = [
@@ -51,6 +50,10 @@ class HTTPLiveStream(StreamProtocol):
     def get_stream_fragments(self, stream=dict, force_type=None, only_subtitles=False):
         def build_segment_pool(media_type=str):
             self.processed_tracks[media_type] += 1
+            if media_type == "unified":
+                self.processed_tracks[VIDEO] += 1
+                self.processed_tracks[AUDIO] += 1
+
             segments = [
                 # Create a Segment object
                 Segment(
@@ -105,7 +108,7 @@ class HTTPLiveStream(StreamProtocol):
 
         self.stream_url = urljoin(self.url, stream["uri"])
         vprint(lang["penguin"]["protocols"]["getting_stream"], "debug", "penguin/hls")
-        self.stream_data = self.scraper.get(self.stream_url).content
+        self.stream_data = request_webpage(self.stream_url).content
         self.parsed_stream = parse(self.stream_data.decode())
         # Support for legacy m3u8 playlists
         # (Not having video and audio in different streams)
@@ -126,10 +129,12 @@ class HTTPLiveStream(StreamProtocol):
             self.segment_pools.append(self.segment_pool)
             if "segment_map" in self.parsed_stream:
                 create_init_segment(pool="video")
+
         for media in self.parsed_data["media"]:
             if media["type"] == "AUDIO" and not only_subtitles:
                 self.get_stream_fragments(media, "audio")
             elif media["type"] == "SUBTITLES":
+                # Process "external" subtitles
                 if ".m3u" in media["uri"]:
                     self.get_stream_fragments(media, "subtitles")
                 else:
@@ -146,30 +151,24 @@ class HTTPLiveStream(StreamProtocol):
                         type="subtitles",
                         group=f'subtitles{self.processed_tracks["subtitles"]}',
                     )
-                    subtitle_pool = SegmentPool()
-                    subtitle_pool.segments = [subtitles]
-                    subtitle_pool.format = "subtitles"
-                    subtitle_pool.id = f'subtitles{self.processed_tracks["subtitles"]}'
+                    subtitle_pool = SegmentPool(
+                        [subtitles],
+                        format="subtitles",
+                        id=f"subtitles{self.processed_tracks['subtitles']}",
+                        track_id=None,
+                        pool_type=None,
+                    )
 
-                    self.segment_pools.append(self.subtitle_set)
+                    self.segment_pools.append(subtitle_pool)
 
     def extract(self):
-        self.retries = Retry(
-            total=30, backoff_factor=1, status_forcelist=[502, 503, 504, 403, 404]
-        )
-        # Spoof a Firefox Android browser to (usually) bypass CaptchaV2
-        self.browser = {
-            "browser": "firefox",
-            "platform": "android",
-            "desktop": False,
-        }
+
         vprint(
             lang["penguin"]["protocols"]["getting_playlist"],
             "debug",
             module_name="penguin/hls",
         )
-        self.scraper = cloudscraper.create_scraper(browser=self.browser)
-        self.scraper.mount("https://", HTTPAdapter(max_retries=self.retries))
+
         self.open_playlist()
         self.get_stream_fragments(self._stream, only_subtitles=self.stream.extra_sub)
         return {"segment_pools": self.segment_pools, "tracks": self.processed_tracks}

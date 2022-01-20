@@ -57,14 +57,14 @@ class Segment(MediaType, metaclass=MetaMediaType):
     time: float = float("9" * 15)
     byte_range: str = None
     _finished = False
-    id: str = field(init=False)
-    ext: str = field(init=False)
-    filename: str = field(init=False)
+    _id: str = field(init=False)
+    _ext: str = field(init=False)
+    _filename: str = field(init=False)
 
     def __post_init__(self):
-        self.id = f"{self.group}_{self.number}"
-        self.ext = get_extension(self.url)
-        self.filename = f"{self.id}{self.ext}"
+        self._id = f"{self.group}_{self.number}"
+        self._ext = get_extension(self.url)
+        self._filename = f"{self._id}{self._ext}"
 
 
 @dataclass
@@ -73,7 +73,7 @@ class SegmentPool(MediaType, metaclass=MetaMediaType):
     format: str
     id: str
     track_id: str
-    pool_type: str
+    pool_type: str = None
     _finished = False
     _reserved = False
     _reserved_by = None
@@ -81,7 +81,7 @@ class SegmentPool(MediaType, metaclass=MetaMediaType):
     def get_ext_from_segment(self, segment=0) -> str:
         if not self.segments:
             return
-        return self.segments[segment].ext
+        return self.segments[segment]._ext
 
     def get_init_segment(self) -> Segment:
         return [s for s in self.segments if s.init]
