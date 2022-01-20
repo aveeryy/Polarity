@@ -302,44 +302,46 @@ class BaseExtractor:
     ) -> list[SearchResult]:
         return self._search(term, max, max_per_category)
 
-    def check_episode(self, episode: Episode) -> bool:
+    def check_content(self, content: Episode) -> bool:
         """Returns True if episode passes filters check"""
+        # TODO: type filter check
         # Using episode object, filters apply here
         if "ALL" in self._seasons and "ALL" in self._seasons["ALL"]:
             # All episodes are set to be downloaded
             pass
-        elif "ALL" in self._seasons and episode.number in self._seasons["ALL"]:
+        elif "ALL" in self._seasons and content.number in self._seasons["ALL"]:
             # Episode number in ALL seasons list
+            # Example: download the episode 5 of every season
             pass
-        elif episode._season is not None:
+        elif content._season is not None:
             # Since all possibilities to be included from the "ALL"
             # list have passed now, check if the episode is in it's
             # season's list
             if (
-                episode._season.number in self._seasons
-                and self._seasons[episode._season.number] == "ALL"
+                content._season.number in self._seasons
+                and self._seasons[content._season.number] == "ALL"
             ):
                 pass
             elif (
-                episode._season.number in self._seasons
-                and episode.number in self._seasons[episode._season.number]
+                content._season.number in self._seasons
+                and content.number in self._seasons[content._season.number]
             ):
                 pass
             else:
                 # All possible cases have been considered
                 # Episode does not pass filter tests
                 return False
-        elif episode._season is None:
+        elif content._season is None:
             # Orphan Episode object, not applicable
             pass
         # Finally check if passes title check
-        return self._check_episode_by_title(episode=episode)
+        return self._check_episode_by_title(content)
 
     def _check_episode_by_title(self, episode: Episode) -> bool:
         """Check if episode passes the title match filters"""
         passes = True
         for _filter in [f for f in self.filters if type(f) is MatchFilter]:
-            match = _filter.check(title=episode.title)
+            match = _filter.check(episode)
             if not match and _filter.absolute:
                 # Since absolute filters must always pass, return False
                 return False
@@ -388,7 +390,7 @@ def check_episode_wrapper(func) -> Episode:
     return wrapper
 
 
-def check_login_wrapper(func) -> bool:
+def requires_login(func) -> bool:
     def wrapper(self, *args, **kwargs):
         while True:
             if self.is_logged_in():
