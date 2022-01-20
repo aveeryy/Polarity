@@ -16,7 +16,7 @@ from polarity.config import lang, paths
 from polarity.downloader.base import BaseDownloader
 from polarity.downloader.protocols import ALL_PROTOCOLS, HTTPLiveStream, MPEGDASHStream
 from polarity.types import Episode, Movie, ProgressBar, Thread
-from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO, FFmpegInput
+from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO, FFmpegCommand, FFmpegInput
 from polarity.types.stream import Segment, SegmentPool, Stream, ContentKey
 from polarity.utils import (
     browser,
@@ -30,7 +30,7 @@ from polarity.utils import (
 from polarity.version import __version__ as polarity_version
 from requests.adapters import HTTPAdapter
 
-__version__ = "2021.11.30"
+__version__ = "2022.01.21"
 
 
 class PenguinDownloader(BaseDownloader):
@@ -135,7 +135,11 @@ class PenguinDownloader(BaseDownloader):
                 )
                 # Delete the key from the loaded data
                 # This avoids SyntaxError exceptions, due to duplicate args
-                del segment["key"]
+                segment = {
+                    k: v
+                    for k, v in segment.items()
+                    if not k.startswith("_") and k != "key"
+                }
                 # Create the segment from the content key and dict data
                 _segment = Segment(key=key, **segment)
                 # Add segment to temporal list
@@ -331,7 +335,9 @@ class PenguinDownloader(BaseDownloader):
                     self.resume_stats["do_binary_concat"] = True
                 self.output_data["segment_pools"].append(pool)
                 self.output_data["inputs"].append(
-                    self.create_input(pool=pool, stream=stream)
+                    self.create_input(
+                        pool=pool, stream=stream, tracks=processed["tracks"]
+                    )
                 )
             return
         if not stream.extra_sub:
@@ -352,13 +358,15 @@ class PenguinDownloader(BaseDownloader):
         )
         subtitle_pool.segments = [subtitle_segment]
         self.output_data["segment_pools"].append(subtitle_pool)
-        ff_input = self.create_input(pool=subtitle_pool, stream=stream)
-        ff_input.input_path = ff_input.input_path.replace(
-            subtitle_pool_id, subtitle_pool_id + "_0"
+        ff_input = self.create_input(
+            pool=subtitle_pool, stream=stream, tracks={SUBTITLES: 1}
         )
+        ff_input.path = ff_input.path.replace(subtitle_pool_id, subtitle_pool_id + "_0")
         self.output_data["inputs"].append(ff_input)
 
-    def create_input(self, pool: SegmentPool, stream: Stream) -> FFmpegInput:
+    def create_input(
+        self, pool: SegmentPool, stream: Stream, tracks: dict
+    ) -> FFmpegInput:
         def set_metadata(parent: str, child: str, value: str):
             if parent not in ff_input.metadata:
                 ff_input.metadata[parent] = {}
@@ -376,31 +384,23 @@ class PenguinDownloader(BaseDownloader):
         pool_extension = (
             pool.pool_type if pool.pool_type is not None else pool.get_ext_from_segment()
         )
+
         segment_extension = pool.get_ext_from_segment(0)
+
         ff_input = FFmpegInput(
-            input_path=f"{self.temp_path}/{pool.id}{pool_extension}",
-            indexes={
-                "file": self.indexes["files"],
-                VIDEO: self.indexes["video"],
-                AUDIO: self.indexes["audio"],
-                SUBTITLES: self.indexes["subtitles"],
-            },
+            path=f"{self.temp_path}/{pool.id}{pool_extension}",
+            track_count=tracks,
             codecs=dict(self.options["penguin"]["ffmpeg"]["codecs"]),
             metadata={},
-            hls_stream=".m3u" in stream.url,
         )
 
-        self.indexes["files"] += 1
         if pool.format in ("video", "unified"):
-            self.indexes["video"] += 1
             set_metadata(VIDEO, "title", stream.name)
             set_metadata(VIDEO, "language", stream.language)
         if pool.format in ("audio", "unified"):
-            self.indexes["audio"] += 1
             set_metadata(AUDIO, "title", stream.name)
             set_metadata(AUDIO, "language", stream.language)
         if pool.format == "subtitles":
-            self.indexes["subtitles"] += 1
             set_metadata(SUBTITLES, "title", stream.name)
             set_metadata(SUBTITLES, "language", stream.language)
 
@@ -420,7 +420,7 @@ class PenguinDownloader(BaseDownloader):
         """
 
         def download_key(segment: Segment) -> None:
-            vprint(f"~TEMP~ downloading key of segment {segment.id}")
+            vprint(f"~TEMP~ downloading key of segment {segment._id}")
             key_contents = request_webpage(unquote(segment.key["video"].url))
 
             with open(f"{self.temp_path}/{pool.id}_{key_num}.key", "wb") as key_file:
@@ -435,7 +435,7 @@ class PenguinDownloader(BaseDownloader):
         init_segment = [f for f in pool.segments if f.init]
         if init_segment:
             init_segment = init_segment[0]
-            playlist += f'#EXT-X-MAP:URI="{init_segment.filename}"\n'
+            playlist += f'#EXT-X-MAP:URI="{init_segment._filename}"\n'
 
         # Add segments to playlist
         for segment in pool.segments:
@@ -448,7 +448,7 @@ class PenguinDownloader(BaseDownloader):
                     download_key(segment)
                     key_num += 1
             playlist += (
-                f"#EXTINF:{segment.duration},\n{self.temp_path}/{segment.filename}\n"
+                f"#EXTINF:{segment.duration},\n{self.temp_path}/{segment._filename}\n"
             )
         # Write end of file
         playlist += "#EXT-X-ENDLIST\n"
@@ -520,33 +520,26 @@ class PenguinDownloader(BaseDownloader):
         self,
     ) -> list:
         # Merge segments
-        command = [
-            "ffmpeg",
-            "-v",
-            "error",
-            "-y",
-            "-protocol_whitelist",
-            "file,crypto,data,https,http,tls,tcp",
-        ]
-        commands = [cmd.generate_command() for cmd in self.output_data["inputs"]]
-        # Extend the input part
-        for _command in commands:
-            command.extend(_command["input"])
-        # Extend the metadata part
-        for _command in commands:
-            command.extend(_command["meta"])
-        command.extend(
-            [
+        command = FFmpegCommand(
+            f"{paths['tmp']}{self.content['sanitized']}{self.options['video_extension']}",
+            preinput_arguments=[
+                "-v",
+                "error",
+                "-y",
+                "-protocol_whitelist",
+                "file,crypto,data,http,https,tls,tcp",
+            ],
+            metadata_arguments=[
                 "-metadata",
-                "encoding_tool=Polarity %s | Penguin %s"
-                % (polarity_version, __version__),
+                f"encoding_tool=Polarity {polarity_version} with Penguin {__version__}",
                 "-progress",
                 f"{self.temp_path}_ffmpeg.txt",
-            ]
+            ],
         )
-        # Append the output
-        command.append(f'{paths["tmp"]}{self.content["sanitized"]}.mkv')
-        return command
+
+        command.extend(self.output_data["inputs"])
+
+        return command.build()
 
     def segment_downloader(self):
         def get_unfinished_pools() -> list[SegmentPool]:
@@ -605,7 +598,7 @@ class PenguinDownloader(BaseDownloader):
                 segment = pool.segments.pop(0)
 
                 segment_path = (
-                    f"{self.temp_path}/{segment.group}_{segment.number}{segment.ext}"
+                    f"{self.temp_path}/{segment.group}_{segment.number}{segment._ext}"
                 )
                 if (
                     f"{segment.group}_{segment.number}"
@@ -645,7 +638,7 @@ class PenguinDownloader(BaseDownloader):
                         # TODO: better exception handling
                         except BaseException as e:
                             thread_vprint(
-                                f"~TEMP~ Exception in download of segment {segment.id}: {e}",
+                                f"~TEMP~ Exception in download of segment {segment._id}: {e}",
                                 module_name=thread_name,
                                 level="error",
                                 lock=self.thread_lock,
@@ -658,7 +651,7 @@ class PenguinDownloader(BaseDownloader):
                             )
                         segment_contents = segment_data.content
 
-                        if segment.ext == ".vtt":
+                        if segment._ext == ".vtt":
                             # Workarounds for Atresplayer subtitles
                             # Fix italic characters
                             # Replace facing (#) characters
@@ -677,7 +670,7 @@ class PenguinDownloader(BaseDownloader):
                                 "&apos;", "'"
                             ).encode()
 
-                        elif segment.ext == ".ttml2":
+                        elif segment._ext == ".ttml2":
                             # Convert ttml2 subtitles to Subrip
                             subrip_contents = ""
                             subtitle_entries = re.findall(

@@ -20,6 +20,7 @@ from xml.parsers.expat import ExpatError
 import cloudscraper
 import requests
 import xmltodict
+from requests.adapters import HTTPAdapter
 from requests.models import Response
 from tqdm import tqdm
 from urllib3.util.retry import Retry
@@ -30,6 +31,13 @@ dump_requests = False
 retry_config = Retry(
     total=10, backoff_factor=1, status_forcelist=[502, 504, 504, 403, 404]
 )
+# create the cloudscraper's scraper
+# equivalent to requests' session
+scraper = cloudscraper.create_scraper(browser=browser, cipherSuite="HIGH:!DH:!aNULL")
+# mount adapters
+scraper.mount("http://", HTTPAdapter(max_retries=retry_config))
+scraper.mount("https://", HTTPAdapter(max_retries=retry_config))
+
 
 ##########################
 #  Printing and logging  #
@@ -425,11 +433,10 @@ def request_webpage(url: str, method: str = "get", **kwargs) -> Response:
     from polarity.config import lang
 
     vprint(lang["polarity"]["requesting"] % url, "verbose", "cloudscraper")
-    r = cloudscraper.create_scraper(browser=browser, cipherSuite="HIGH:!DH:!aNULL")
     # check if method is valid
-    if not hasattr(r, method.lower()):
+    if not hasattr(scraper, method.lower()):
         raise Exception("~TEMP~ invalid method")
-    request = getattr(r, method.lower())(url, **kwargs)
+    request = getattr(scraper, method.lower())(url, **kwargs)
 
     return request
 

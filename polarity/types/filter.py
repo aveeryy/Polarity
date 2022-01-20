@@ -1,5 +1,7 @@
 import re
 
+from polarity.types import str_to_type, stringified_types
+
 
 class Filter:
     """
@@ -24,9 +26,9 @@ class Filter:
     def properties(self):
         return self._properties
 
-    def check(self, title: str = "", season_number: int = 0, episode_number: int = 0):
+    def check(self, object):
         "Check if item passes the filter"
-        return self._check(title, season_number, episode_number)
+        return self._check(object)
 
 
 class NumberFilter(Filter):
@@ -96,10 +98,15 @@ class NumberFilter(Filter):
                 list(range(int(match.group("start")), int(match.group("end")) + 1))
             )
 
-    def _check(self, title: str = "", season_number: int = 0, episode_number: int = 0):
+    def _check(self, obj):
         if self.properties["multi"]:
-            return season_number in self.__seasons and episode_number in self.__episodes
-        return season_number in self.__seasons or episode_number in self.__episodes
+            return (
+                obj.season_number in self.__seasons
+                and obj.episode_number in self.__episodes
+            )
+        return (
+            obj.season_number in self.__seasons or obj.episode_number in self.__episodes
+        )
 
 
 class MatchFilter(Filter):
@@ -119,11 +126,23 @@ class MatchFilter(Filter):
     def not_match(self):
         return self.__not_match
 
-    def _check(self, title: str = "", season_number: int = 0, episode_number: int = 0):
-        match = re.search(self._filter, title)
+    def _check(self, object):
+        match = re.search(self._filter, object.title)
         if self.__not_match:
             return not match
         return bool(match)
+
+
+class TypeFilter(Filter):
+    def __init__(self, filter: str) -> None:
+        raise NotImplementedError
+        if filter.lower() not in stringified_types:
+            raise Exception
+        self.__type = str_to_type(filter)
+        super().__init__(filter)
+
+    def _check(self, object) -> bool:
+        return type(object) == self.__type
 
 
 def build_filter(params: str, filter: str) -> None:
