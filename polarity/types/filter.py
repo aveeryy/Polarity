@@ -1,5 +1,7 @@
 import re
 
+from typing import List
+
 from polarity.types import str_to_type, stringified_types
 
 
@@ -63,11 +65,11 @@ class NumberFilter(Filter):
         self.__parse_filter_obj()
 
     @property
-    def seasons(self) -> list[int]:
+    def seasons(self) -> List[int]:
         return self.__seasons
 
     @property
-    def episodes(self) -> list[int]:
+    def episodes(self) -> List[int]:
         return self.__episodes
 
     def __parse_filter_obj(self):

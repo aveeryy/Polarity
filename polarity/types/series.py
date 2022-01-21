@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
+from time import sleep
+from typing import List
 
-from polarity.types.base import MediaType, MetaMediaType, MetaMediaType
+from polarity.types.base import MediaType, MetaMediaType
 from polarity.types.episode import Episode
 from polarity.types.person import Actor, Person
 from polarity.types.season import Season
-
-from time import sleep
 
 
 @dataclass
@@ -13,13 +13,13 @@ class Series(MediaType, metaclass=MetaMediaType):
     title: str = None
     id: str = None
     synopsis: str = None
-    genres: list[str] = field(default_factory=list)
+    genres: List[str] = field(default_factory=list)
     year: int = 1970
     images: list = field(default_factory=list)
     season_count: int = 0
     episode_count: int = 0
-    people: list[Person] = field(default_factory=list)
-    seasons: list[Season] = field(init=False, default_factory=list)
+    people: List[Person] = field(default_factory=list)
+    seasons: List[Season] = field(init=False, default_factory=list)
     _extractor: str = field(init=False)
     # False if all series information is extracted, not counting seasons
     # and their respective episodes, True if not
@@ -52,7 +52,7 @@ class Series(MediaType, metaclass=MetaMediaType):
         if match:
             return match[0]
 
-    def get_all_episodes(self, pop=False) -> list[Episode]:
+    def get_all_episodes(self, pop=False) -> List[Episode]:
         """
         :param pop: Removes episodes from the lists
         :returns: List with extracted episodes

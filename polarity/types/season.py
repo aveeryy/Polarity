@@ -1,6 +1,9 @@
-from polarity.types.base import MediaType, MetaMediaType
-from .episode import Episode
 from dataclasses import dataclass, field
+from typing import List
+
+from polarity.types.base import MediaType, MetaMediaType
+
+from polarity.types.episode import Episode
 
 
 @dataclass
@@ -9,11 +12,11 @@ class Season(MediaType, metaclass=MetaMediaType):
     id: str = None
     number: int = None
     year: int = 1970
-    images: list[str] = field(default_factory=list)
+    images: List[str] = field(default_factory=list)
     episode_count: int = 0
     finished: bool = True
     synopsis: str = ""
-    episodes: list[Episode] = field(init=False)
+    episodes: List[Episode] = field(init=False)
     _series = None
     _partial = True
 
@@ -29,6 +32,6 @@ class Season(MediaType, metaclass=MetaMediaType):
             self.__episodes.append(episode)
 
     @property
-    def all_episodes(self) -> list[Episode]:
+    def all_episodes(self) -> List[Episode]:
         """Returns all episodes, even if popped by `get_all_episodes`"""
         return self.__episodes

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Dict, List
 
 from polarity.types.base import MediaType, MetaMediaType
 from polarity.utils import get_extension
@@ -38,7 +39,7 @@ class Stream(MediaType, metaclass=MetaMediaType):
     name: dict
     language: dict
     id: str = None
-    key: dict[str, ContentKey] = None
+    key: Dict[str, ContentKey] = None
     content_type: str = None
     extra_audio: bool = field(default=False, init=False)
     extra_sub: bool = field(default=False, init=False)
@@ -69,7 +70,7 @@ class Segment(MediaType, metaclass=MetaMediaType):
 
 @dataclass
 class SegmentPool(MediaType, metaclass=MetaMediaType):
-    segments: list[Segment]
+    segments: List[Segment]
     format: str
     id: str
     track_id: str

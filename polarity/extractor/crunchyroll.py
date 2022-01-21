@@ -1,5 +1,5 @@
 import re
-from typing import Union
+from typing import Union, Tuple, List, Dict
 from urllib.parse import urlparse
 
 from polarity.config import lang
@@ -28,7 +28,7 @@ from polarity.utils import (
     parse_content_id,
     request_json,
     request_webpage,
-    vprint,
+    vprint,/-
 )
 
 
@@ -218,7 +218,7 @@ class CrunchyrollExtractor(BaseExtractor):
             return True
         return False
 
-    def identify_url(self, url: str) -> tuple[MediaType, dict[MediaType, str]]:
+    def identify_url(self, url: str) -> Tuple[MediaType, Dict[MediaType, str]]:
         """
         Returns a tuple with the url type and a dict with raw content
         identifiers related to that url
@@ -275,7 +275,7 @@ class CrunchyrollExtractor(BaseExtractor):
         return (url_type, {Series: series_id, Season: season_id, Episode: episode_id})
 
     @staticmethod
-    def _get_url_type(url: str) -> tuple[MediaType, str]:
+    def _get_url_type(url: str) -> Tuple[MediaType, str]:
         is_legacy = False
         parsed_url = urlparse(url=url)
         url_host = parsed_url.netloc
@@ -294,9 +294,9 @@ class CrunchyrollExtractor(BaseExtractor):
                 # 4. (?:/$|$) -> matches the end of the url
                 # 5. [\w-] -> matches the episode part of the url i.e episode-3...
                 # 6. media)- -> matches an episode short url
-                # 7. (?P<id>[\d]{6,}) -> matches the id on both a long and a short url, 811160
-                Series: r"(?:/[a-z-]{2,5}/|/)(?:series-(?P<id>\d+)|(?!media-)[^/]+)(?:/$|$)",
-                Episode: r"(?:/[a-z-]{2,5}/|/)(?:(?:[^/]+)/[\w-]+|media)-(?P<id>[\d]{6,})(?:/$|$)",
+                # 7. (?P<id>[\d]{6,}) -> matches the id on both a long and a short url, 811160  # noqa: E501
+                Series: r"(?:/[a-z-]{2,5}/|/)(?:series-(?P<id>\d+)|(?!media-)[^/]+)(?:/$|$)",  # noqa: E501
+                Episode: r"(?:/[a-z-]{2,5}/|/)(?:(?:[^/]+)/[\w-]+|media)-(?P<id>[\d]{6,})(?:/$|$)",  # noqa: E501
             }
         else:
             regexes = {
@@ -315,11 +315,11 @@ class CrunchyrollExtractor(BaseExtractor):
 
     def _get_etp_guid(
         self, series_id: int = None, season_id: int = None, episode_id: int = None
-    ) -> dict[MediaType, str]:
+    ) -> Dict[MediaType, str]:
         """
         Support for legacy Crunchyroll identifiers
 
-        :para
+        :param (series/season/episode)_id:
         """
         info_api = "https://api.crunchyroll.com/info.0.json"
         # Define variables
@@ -470,7 +470,7 @@ class CrunchyrollExtractor(BaseExtractor):
         self.account_info["bearer"] = f'Bearer {token_req[0]["access_token"]}'
         return self.account_info["bearer"]
 
-    def get_cms_tokens(self) -> dict[str, str]:
+    def get_cms_tokens(self) -> Dict[str, str]:
         """Get necessary elements to build a valid API URL"""
         bucket_re = r"/(?P<country>\w{2})/(?P<madurity>M[1-3])"
         if self.account_info["bearer"] is None:
@@ -547,7 +547,7 @@ class CrunchyrollExtractor(BaseExtractor):
 
         return self.info
 
-    def get_seasons(self, series_id: str, return_raw_info=False) -> list[Season]:
+    def get_seasons(self, series_id: str, return_raw_info=False) -> List[Season]:
 
         season_list = []
         vprint(lang["extractor"]["get_all_seasons"], module_name="crunchyroll")
@@ -637,7 +637,7 @@ class CrunchyrollExtractor(BaseExtractor):
         season: Season = None,
         return_raw_info=False,
         get_partial_episodes=False,
-    ) -> Union[list[Episode], dict]:
+    ) -> Union[List[Episode], dict]:
         """
         Return a list with full Episode objects from the episodes of the
         season
@@ -764,7 +764,7 @@ class CrunchyrollExtractor(BaseExtractor):
         playback_url: str = None,
         episode: Episode = None,
         episode_id: str = None,
-    ) -> list[Stream]:
+    ) -> List[Stream]:
         """
         Get streams from an inputted episode identifier
 
@@ -844,7 +844,7 @@ class CrunchyrollExtractor(BaseExtractor):
 
         return streams
 
-    def _search(self, term: str, maximum: int, max_per_type: int) -> list[SearchResult]:
+    def _search(self, term: str, maximum: int, max_per_type: int) -> List[SearchResult]:
         def parse_group(data: dict, media_type: MediaType):
             parsed_items = 0
             for result in data["items"]:

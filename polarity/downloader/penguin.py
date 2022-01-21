@@ -8,7 +8,7 @@ from dataclasses import asdict
 from random import choice
 from shutil import move
 from time import sleep
-from typing import Union
+from typing import Union, List, Tuple
 from urllib.parse import unquote
 
 import cloudscraper
@@ -470,7 +470,7 @@ class PenguinDownloader(BaseDownloader):
     # Post-processing #
     ###################
 
-    def get_segment_deletion_time(self, pools: list[SegmentPool]) -> list:
+    def get_segment_deletion_time(self, pools: List[SegmentPool]) -> list:
         return [
             (f"{s.group}_{s.number}{s.ext}", s.time) for p in pools for s in p.segments
         ]
@@ -542,13 +542,13 @@ class PenguinDownloader(BaseDownloader):
         return command.build()
 
     def segment_downloader(self):
-        def get_unfinished_pools() -> list[SegmentPool]:
+        def get_unfinished_pools() -> List[SegmentPool]:
             return [p for p in self.output_data["segment_pools"] if not p._finished]
 
-        def get_unreserved_pools() -> list[SegmentPool]:
+        def get_unreserved_pools() -> List[SegmentPool]:
             return [p for p in self.output_data["segment_pools"] if not p._reserved]
 
-        def get_pool() -> tuple[SegmentPool, bool]:
+        def get_pool() -> Tuple[SegmentPool, bool]:
             unfinished = get_unfinished_pools()
             pools = get_unreserved_pools()
 

@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import sys
+from typing import List
 
 import tomli
 import tomli_w
@@ -84,7 +85,7 @@ def change_language(language_code: str) -> dict:
     return lang
 
 
-def get_installed_languages() -> list[str]:
+def get_installed_languages() -> List[str]:
     return [strip_extension(f.name) for f in os.scandir(paths["lang"])]
 
 

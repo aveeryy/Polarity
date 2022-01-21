@@ -1,6 +1,8 @@
 from polarity.config import paths
 from polarity.utils import ContentIdentifier
 
+from typing import List
+
 
 class DownloadLog:
     def __init__(self, path: str = paths["dl_log"], update_path: bool = True) -> None:
@@ -24,7 +26,7 @@ class DownloadLog:
         identifier = id.string if type(id) is ContentIdentifier else id
         return identifier in self.__entries
 
-    def _load_log(self) -> list[str]:
+    def _load_log(self) -> List[str]:
         if self.__update:
             self.__path = paths["dl_log"]
         self.__log = open(self.__path).read()
@@ -35,7 +37,7 @@ class DownloadLog:
             f.write("\n".join(self.__entries))
 
     @property
-    def entries(self) -> list[str]:
+    def entries(self) -> List[str]:
         return self.__entries
 
     @property

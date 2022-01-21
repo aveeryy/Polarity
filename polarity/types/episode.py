@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import List
 
 from polarity.types.base import MediaType, MetaMediaType
 from polarity.types.stream import Stream
@@ -12,7 +13,7 @@ class Episode(MediaType, metaclass=MetaMediaType):
     synopsis: str = ""
     number: int = 0
     images: list = field(default_factory=list)
-    streams: list[Stream] = field(default_factory=list)
+    streams: List[Stream] = field(default_factory=list)
     _series = None
     _season = None
     _partial = True

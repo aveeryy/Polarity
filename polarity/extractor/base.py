@@ -1,13 +1,13 @@
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from getpass import getpass
 from http.cookiejar import CookieJar, LWPCookieJar
 from time import sleep
-from typing import Union
+from typing import List, Union
 
 from polarity.config import lang, paths
-from polarity.extractor.flags import *
-from polarity.types import Episode, Season, Series, Movie, SearchResult, Thread
+from polarity.extractor import flags
+from polarity.types import Episode, Movie, SearchResult, Season, Series, Thread
 from polarity.types.filter import MatchFilter, NumberFilter
 from polarity.utils import mkfile, vprint
 
@@ -37,7 +37,7 @@ class BaseExtractor:
             if not self._valid_extractor:
                 return
 
-            if AccountCapabilities in self.FLAGS:
+            if flags.AccountCapabilities in self.FLAGS:
                 # Account Capabilities is enabled, use the extractor's cookiejar
                 cjar_path = f"{paths['account']}{self.extractor_name.lower()}.cjar"
 
@@ -49,7 +49,7 @@ class BaseExtractor:
                 # Load the cookiejar
                 self.cjar.load(ignore_discard=True, ignore_expires=True)
 
-                if LoginRequired in self.FLAGS and not self.is_logged_in():
+                if flags.LoginRequired in self.FLAGS and not self.is_logged_in():
                     # Check if username and password has been passed in options
                     username = (
                         self.__opts["username"] if "username" in self.__opts else None
@@ -126,7 +126,7 @@ class BaseExtractor:
         @dataclass(frozen=True)
         class Feature:
             name: str
-            conditions: list[Condition]
+            conditions: List[Condition]
             function: object
 
             def __post_init__(self):
@@ -190,7 +190,9 @@ class BaseExtractor:
         Feature(
             features["login"],
             [
-                Condition("flag.AccountCapabilities", AccountCapabilities in self.FLAGS),
+                Condition(
+                    "flag.AccountCapabilities", flags.AccountCapabilities in self.FLAGS
+                ),
                 Condition("function._login", hasattr(self, "_login")),
                 Condition("function.is_logged_in", hasattr(self, "is_logged_in")),
             ],
@@ -200,7 +202,7 @@ class BaseExtractor:
         Feature(
             features["search"],
             [
-                Condition("flag.EnableSearch", EnableSearch in self.FLAGS),
+                Condition("flag.EnableSearch", flags.EnableSearch in self.FLAGS),
                 Condition("function._search", hasattr(self, "_search")),
             ],
             check_all_or_none,
@@ -209,7 +211,7 @@ class BaseExtractor:
         Feature(
             features["livetv"],
             [
-                Condition("flag.EnableLiveTV", EnableLiveTV in self.FLAGS),
+                Condition("flag.EnableLiveTV", flags.EnableLiveTV in self.FLAGS),
                 Condition(
                     "function.get_live_tv_stream", hasattr(self, "get_live_tv_stream")
                 ),
@@ -289,7 +291,7 @@ class BaseExtractor:
                 return _dict
 
     def login(self, username: str = None, password: str = None) -> bool:
-        if not hasattr(self, "_login") or AccountCapabilities not in self.FLAGS:
+        if not hasattr(self, "_login") or flags.AccountCapabilities not in self.FLAGS:
             return True
         if username is None:
             username = input(lang["extractor"]["base"]["email_prompt"])
@@ -299,7 +301,7 @@ class BaseExtractor:
 
     def search(
         self, term: str, max: int = -1, max_per_category: int = -1
-    ) -> list[SearchResult]:
+    ) -> List[SearchResult]:
         return self._search(term, max, max_per_category)
 
     def check_content(self, content: Episode) -> bool:
