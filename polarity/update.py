@@ -4,6 +4,7 @@ import sys
 
 from requests import get
 from time import sleep
+from typing import Tuple
 from zipfile import ZipFile
 
 from polarity.version import __version__
@@ -13,7 +14,7 @@ GIT_REPO = "https://github.com/aveeryy/Polarity.git"
 UPDATE_ENDPOINT = "https://api.github.com/repos/aveeryy/Polarity/releases"
 
 
-def check_for_updates() -> tuple[bool, str]:
+def check_for_updates() -> Tuple[bool, str]:
     """Check if a new stable Polarity release has been uploaded"""
     releases = request_json(UPDATE_ENDPOINT)
     latest = releases[0][0]

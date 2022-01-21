@@ -6,7 +6,7 @@ import sys
 import time
 import warnings
 from threading import Lock
-from typing import Union
+from typing import Union, List, Tuple, Dict
 
 from tqdm import TqdmWarning
 
@@ -118,7 +118,7 @@ class Polarity:
         #     raise ConfigError(lang["polarity"]["except"]["verbose_error"] % verbose_level)
 
     def start(self):
-        def create_tasks(name: str, _range: int, _target: object) -> list[Thread]:
+        def create_tasks(name: str, _range: int, _target: object) -> List[Thread]:
             tasks = []
             for _ in range(_range):
                 t = Thread(f"{name}_Task", target=_target, daemon=True)
@@ -243,7 +243,7 @@ class Polarity:
         absolute_max: int = -1,
         max_per_extractor: int = -1,
         max_per_type: int = -1,
-    ) -> dict[MediaType, list[SearchResult]]:
+    ) -> Dict[MediaType, List[SearchResult]]:
         """Search for content in compatible extractors"""
 
         def can_add_to_list(media_type) -> bool:
@@ -307,7 +307,7 @@ class Polarity:
         # if 'requests' in options['dump']:
         #    vprint('Enabled dumping of HTTP requests', error_level='debug')
 
-    def process_filters(self, filters: str, link=True) -> list[Filter]:
+    def process_filters(self, filters: str, link=True) -> List[Filter]:
         "Create Filter objects from a string and link them to their respective links"
         filter_list = []
         skip_next_item = False  # If True, skip a item in the loop
@@ -475,8 +475,8 @@ class Polarity:
 
     @staticmethod
     def _format_filenames(
-        media_obj: Union[tuple[Series, Season, Episode], Movie],
-    ) -> Union[Episode, Movie, tuple[str]]:
+        media_obj: Union[Tuple[Series, Season, Episode], Movie],
+    ) -> Union[Episode, Movie, Tuple[str]]:
         """
         Create an output path out of an MediaType object metadata
         :param media_obj: a tuple with a series, season and episode object, in that order,

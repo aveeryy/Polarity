@@ -5,7 +5,6 @@ import os
 import re
 import subprocess
 import sys
-
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -13,7 +12,7 @@ from json.decoder import JSONDecodeError
 from shutil import which
 from sys import platform
 from time import time
-from typing import Union
+from typing import List, Tuple, Union
 from urllib.parse import urlparse
 from xml.parsers.expat import ExpatError
 
@@ -24,7 +23,6 @@ from requests.adapters import HTTPAdapter
 from requests.models import Response
 from tqdm import tqdm
 from urllib3.util.retry import Retry
-
 
 browser = {"browser": "firefox", "platform": "windows", "mobile": False}
 dump_requests = False
@@ -476,7 +474,7 @@ def get_country_from_ip() -> str:
 ################
 
 
-def get_compatible_extractor(text: str) -> Union[tuple[str, object], None]:
+def get_compatible_extractor(text: str) -> Union[Tuple[str, object], None]:
     """
     Returns a compatible extractor for the inputted url or content id,
     if exists, else returns None
@@ -566,7 +564,7 @@ def get_config_path() -> str:
     return paths[sys.platform] if not running_on_android() else paths["android"]
 
 
-def version_to_tuple(version_string: str) -> tuple[str]:
+def version_to_tuple(version_string: str) -> Tuple[str]:
     "Splits a version string into a tuple"
     version = version_string.split(".")
     # Split the revision number
@@ -585,7 +583,7 @@ def get_item_by_id(iterable: list, identifier: str):
 
 def order_list(
     to_order: list,
-    order_definer: list[str],
+    order_definer: List[str],
     index=None,
 ) -> list:
     if index is None:

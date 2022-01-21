@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Union
+from typing import Union, List, Dict
 
 from polarity.types.base import MediaType, MetaMediaType
 from polarity.utils import get_extension
@@ -22,7 +22,7 @@ class FFmpegInput(MediaType, metaclass=MetaMediaType):
     """
 
     path: str
-    track_count: dict[str, int]
+    track_count: Dict[str, int]
     metadata: dict = field(default_factory=dict)
     codecs: dict = field(default_factory=dict)
 
@@ -59,7 +59,7 @@ class FFmpegCommand(MediaType, metaclass=MetaMediaType):
     output: str
     preinput_arguments: list = field(default_factory=list)
     metadata_arguments: list = field(default_factory=list)
-    inputs: list[FFmpegInput] = field(init=False, default_factory=list)
+    inputs: List[FFmpegInput] = field(init=False, default_factory=list)
 
     def append(self, _input: FFmpegInput) -> None:
         """Append and FFmpegInput object to the command"""
@@ -68,7 +68,7 @@ class FFmpegCommand(MediaType, metaclass=MetaMediaType):
     def extend(self, _input: FFmpegInput) -> None:
         self.inputs.extend(_input)
 
-    def build(self, as_string=False) -> Union[list[str], str]:
+    def build(self, as_string=False) -> Union[List[str], str]:
         """
         Returns a valid FFmpeg command from the inputs' data
         :param as_string: returns the command as a string

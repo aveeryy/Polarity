@@ -1,5 +1,5 @@
 import re
-from typing import Union
+from typing import Union, List, Dict
 from urllib.parse import urlparse
 
 from polarity.config import ConfigError, lang
@@ -224,7 +224,7 @@ class AtresplayerExtractor(BaseExtractor):
 
         return self.info
 
-    def get_seasons(self, return_raw_info=False) -> list[Season]:
+    def get_seasons(self, return_raw_info=False) -> List[Season]:
         vprint(lang["extractor"]["get_all_seasons"], "info", "atresplayer")
 
         seasons = [
@@ -237,7 +237,7 @@ class AtresplayerExtractor(BaseExtractor):
         ]
         return seasons
 
-    def get_season_jsonld_info(self, season_id: str) -> dict[str, int]:
+    def get_season_jsonld_info(self, season_id: str) -> Dict[str, int]:
         # This endpoint is only needed to get the season number and ep. count
         # For some stupid-ass reason it isn't in the season API
         season_jsonld = request_json(
@@ -287,7 +287,7 @@ class AtresplayerExtractor(BaseExtractor):
 
     def get_episodes_from_season(
         self, season: Season = None, season_id: str = None, get_partial_episodes=False
-    ) -> list[Episode]:
+    ) -> List[Episode]:
 
         season_id = season.id if season is not None else season_id
         page = 0
@@ -367,7 +367,7 @@ class AtresplayerExtractor(BaseExtractor):
 
     def _get_streams(
         self, episode: Episode = None, episode_id: str = None
-    ) -> list[Stream]:
+    ) -> List[Stream]:
 
         # Create a burner Episode object to set streams to
         _episode = Episode("t", "t")
@@ -440,7 +440,7 @@ class AtresplayerExtractor(BaseExtractor):
     # Extra stuff
 
     @classmethod
-    def get_all_genres(self) -> dict[str, str]:
+    def get_all_genres(self) -> Dict[str, str]:
         """Returns a list of dicts containing name,
         id and API url of every Atresplayer genre"""
         genres = {}
