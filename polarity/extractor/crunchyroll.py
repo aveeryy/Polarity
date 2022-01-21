@@ -28,7 +28,7 @@ from polarity.utils import (
     parse_content_id,
     request_json,
     request_webpage,
-    vprint,/-
+    vprint,
 )
 
 
