@@ -100,6 +100,8 @@ def change_verbose_level(new_level: int, change_print=True, change_log=False):
 def change_paths(new_paths: dict):
     global paths
     for entry, path in new_paths.items():
+        if entry == "bin":
+            os.environ["path"] += f"{':' if sys.platform != 'win32' else ';'}{path}"
         paths[entry] = path
 
 
@@ -535,6 +537,9 @@ for arg, path_name in __path_arguments.items():
     # Create the directory if it does not exist
     if "directory" in arg:
         os.makedirs(paths[path_name], exist_ok=True)
+
+# add binaries path to path environ variable
+os.environ["path"] += f"{':' if sys.platform != 'win32' else ';'}{paths['bin']}"
 
 # If config file is specified and does not exist, create it
 if paths["cfg"] and not os.path.exists(paths["cfg"]):
