@@ -1,7 +1,9 @@
 import json
 import os
+from platform import platform
 import re
 import subprocess
+import sys
 import threading
 from copy import deepcopy
 from dataclasses import asdict
@@ -158,6 +160,8 @@ class PenguinDownloader(BaseDownloader):
 
     def save_resume_stats(self) -> None:
         if os.path.exists(f"{self.temp_path}_stats.json"):
+            if sys.platform == "win32":
+                os.remove(f"{self.temp_path}_stats.json.old")
             os.rename(f"{self.temp_path}_stats.json", f"{self.temp_path}_stats.json.old")
         with open(f"{self.temp_path}_stats.json", "w") as f:
             json.dump(self.resume_stats, f, indent=4)
@@ -420,7 +424,7 @@ class PenguinDownloader(BaseDownloader):
         """
 
         def download_key(segment: Segment) -> None:
-            vprint(f"~TEMP~ downloading key of segment {segment._id}")
+            vprint(f"~TEMP~ downloading key of segment {segment._id}", "debug")
             key_contents = request_webpage(unquote(segment.key["video"].url))
 
             with open(f"{self.temp_path}/{pool.id}_{key_num}.key", "wb") as key_file:
