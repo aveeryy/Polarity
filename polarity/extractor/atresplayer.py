@@ -73,7 +73,7 @@ class AtresplayerExtractor(BaseExtractor):
     def _login(self, username: str, password: str):
 
         res = request_json(
-            url=f"{self.account_url}auth/v1/login",
+            url=f"{self.ACCOUNT_URL}auth/v1/login",
             method="POST",
             data={"username": username, "password": password},
             cookies=self.cjar,
