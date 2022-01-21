@@ -80,7 +80,7 @@ class AtresplayerExtractor(BaseExtractor):
         )
         if res[1].status_code == 200:
             vprint(lang["extractor"]["login_success"], "info", "atresplayer")
-            self.save_cookies_in_jar(res[1].cookies, ["A3PSID"])
+            self.save_cookies(res[1].cookies, ["A3PSID"])
             return True
         vprint(
             lang["extractor"]["login_success"] % res[0]["error"],

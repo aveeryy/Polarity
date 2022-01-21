@@ -408,7 +408,7 @@ class CrunchyrollExtractor(BaseExtractor):
                 lang["extractor"]["login_success"],
                 module_name="crunchyroll",
             )
-            self.save_cookies_in_jar(login_req[1].cookies, ["session_id", "etp_rt"])
+            self.save_cookies(login_req[1].cookies, ["session_id", "etp_rt"])
         else:
             vprint(
                 lang["extractor"]["login_failure"] % (login_req[0]["message"]),
