@@ -209,9 +209,9 @@ def send_android_notification(
     """
     Send an Android notification using Termux:API
     """
-    # if not running_on_android() or not which("termux-notification"):
-    #     # Return if not running on an Android device, or if Termux-API is not installed
-    #     return
+    if not running_on_android() or not which("termux-notification"):
+        # Return if not running on an Android device, or if Termux-API is not installed
+        return
     args = [
         "termux-notification",
         "-t",
@@ -232,7 +232,9 @@ def send_android_notification(
 
 def remove_android_notification(id: str) -> None:
     "Remove an Android notification by it's identifier"
-    subprocess.run(["termux-notification-remove", id], check=True)
+    if not running_on_android() or not which("termux-notification-remove"):
+        return
+    os.system(f"termux-notification-remove {id}")
 
 
 ###########################
