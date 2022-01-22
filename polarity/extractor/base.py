@@ -9,7 +9,7 @@ from polarity.config import lang, paths
 from polarity.extractor import flags
 from polarity.types import Episode, Movie, SearchResult, Season, Series, Thread
 from polarity.types.filter import MatchFilter, NumberFilter
-from polarity.utils import mkfile, vprint
+from polarity.utils import dict_merge, mkfile, vprint
 
 
 class BaseExtractor:
@@ -21,14 +21,19 @@ class BaseExtractor:
 
         self.url = url
         self.extractor_name = self.__class__.__name__.replace("Extractor", "")
-        if options is None:
-            options = {self.extractor_name.lower(): {}}
+        self.unparsed_filters = filter_list
+        # Dictionary containing what seasons and episodes to extract
+        self._seasons = {}
+        # List containing subextractors
+        self._workers = []
+
+        options = {self.extractor_name.lower(): {}} if options is None else options
+        self.hooks = options.pop("hooks", {})
+
         if self.extractor_name.lower() != "base":
-            # self.options = dict_merge(user_options['extractor'],
-            #                           options,
-            #                           overwrite=True,
-            #                           modify=False)
-            self.options = user_options["extractor"]
+            self.options = dict_merge(
+                user_options["extractor"], options, overwrite=True, modify=False
+            )
             self.__opts = user_options["extractor"][self.extractor_name.lower()]
             self.extractor_lang = lang[self.extractor_name.lower()]
 
@@ -49,13 +54,6 @@ class BaseExtractor:
                 # Load the cookiejar
                 self.cjar.load(ignore_discard=True, ignore_expires=True)
 
-        self.unparsed_filters = filter_list
-
-        # Dictionary containing what seasons and episodes to extract
-        self._seasons = {}
-        # List containing subextractors
-        self._workers = []
-
         if filter_list is None or not filter_list:
             # Set seasons and episodes to extract to ALL
             self._seasons = {"ALL": "ALL"}
@@ -70,10 +68,34 @@ class BaseExtractor:
             self.__post_init__()
 
     def _watchdog(self):
-        """Set the extraction flag in case of the extraction thread dying"""
+        """
+        Sets the extraction flag in case of the extraction thread dying.
+
+        Also, executes some extraction-related hooks
+        """
+        # predefine hook variables
+        hook_main_content = False
         while self._extractor.is_alive():
+            if self.info.title and not hook_main_content:
+                # Extracted main content* hook
+                # *Series and Movie objects
+                self.__execute_hooks(
+                    "extracted_main_content",
+                    {
+                        "title": self.info.title,
+                        "type": self.info.__class__.__name__,
+                        "object": self.info,
+                    },
+                )
+                hook_main_content = True
             sleep(0.5)
         self.info._extracted = True
+
+    def __execute_hooks(self, hook: str, contents: dict) -> None:
+        if hook not in self.hooks:
+            return
+        for hook_function in self.hooks[hook]:
+            hook_function(contents)
 
     def extract(self) -> Union[Series, Movie]:
         if flags.LoginRequired in self.FLAGS and not self.is_logged_in():
@@ -81,6 +103,7 @@ class BaseExtractor:
             username = self.__opts["username"] if "username" in self.__opts else None
             password = self.__opts["password"] if "password" in self.__opts else None
             self.login(username, password)
+
         self.extraction = True
         # Return if no URL is inputted
         if not self.url or self.url is None:
@@ -92,12 +115,24 @@ class BaseExtractor:
         _watchdog_thread = Thread(
             "__Extraction_Watchdog", target=self._watchdog, daemon=True
         )
+        # start the threads
         self._extractor.start()
         _watchdog_thread.start()
+        self.__execute_hooks(
+            "started_extraction_thread",
+            {
+                "status": "started",
+                "thread": self._extractor,
+                "self": self,
+                "url": self.url,
+                "options": self.options,
+            },
+        )
         # Return a partial information object
         while not hasattr(self, "info"):
             # Check if extractor fucking died
             sleep(0.1)
+
         self.info._extractor = self.extractor_name
         return self.info
 
