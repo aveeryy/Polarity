@@ -225,7 +225,7 @@ def send_android_notification(
     ]
 
     if action is not None:
-        args.extend("--action", action)
+        args.extend(("--action", action))
 
     os.system(" ".join(args))
 
