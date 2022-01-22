@@ -68,7 +68,7 @@ class HTTPLiveStream(StreamProtocol):
                         if "key" in s
                         else None,
                     },
-                    group=f"{media_type}{self.processed_tracks[media_type]}",
+                    group=f"{media_type}{self.processed_tracks[media_type] - 1}",
                     duration=s["duration"],
                     init=False,
                     byte_range=None,
@@ -96,12 +96,12 @@ class HTTPLiveStream(StreamProtocol):
                     url=urljoin(
                         self.stream_url, self.parsed_stream["segment_map"]["uri"]
                     ),
-                    number=-1,
+                    number=-1,  # number -1 is reserved for the init segment
                     init=True,
                     media_type=pool,
                     duration=None,
                     key=None,
-                    group=f"{pool}{self.processed_tracks[pool]}",
+                    group=f"{pool}{self.processed_tracks[pool - 1]}",
                     byte_range=None,
                 )
             )
@@ -138,7 +138,7 @@ class HTTPLiveStream(StreamProtocol):
                 if ".m3u" in media["uri"]:
                     self.get_stream_fragments(media, "subtitles")
                 else:
-                    contents = self.scraper.get(urljoin(self.url, media["uri"])).content
+                    contents = request_webpage(urljoin(self.url, media["uri"])).content
                     # Fuck whoever thought it was a good idea to disguise
                     # m3u8 playlists as .vtt subtitles
                     if b"#EXTM3U" in contents:

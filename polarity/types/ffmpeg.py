@@ -115,7 +115,7 @@ class FFmpegCommand(MediaType, metaclass=MetaMediaType):
                 # add the codecs
                 sum(
                     [
-                        [f"-c:{t}:{indexes[t] + i}", c]
+                        [f"-c:{t[0]}:{indexes[t] + i}", c]
                         # t: track type
                         # cs: codecs
                         for t, cs in inp.codecs.items()
@@ -131,7 +131,7 @@ class FFmpegCommand(MediaType, metaclass=MetaMediaType):
             metadata_arguments.extend(
                 sum(
                     [
-                        [f"-metadata:s:{t}:{indexes[t] + i}", f"{k}={v}"]
+                        [f"-metadata:s:{t[0]}:{indexes[t] + i}", f"{k}={v}"]
                         # t: track type
                         # m: metadata
                         for t, m in inp.metadata.items()
@@ -162,6 +162,6 @@ class FFmpegCommand(MediaType, metaclass=MetaMediaType):
         return main_arguments
 
 
-VIDEO = "v"
-AUDIO = "a"
-SUBTITLES = "s"
+VIDEO = "video"
+AUDIO = "audio"
+SUBTITLES = "subtitles"
