@@ -469,9 +469,7 @@ class Polarity:
 
             # ~TEMP~ Set the downloader to Penguin
             _downloader = PenguinDownloader
-
             downloader = _downloader(item=item)
-
             downloader.start()
 
             while downloader.is_alive():
@@ -487,6 +485,8 @@ class Polarity:
                     lang["dl"]["download_successful"]
                     % (lang["types"][item.__class__.__name__.lower()], item.short_name),
                     id=item.short_name,
+                    # TODO: rework when music support is finished
+                    action=f"'termux-share \"{item.output}{options['download']['video_extension']}\"'",
                 )
                 # Download finished, add identifier to download log
                 self.__download_log.add(item.content_id)
