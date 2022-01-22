@@ -478,10 +478,16 @@ class Polarity:
                 time.sleep(0.1)
 
             if downloader.success:
-                vprint(lang["dl"]["download_successful"] % item.short_name)
+                vprint(
+                    lang["dl"]["download_successful"]
+                    % lang["types"][item.__class__.lower()],
+                    item.short_name,
+                )
                 send_android_notification(
                     "Polarity",
-                    lang["dl"]["download_successful"] % item.short_name,
+                    lang["dl"]["download_successful"]
+                    % lang["types"][item.__class__.lower()],
+                    item.short_name,
                     id=item.short_name,
                 )
                 # Download finished, add identifier to download log
