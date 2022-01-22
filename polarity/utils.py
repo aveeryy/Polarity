@@ -27,7 +27,7 @@ from urllib3.util.retry import Retry
 browser = {"browser": "firefox", "platform": "windows", "mobile": False}
 dump_requests = False
 retry_config = Retry(
-    total=10, backoff_factor=1, status_forcelist=[502, 504, 504, 403, 404]
+    total=5, backoff_factor=0.5, status_forcelist=[502, 504, 504, 403, 404]
 )
 # create the cloudscraper's scraper
 # equivalent to requests' session
@@ -35,6 +35,8 @@ scraper = cloudscraper.create_scraper(browser=browser, cipherSuite="HIGH:!DH:!aN
 # mount adapters
 scraper.mount("http://", HTTPAdapter(max_retries=retry_config))
 scraper.mount("https://", HTTPAdapter(max_retries=retry_config))
+# https://stackoverflow.com/questions/38015537
+requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += "HIGH:!DH:!aNULL"
 
 
 ##########################
@@ -427,7 +429,6 @@ def request_webpage(url: str, method: str = "get", **kwargs) -> Response:
     `method` http request method
     `kwargs` extra requests arguments, for more info check the `requests wiki`
     """
-    global dump_requests
     from polarity.config import lang
 
     vprint(lang["polarity"]["requesting"] % url, "verbose", "cloudscraper")
