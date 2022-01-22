@@ -204,11 +204,7 @@ def running_on_android() -> bool:
 
 
 def send_android_notification(
-    title: str,
-    contents: str,
-    id: str,
-    group: str = "Polarity",
-    **kwargs,
+    title: str, contents: str, id: str, group: str = "Polarity", action: str = None
 ) -> None:
     """
     Send an Android notification using Termux:API
@@ -227,7 +223,11 @@ def send_android_notification(
         "--group",
         group,
     ]
-    subprocess.run(args, check=True)
+
+    if action is not None:
+        args.extend("--action", action)
+
+    os.system(" ".join(args))
 
 
 def remove_android_notification(id: str) -> None:
