@@ -123,7 +123,11 @@ def vprint(
         from polarity.config import options
     except ImportError:
         # Set verbose levels to default if cannot import from config
-        options = {"verbose": "print", "verbose_logs": "debug"}
+        options = {"verbose": "info", "verbose_logs": "debug"}
+
+    if not options:
+        # something failed or using shtab, fallback to 
+        options = {"verbose": "info", "verbose_logs": "debug"}
 
     table = {
         "verbose": (6, FormattedText.cyan),
