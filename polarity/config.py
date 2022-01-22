@@ -496,11 +496,11 @@ __defaults = {
     },
     "search": {
         # Absolute maximum for results
-        "results": 100,
+        "results": 50,
         # Maximum results per extractor
-        "results_per_extractor": 100,
+        "results_per_extractor": 20,
         # Maximum results per
-        "results_per_type": 100,
+        "results_per_type": 20,
         # Format for results
         # Default format: Title (Polarity content ID [extractor/type-id])
         # Default example: Pokémon (atresplayer/series-000000)
