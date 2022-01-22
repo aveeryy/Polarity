@@ -209,19 +209,19 @@ def send_android_notification(
     """
     Send an Android notification using Termux:API
     """
-    if not running_on_android() or not which("termux-notification"):
-        # Return if not running on an Android device, or if Termux-API is not installed
-        return
+    # if not running_on_android() or not which("termux-notification"):
+    #     # Return if not running on an Android device, or if Termux-API is not installed
+    #     return
     args = [
         "termux-notification",
         "-t",
-        title,
+        f"'{title}'",
         "-c",
-        contents,
+        f"'{contents}'",
         "-i",
-        id,
+        f"'{id}'",
         "--group",
-        group,
+        f"'{group}'",
     ]
 
     if action is not None:
