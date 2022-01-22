@@ -1,5 +1,7 @@
+import sys
+
 import tqdm
-from colorama import Fore
+from polarity.utils import FormattedText
 
 
 class ProgressBar(tqdm.tqdm):
@@ -20,7 +22,6 @@ class ProgressBar(tqdm.tqdm):
         mininterval=0.1,
         maxinterval=10,
         miniters=None,
-        ascii=None,
         disable=False,
         unit="it",
         unit_scale=False,
@@ -40,7 +41,7 @@ class ProgressBar(tqdm.tqdm):
         **kwargs,
     ):
         if head is not None:
-            desc = f"\033[1m{Fore.MAGENTA}[{head}]{Fore.RESET}\033[0m {desc}"
+            desc = f"{FormattedText.magenta}{FormattedText.bold}[{head}]{FormattedText.reset} {desc}"  # noqa
 
         super().__init__(
             iterable=iterable,
@@ -52,7 +53,7 @@ class ProgressBar(tqdm.tqdm):
             mininterval=mininterval,
             maxinterval=maxinterval,
             miniters=miniters,
-            ascii=ascii,
+            ascii=sys.platform == "win32",
             disable=disable,
             unit=unit,
             unit_scale=unit_scale,
