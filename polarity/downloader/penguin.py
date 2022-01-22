@@ -1,6 +1,5 @@
 import json
 import os
-from platform import platform
 import re
 import subprocess
 import sys
@@ -10,7 +9,7 @@ from dataclasses import asdict
 from random import choice
 from shutil import move
 from time import sleep
-from typing import Union, List, Tuple
+from typing import List, Tuple, Union
 from urllib.parse import unquote
 
 import cloudscraper
@@ -19,7 +18,7 @@ from polarity.downloader.base import BaseDownloader
 from polarity.downloader.protocols import ALL_PROTOCOLS, HTTPLiveStream, MPEGDASHStream
 from polarity.types import Episode, Movie, ProgressBar, Thread
 from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO, FFmpegCommand, FFmpegInput
-from polarity.types.stream import Segment, SegmentPool, Stream, ContentKey
+from polarity.types.stream import ContentKey, Segment, SegmentPool, Stream
 from polarity.utils import (
     browser,
     get_extension,
@@ -32,7 +31,7 @@ from polarity.utils import (
 from polarity.version import __version__ as polarity_version
 from requests.adapters import HTTPAdapter
 
-__version__ = "2022.01.21"
+__version__ = "2022.01.22"
 
 
 class PenguinDownloader(BaseDownloader):
@@ -53,17 +52,17 @@ class PenguinDownloader(BaseDownloader):
         # 'delete_merged_segments': True,
         "ffmpeg": {
             "codecs": {
-                "v": "copy",
-                "a": "copy",
+                "video": "copy",
+                "audio": "copy",
                 # Changing this is not recommended, specially with Crunchyroll
                 # since it uses SSA subtitles with styles, converting those to
                 # SRT will cause them to lose all formatting
                 # Instead make a codec rule with the source format's extension
                 # and the desired codec
-                "s": "copy",
+                "subtitles": "copy",
             },
             "codec_rules": {
-                ".vtt": [["s", "srt"]],
+                ".vtt": [["subtitles", "srt"]],
             },
         },
         "tweaks": {
@@ -385,6 +384,13 @@ class PenguinDownloader(BaseDownloader):
                     return
             ff_input.metadata[parent][child] = value
 
+        TRACK_COUNT = {
+            "unified": {VIDEO: 1, AUDIO: 1},
+            VIDEO: {VIDEO: 1},
+            AUDIO: {AUDIO: 1},
+            SUBTITLES: {SUBTITLES: 1},
+        }
+
         pool_extension = (
             pool.pool_type if pool.pool_type is not None else pool.get_ext_from_segment()
         )
@@ -393,7 +399,7 @@ class PenguinDownloader(BaseDownloader):
 
         ff_input = FFmpegInput(
             path=f"{self.temp_path}/{pool.id}{pool_extension}",
-            track_count=tracks,
+            track_count=TRACK_COUNT[pool.format],
             codecs=dict(self.options["penguin"]["ffmpeg"]["codecs"]),
             metadata={},
         )
@@ -425,7 +431,7 @@ class PenguinDownloader(BaseDownloader):
 
         def download_key(segment: Segment) -> None:
             vprint(f"~TEMP~ downloading key of segment {segment._id}", "debug")
-            key_contents = request_webpage(unquote(segment.key["video"].url))
+            key_contents = request_webpage(url=unquote(segment.key["video"].url))
 
             with open(f"{self.temp_path}/{pool.id}_{key_num}.key", "wb") as key_file:
                 key_file.write(key_contents.content)
