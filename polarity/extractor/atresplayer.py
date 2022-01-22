@@ -320,7 +320,7 @@ class AtresplayerExtractor(BaseExtractor):
             total_pages = page_json["pageInfo"]["totalPages"]
             for episode in page_json["itemRows"]:
                 e = Episode(title=episode["title"], id=episode["contentId"])
-                passes = self.check_episode(e)
+                passes = self.check_content(e)
                 if passes and not get_partial_episodes:
                     yield self.get_episode_info(episode_id=episode["contentId"])
                 elif passes and get_partial_episodes:
@@ -360,7 +360,7 @@ class AtresplayerExtractor(BaseExtractor):
         self._get_streams(episode)
 
         # Check if the episode needs to be downloaded
-        if not self.check_episode(episode=episode):
+        if not self.check_content(episode):
             episode.skip_download = lang["extractor"]["filter_check_fail"]
 
         return episode
@@ -490,7 +490,7 @@ class AtresplayerExtractor(BaseExtractor):
         return self.channel_info["sources"][0]["src"]
 
     def _search(self, term: str, maximum: int, max_per_type: int):
-        results = {Series: [], Season: [], Episode: []}
+        results = {Series: [], Season: [], Episode: [], Movie: []}
         for media_type, entity in ((Series, "ATPFormat"), (Episode, "ATPEpisode")):
             search_results = request_json(
                 url=self.API_URL + "client/v1/row/search",
