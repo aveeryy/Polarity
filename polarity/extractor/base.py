@@ -49,16 +49,6 @@ class BaseExtractor:
                 # Load the cookiejar
                 self.cjar.load(ignore_discard=True, ignore_expires=True)
 
-                if flags.LoginRequired in self.FLAGS and not self.is_logged_in():
-                    # Check if username and password has been passed in options
-                    username = (
-                        self.__opts["username"] if "username" in self.__opts else None
-                    )
-                    password = (
-                        self.__opts["password"] if "password" in self.__opts else None
-                    )
-                    self.login(username, password)
-
         self.unparsed_filters = filter_list
 
         # Dictionary containing what seasons and episodes to extract
@@ -86,6 +76,11 @@ class BaseExtractor:
         self.info._extracted = True
 
     def extract(self) -> Union[Series, Movie]:
+        if flags.LoginRequired in self.FLAGS and not self.is_logged_in():
+            # Check if username and password has been passed in options
+            username = self.__opts["username"] if "username" in self.__opts else None
+            password = self.__opts["password"] if "password" in self.__opts else None
+            self.login(username, password)
         self.extraction = True
         # Return if no URL is inputted
         if not self.url or self.url is None:
