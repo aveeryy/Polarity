@@ -42,6 +42,7 @@ from polarity.utils import (
     normalize_number,
     parse_content_id,
     sanitize_path,
+    send_android_notification,
     set_console_title,
     vprint,
 )
@@ -61,14 +62,16 @@ class Polarity:
         self,
         urls: list,
         opts: dict = None,
-        _verbose_level: int = None,
-        _logging_level: int = None,
+        _verbose_level: str = None,
+        _logging_level: str = None,
     ) -> None:
         """
         Polarity object
 
 
-        :param opts:
+        :param urls: urls/content identifiers if mode is download,
+        list of keywords if mode is search
+        :param opts: scripting options
         :param _verbose_level: override print verbose lvl
         :param _logging_level: override log verbose lvl
         """
@@ -474,8 +477,14 @@ class Polarity:
             while downloader.is_alive():
                 time.sleep(0.1)
 
-            # Download finished, add identifier to download log
             if downloader.success:
+                vprint(lang["dl"]["download_successful"] % item.short_name)
+                send_android_notification(
+                    "Polarity",
+                    lang["dl"]["download_successful"] % item.short_name,
+                    id=item.short_name,
+                )
+                # Download finished, add identifier to download log
                 self.__download_log.add(item.content_id)
 
     @staticmethod
