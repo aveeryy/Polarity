@@ -120,10 +120,10 @@ def vprint(
         return getattr(logging, level) if level != "verbose" else logging.debug
 
     try:
-        from polarity.config import verbose_level
+        from polarity.config import options
     except ImportError:
         # Set verbose levels to default if cannot import from config
-        verbose_level = {"print": "info", "log": "debug"}
+        options = {"verbose": "print", "verbose_logs": "debug"}
 
     table = {
         "verbose": (6, FormattedText.cyan),
@@ -142,7 +142,7 @@ def vprint(
     # example: [polarity/debug]
     head = build_head(level)
 
-    if table[level][0] <= table[verbose_level["print"]][0]:
+    if table[level][0] <= table[options["verbose"]][0]:
         # Print the message if level is equal or smaller
         tqdm.write(f"{head} {message}{FormattedText.reset}", end=end)
 
@@ -152,7 +152,7 @@ def vprint(
     logger = get_logger(level)
 
     # Log message if level is equal or smaller
-    if table[level][0] <= table[verbose_level["log"]][0]:
+    if table[level][0] <= table[options["verbose_logs"]][0]:
         logger(f"[{module_name}] {message}")
 
 
@@ -401,10 +401,12 @@ def parse_content_id(id: str) -> ContentIdentifier:
     >>> a.id
         '320430'
     """
+
+    from polarity.config import lang
     from polarity.types import str_to_type
 
     if not is_content_id(id):
-        vprint("~TEMP~ Failed to parse content identifier", level="error")
+        vprint(lang["polarity"]["not_a_content_id"] % id, level="error")
         return
     parsed_id = re.match(content_id_regex, id)
     extractor, _media_type, _id = parsed_id.groups()

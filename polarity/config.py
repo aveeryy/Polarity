@@ -89,12 +89,12 @@ def get_installed_languages() -> List[str]:
     return [strip_extension(f.name) for f in os.scandir(paths["lang"])]
 
 
-def change_verbose_level(new_level: int, change_print=True, change_log=False):
-    global verbose_level
+def change_verbose_level(new_level: str, change_print=True, change_log=False):
+    global options
     if change_print:
-        verbose_level["print"] = new_level
+        options["verbose"] = new_level
     if change_log:
-        verbose_level["log"] = new_level
+        options["print"] = new_level
 
 
 def change_paths(new_paths: dict):
@@ -203,10 +203,12 @@ def parse_arguments(get_parser=False) -> dict:
     general.add_argument(
         "-v",
         "--verbose",
+        choices=VALID_VERBOSE_LEVELS,
         help=lang_help["verbose"],
     )
     general.add_argument(
         "--log-verbose",
+        choices=VALID_VERBOSE_LEVELS,
         help=lang_help["verbose_log"],
     )
     general.add_argument(
@@ -426,6 +428,15 @@ __FORMATTER = HelpFormatter if "--extended-help" not in sys.argv else ExtendedFo
 __main_path = get_config_path()
 # Default base path for downloads
 __download_path = f"{get_home_path()}/Polarity Downloads/"
+VALID_VERBOSE_LEVELS = [
+    "quiet",
+    "critical",
+    "error",
+    "warning",
+    "info",
+    "debug",
+    "verbose",
+]
 
 # Default paths
 paths = {
@@ -513,7 +524,7 @@ __defaults = {
 
 # Predefine configuration variables
 lang = {}
-verbose_level = {"print": "info", "log": "debug"}
+options = {"verbose": "info", "verbose_logs": "debug"}
 
 lang = internal_lang
 
@@ -577,24 +588,23 @@ USAGE = lang["polarity"]["usage"]
 if get_argument_value(["-m", "--mode"]) == "live_tv":
     # Mode is set to one designed to output a parsable string
     # This is forced to 0 to avoid any status msg breaking any script
-    verbose_level["print"] = "quiet"
+    options["verbose"] = "quiet"
 elif any(a in sys.argv for a in ("-q", "--quiet")):
     # Quiet parameter passed,
-    verbose_level["print"] = "quiet"
+    options["verbose"] = "quiet"
 elif any(a in sys.argv for a in ("-v", "--verbose")):
     # Avoid collision with shtab --verbose argument
     if "shtab" not in sys.argv[0]:
-        verbose_level["print"] = get_argument_value(("-v", "--verbose"))
+        options["verbose"] = get_argument_value(("-v", "--verbose"))
 
 elif "verbose" in config:
-    verbose_level["print"] = config["verbose"]
+    options["verbose"] = config["verbose"]
 
 # Set logging verbosity level
 if "--log-verbose" in sys.argv:
-    verbose_level["log"] = get_argument_value("--log-verbose")
+    options["verbose_logs"] = get_argument_value("--log-verbose")
 elif "verbose_logs" in config:
-    verbose_level["log"] = config["verbose_logs"]
-
+    options["verbose_logs"] = config["verbose_logs"]
 # Part 3: Load options from the rest of command line arguments
 
 # Parse arguments

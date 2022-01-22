@@ -12,13 +12,13 @@ from tqdm import TqdmWarning
 
 from polarity.config import (
     USAGE,
+    VALID_VERBOSE_LEVELS,
     ConfigError,
     change_verbose_level,
     get_installed_languages,
     lang,
     options,
     paths,
-    verbose_level,
 )
 from polarity.downloader import PenguinDownloader
 from polarity.extractor import EXTRACTORS, flags
@@ -114,11 +114,12 @@ class Polarity:
         if _logging_level is not None:
             change_verbose_level(_logging_level, False, True)
 
-        # # Check if verbose level is valid
-        # if verbose_level["print"] not in range(0, 6) or verbose_level["log"] not in range(
-        #     0, 6
-        # ):
-        #     raise ConfigError(lang["polarity"]["except"]["verbose_error"] % verbose_level)
+        # Check if verbose level is valid
+        if (
+            options["verbose"] not in VALID_VERBOSE_LEVELS
+            or options["verbose_logs"] not in VALID_VERBOSE_LEVELS
+        ):
+            raise ConfigError(lang["polarity"]["except"]["verbose_error"] % verbose_level)
 
     def start(self):
         def create_tasks(name: str, _range: int, _target: object) -> List[Thread]:
