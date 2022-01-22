@@ -496,11 +496,11 @@ __defaults = {
     },
     "search": {
         # Absolute maximum for results
-        "max_results": 100,
+        "results": 100,
         # Maximum results per extractor
-        "max_results_per_extractor": 100,
+        "results_per_extractor": 100,
         # Maximum results per
-        "max_results_per_type": 100,
+        "results_per_type": 100,
         # Format for results
         # Default format: Title (Polarity content ID [extractor/type-id])
         # Default example: Pokémon (atresplayer/series-000000)
@@ -539,7 +539,7 @@ for arg, path_name in __path_arguments.items():
         os.makedirs(paths[path_name], exist_ok=True)
 
 # add binaries path to path environ variable
-os.environ["path"] += f"{':' if sys.platform != 'win32' else ';'}{paths['bin']}"
+os.environ["PATH"] += f"{':' if sys.platform != 'win32' else ';'}{paths['bin']}"
 
 # If config file is specified and does not exist, create it
 if paths["cfg"] and not os.path.exists(paths["cfg"]):
