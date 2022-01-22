@@ -202,7 +202,12 @@ class Polarity:
 
         elif options["mode"] == "search":
             search_string = " ".join(self.status["pool"])
-            results = self.search(search_string)
+            results = self.search(
+                search_string,
+                options["search"]["results"],
+                options["search"]["results_per_extractor"],
+                options["search"]["results_per_type"],
+            )
             for group, group_results in results.items():
                 for result in group_results:
                     print(
@@ -210,7 +215,7 @@ class Polarity:
                             n=result.name,
                             t=group,
                             i=result.id,
-                            I=result.get_content_id(),
+                            I=result.content_id,
                             u=result.url,
                         )
                     )
@@ -268,7 +273,7 @@ class Polarity:
             e for e in EXTRACTORS.items() if flags.EnableSearch in e[1].FLAGS
         ]
         # Create an empty dictionary for the results
-        results = {Series: [], Season: [], Episode: []}
+        results = {Series: [], Season: [], Episode: [], Movie: []}
 
         for _, extractor in compatible_extractors:
             # Current extractor results added to list
@@ -293,11 +298,11 @@ class Polarity:
             return
         return extractors[parsed_id.extractor].get_live_tv_stream(parsed_id.id)
 
-    def dump_information(self) -> None:
+    def dump_information(self, info: list) -> None:
         "Dump requested debug information to current directory"
         dump_time = filename_datetime()
 
-        if "options" in options["dump"]:
+        if "options" in info:
             vprint(lang["polarity"]["dump_options"], "debug")
             with open(
                 f'{paths["log"]}/options_{dump_time}.json', "w", encoding="utf-8"
