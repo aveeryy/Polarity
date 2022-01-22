@@ -159,7 +159,7 @@ class PenguinDownloader(BaseDownloader):
 
     def save_resume_stats(self) -> None:
         if os.path.exists(f"{self.temp_path}_stats.json"):
-            if sys.platform == "win32":
+            if os.path.exists(f"{self.temp_path}_stats.json.old"):
                 os.remove(f"{self.temp_path}_stats.json.old")
             os.rename(f"{self.temp_path}_stats.json", f"{self.temp_path}_stats.json.old")
         with open(f"{self.temp_path}_stats.json", "w") as f:
