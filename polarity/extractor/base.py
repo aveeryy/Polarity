@@ -247,6 +247,7 @@ class BaseExtractor:
         for cookie in cookies:
             if filter_list is not None and cookie.name in filter_list:
                 self.cjar.set_cookie(cookie=cookie)
+        self.cjar.save(ignore_discard=True, ignore_expires=True)
 
     @_has_cookiejar
     def cookie_exists(self, cookie_name: str) -> bool:
