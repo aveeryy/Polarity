@@ -442,6 +442,7 @@ class PenguinDownloader(BaseDownloader):
             with open(f"{self.temp_path}/{pool.id}_{key_num}.key", "wb") as key_file:
                 key_file.write(key_contents.content)
 
+        s = "/" if sys.platform != "win32" else "\\"
         last_key = None
         key_num = 0
         # Playlist header
@@ -458,7 +459,9 @@ class PenguinDownloader(BaseDownloader):
             if segment.key != last_key and segment.key is not None:
                 if segment.key["video"] is not None:
                     last_key = segment.key
-                    key_path = f"{self.temp_path}/{pool.id}_{key_num}.key"
+                    key_path = f"{self.temp_path}{s}{pool.id}_{key_num}.key"
+                    if sys.platform == "win32":
+                        key_path = key_path.replace("\\", "\\\\")
                     playlist += f'#EXT-X-KEY:METHOD={segment.key["video"].method},URI="{key_path}"\n'  # noqa: E501
                     # Download the key
                     download_key(segment)
