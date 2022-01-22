@@ -325,7 +325,7 @@ class PenguinDownloader(BaseDownloader):
         for prot in ALL_PROTOCOLS:
             if not get_extension(stream.url) in prot.SUPPORTED_EXTENSIONS:
                 continue
-            vprint(f"~TEMP~ stream {stream.id}, protocol: {prot.__name__}")
+            vprint(f"~TEMP~ stream {stream.id}, protocol: {prot.__name__}", "debug")
             processed = prot(stream=stream, options=self.options).extract()
             for pool in processed["segment_pools"]:
                 self.output_data["total_segments"] += len(pool.segments)
@@ -375,6 +375,8 @@ class PenguinDownloader(BaseDownloader):
                 ff_input.metadata[parent] = {}
             if value is None or not value:
                 return
+            elif type(value) is list:
+                value = value.pop(0)
             elif type(value) is dict:
                 if parent in value:
                     value = value[parent]
@@ -382,6 +384,10 @@ class PenguinDownloader(BaseDownloader):
                     value = value[pool.track_id]
                 else:
                     return
+                # check if value is now a list
+                if type(value) is list:
+                    value = value.pop(0)
+
             ff_input.metadata[parent][child] = value
 
         TRACK_COUNT = {
