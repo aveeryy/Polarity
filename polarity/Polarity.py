@@ -229,9 +229,16 @@ class Polarity:
             )
             for group, group_results in results.items():
                 for result in group_results:
+                    name = result.name
+                    if (
+                        options["search"]["trim_names"] > 0
+                        and len(name) > options["search"]["trim_names"]
+                    ):
+                        name = f"{name[:options['search']['trim_names']]}..."
+
                     print(
                         options["search"]["result_format"].format(
-                            n=result.name,
+                            n=name,
                             t=group,
                             i=result.id,
                             I=result.content_id,

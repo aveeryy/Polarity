@@ -62,12 +62,12 @@ class AtresplayerExtractor(BaseExtractor):
         },
         {
             "args": ["--atresplayer-email"],
-            "attrib": {},
+            "attrib": {"help": lang["args"]["help"]["email"]},
             "variable": "username",
         },
         {
             "args": ["--atresplayer-password"],
-            "attrib": {},
+            "attrib": {"help": lang["args"]["help"]["pass"]},
             "variable": "password",
         },
     ]
