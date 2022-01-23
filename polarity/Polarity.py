@@ -2,6 +2,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import sys
 import time
 import warnings
@@ -12,8 +13,6 @@ from tqdm import TqdmWarning
 
 from polarity.config import (
     USAGE,
-    VALID_VERBOSE_LEVELS,
-    ConfigError,
     change_verbose_level,
     get_installed_languages,
     lang,
@@ -155,6 +154,9 @@ class Polarity:
                 print(f"{lang['polarity']['use']}{USAGE}\n")
                 print(lang["polarity"]["use_help"])
                 os._exit(1)
+
+            if not shutil.which("ffmpeg"):
+                raise Exception(lang["polarity"]["except"]["missing_ffmpeg"])
 
             self.pool = [
                 {"url": url, "filters": [], "reserved": False} for url in self.urls
