@@ -11,6 +11,7 @@ from datetime import datetime
 from json.decoder import JSONDecodeError
 from shutil import which
 from sys import platform
+from tabnanny import check
 from time import time
 from typing import List, Tuple, Union
 from urllib.parse import urlparse
@@ -25,7 +26,6 @@ from tqdm import tqdm
 from urllib3.util.retry import Retry
 
 browser = {"browser": "firefox", "platform": "windows", "mobile": False}
-dump_requests = False
 retry_config = Retry(
     total=5, backoff_factor=0.5, status_forcelist=[502, 504, 504, 403, 404]
 )
@@ -38,6 +38,8 @@ scraper.mount("https://", HTTPAdapter(max_retries=retry_config))
 # https://stackoverflow.com/questions/38015537
 requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += "HIGH:!DH:!aNULL"
 
+dump_requests = False
+vprint_failed_to_print = False
 
 ##########################
 #  Printing and logging  #
@@ -108,6 +110,8 @@ def vprint(
     >>>
     """
 
+    global vprint_failed_to_print
+
     def build_head(level: str) -> str:
         string = f"{FormattedText.bold}{table[level][1]}[{module_name}"
         if level != "info":
@@ -119,15 +123,37 @@ def vprint(
     def get_logger(level: str):
         return getattr(logging, level) if level != "verbose" else logging.debug
 
+    checks_disabled = False
+
     try:
-        from polarity.config import options
-    except ImportError:
+        from polarity.config import options, VALID_VERBOSE_LEVELS, ConfigError, lang
+
+    except ImportError as ex:
+        # warn the user using poor man's vprint
+        if not vprint_failed_to_print:
+            print(f"[vprint/critical] failed to import from polarity.config: {ex}")
+            print("[vprint/critical] falling back to default configuration")
+            vprint_failed_to_print = True
         # Set verbose levels to default if cannot import from config
-        options = {"verbose": "info", "verbose_logs": "debug"}
+        options = {"verbose": "debug", "verbose_logs": "debug"}
+        # since VALID_VERBOSE_LEVELS and ConfigError could not be imported
+        # and using fallback config, do not check if verbose level is valid
+        checks_disabled = True
 
     if not options:
-        # something failed or using shtab, fallback to 
-        options = {"verbose": "info", "verbose_logs": "debug"}
+        # using shtab, fallback to quiet
+        options = {"verbose": "quiet", "verbose_logs": "quiet"}
+
+    # Check if verbose level is valid
+    if options["verbose"] not in VALID_VERBOSE_LEVELS and not checks_disabled:
+        raise ConfigError(
+            lang["polarity"]["except"]["verbose_error"] % options["verbose"]
+        )
+    # Check if verbose logs level is valid
+    elif options["verbose_logs"] not in VALID_VERBOSE_LEVELS and not checks_disabled:
+        raise ConfigError(
+            lang["polarity"]["except"]["verbose_log_error"] % options["verbose_logs"]
+        )
 
     table = {
         "verbose": (6, FormattedText.cyan),

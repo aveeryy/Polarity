@@ -84,7 +84,10 @@ internal_lang = {
         "use_help": "use --help to display all options",
         "use": "usage: ",
         "using_version": "Polarity %s",
-        "except": {"verbose_error": "invalid verbose level: %s"},
+        "except": {
+            "verbose_error": "invalid verbose level: %s",
+            "verbose_log_error": "invalid verbose log level: %s",
+        },
     },
     "singularity": {
         "extracting_keys": "extracting: keys",
