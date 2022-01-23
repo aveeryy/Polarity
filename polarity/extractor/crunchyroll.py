@@ -124,13 +124,13 @@ class CrunchyrollExtractor(BaseExtractor):
         },
         {
             "args": ["--crunchyroll-email"],
-            "attrib": {"help": lang["crunchyroll"]["args"]["email"]},
+            "attrib": {"help": lang["args"]["help"]["email"]},
             "variable": "username",
         },
         {
             "args": ["--crunchyroll-password"],
             "attrib": {
-                "help": lang["crunchyroll"]["args"]["pass"],
+                "help": lang["args"]["help"]["pass"],
             },
             "variable": "password",
         },

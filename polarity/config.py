@@ -248,6 +248,12 @@ def parse_arguments(get_parser=False) -> dict:
 
     # Search options
     search = parser.add_argument_group(title=lang_group["search"])
+    search.add_argument(
+        "--search-format", dest="result_format", help=lang_help["format_search"]
+    )
+    search.add_argument(
+        "--search-trim", type=int, dest="trim_names", help=lang_help["results_trim"]
+    )
     search.add_argument("--results", type=int, help=lang_help["max_results"])
     search.add_argument(
         "--results-per-extractor",
@@ -512,6 +518,9 @@ __defaults = {
         "results_per_extractor": 20,
         # Maximum results per
         "results_per_type": 20,
+        # Trim results' name to value of this
+        # -1 or 0 to disable
+        "trim_names": -1,
         # Format for results
         # Default format: Title (Polarity content ID [extractor/type-id])
         # Default example: Pokémon (atresplayer/series-000000)
