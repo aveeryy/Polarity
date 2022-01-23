@@ -76,7 +76,7 @@ class BaseExtractor:
         # predefine hook variables
         hook_main_content = False
         while self._extractor.is_alive():
-            if self.info.title and not hook_main_content:
+            if hasattr(self, "info") and self.info.title and not hook_main_content:
                 # Extracted main content* hook
                 # *Series and Movie objects
                 self.__execute_hooks(
@@ -98,7 +98,7 @@ class BaseExtractor:
             hook_function(contents)
 
     def extract(self) -> Union[Series, Movie]:
-        if flags.LoginRequired in self.FLAGS and not self.is_logged_in():
+        if flags.ExtractionLoginRequired in self.FLAGS and not self.is_logged_in():
             # Check if username and password has been passed in options
             username = self.__opts["username"] if "username" in self.__opts else None
             password = self.__opts["password"] if "password" in self.__opts else None
@@ -324,10 +324,14 @@ class BaseExtractor:
     def login(self, username: str = None, password: str = None) -> bool:
         if not hasattr(self, "_login") or flags.AccountCapabilities not in self.FLAGS:
             return True
-        if username is None:
+        if username is None and "username" not in self.__opts:
             username = input(lang["extractor"]["base"]["email_prompt"])
-        if password is None:
+        elif username is None and "username" in self.__opts:
+            username = self.__opts["username"]
+        if password is None and "password" not in self.__opts:
             password = getpass(lang["extractor"]["base"]["password_prompt"])
+        elif password is None and "password" in self.__opts:
+            password = self.__opts["password"]
         return self._login(username=username, password=password)
 
     def search(
