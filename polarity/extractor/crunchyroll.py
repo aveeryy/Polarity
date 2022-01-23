@@ -859,6 +859,8 @@ class CrunchyrollExtractor(BaseExtractor):
                     url=build_url(result["id"], media_type),
                     extractor=self.extractor_name,
                 )
+                if media_type == Episode:
+                    parsed_result.name = f"{result['episode_metadata']['series_title']} - {parsed_result.name}"
                 # Add parsed result to respective list
                 results[media_type].append(parsed_result)
                 parsed_items += 1

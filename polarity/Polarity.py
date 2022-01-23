@@ -159,12 +159,32 @@ class Polarity:
                 raise Exception(lang["polarity"]["except"]["missing_ffmpeg"])
 
             self.pool = [
-                {"url": url, "filters": [], "reserved": False} for url in self.urls
+                {
+                    "url": url,
+                    "filters": [],
+                    "reserved": False,
+                    "extractor": get_compatible_extractor(url),
+                }
+                for url in self.urls
             ]
+
+            for item in self.pool:
+                # check if item's extractor requires login, if yes,
+                # ask user for login here, otherwise if more than one url
+                # is inputted the email and password prompts would collide one
+                # with eachother
+                if (
+                    flags.ExtractionLoginRequired in item["extractor"][1].FLAGS
+                    and not item["extractor"][1]().is_logged_in()
+                ):
+                    vprint(f"{item['extractor'][0]} requires login")
+                    # login into the extractor
+                    item["extractor"][1]().login()
 
             if options["filters"]:
                 self.process_filters(filters=options["filters"])
 
+            # create tasks
             tasks = {
                 "extraction": create_tasks(
                     "Extraction",

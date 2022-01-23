@@ -60,12 +60,22 @@ class AtresplayerExtractor(BaseExtractor):
             },
             "variable": "codec",
         },
+        {
+            "args": ["--atresplayer-email"],
+            "attrib": {},
+            "variable": "username",
+        },
+        {
+            "args": ["--atresplayer-password"],
+            "attrib": {},
+            "variable": "password",
+        },
     ]
 
     FLAGS = {
         flags.VideoExtractor,
         flags.AccountCapabilities,
-        flags.LoginRequired,
+        flags.ExtractionLoginRequired,
         flags.EnableLiveTV,
         flags.EnableSearch,
     }
@@ -507,8 +517,11 @@ class AtresplayerExtractor(BaseExtractor):
                         self.extractor_name,
                     )
                     results[media_type].append(result)
+                    if media_type == Episode:
+                        result.name = f"{item['subTitle']} - {result.name}"
                     if sum([len(t) for t in results.values()]) >= maximum and maximum > 0:
                         break
+
             else:
                 vprint(
                     lang["extractor"]["search_no_results"] % (media_type, term),
