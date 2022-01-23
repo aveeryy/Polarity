@@ -85,6 +85,7 @@ internal_lang = {
         "use": "usage: ",
         "using_version": "Polarity %s",
         "except": {
+            "missing_ffmpeg": "ffmpeg is not installed or not in PATH",
             "verbose_error": "invalid verbose level: %s",
             "verbose_log_error": "invalid verbose log level: %s",
         },
