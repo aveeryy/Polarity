@@ -101,7 +101,7 @@ class HTTPLiveStream(StreamProtocol):
                     media_type=pool,
                     duration=None,
                     key=None,
-                    group=f"{pool}{self.processed_tracks[pool - 1]}",
+                    group=f"{pool}{self.processed_tracks[pool] - 1}",
                     byte_range=None,
                 )
             )
