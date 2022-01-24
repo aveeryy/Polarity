@@ -105,12 +105,12 @@ class PenguinDownloader(BaseDownloader):
         # Convert segment pools to dictionaries
         data["segment_pools"] = [asdict(p) for p in data["segment_pools"]]
         data["inputs"] = [asdict(p) for p in data["inputs"]]
-        with open(f"{self.temp_path}_pools.json", "w") as f:
+        with open(f"{self.temp_path}/pools.json", "w") as f:
             # Save to file
             json.dump(data, f, indent=4)
 
     def load_output_data(self) -> dict:
-        with open(f"{self.temp_path}_pools.json", "r") as f:
+        with open(f"{self.temp_path}/pools.json", "r") as f:
             # Load the output data from the file
             try:
                 output = json.load(f)
@@ -158,15 +158,15 @@ class PenguinDownloader(BaseDownloader):
         return output
 
     def save_resume_stats(self) -> None:
-        if os.path.exists(f"{self.temp_path}_stats.json"):
-            if os.path.exists(f"{self.temp_path}_stats.json.old"):
-                os.remove(f"{self.temp_path}_stats.json.old")
-            os.rename(f"{self.temp_path}_stats.json", f"{self.temp_path}_stats.json.old")
-        with open(f"{self.temp_path}_stats.json", "w") as f:
+        if os.path.exists(f"{self.temp_path}/stats.json"):
+            if os.path.exists(f"{self.temp_path}/stats.json.old"):
+                os.remove(f"{self.temp_path}/stats.json.old")
+            os.rename(f"{self.temp_path}/stats.json", f"{self.temp_path}/stats.json.old")
+        with open(f"{self.temp_path}/stats.json", "w") as f:
             json.dump(self.resume_stats, f, indent=4)
 
     def load_resume_stats(self, use_backup=False) -> dict:
-        path = f"{self.temp_path}_stats.json"
+        path = f"{self.temp_path}/stats.json"
         if use_backup:
             path += ".old"
         with open(path, "rb") as f:
@@ -213,20 +213,20 @@ class PenguinDownloader(BaseDownloader):
         self.options["penguin"]["segment_downloaders"] = int(
             self.options["penguin"]["segment_downloaders"]
         )
-        if os.path.exists(f"{self.temp_path}_pools.json"):
+        if os.path.exists(f"{self.temp_path}/pools.json"):
             # Open resume file
             output_data = self.load_output_data()
             if output_data is None:
                 vprint(lang["penguin"]["output_file_broken"], "error", "penguin")
                 # Remove the file
-                os.remove(f"{self.temp_path}_pools.json")
+                os.remove(f"{self.temp_path}/pools.json")
             elif type(output_data) is dict:
                 vprint(
                     lang["penguin"]["resuming"] % self.content["name"],
                     module_name="penguin",
                 )
                 self.output_data = output_data
-        if not os.path.exists(f"{self.temp_path}_pools.json"):
+        if not os.path.exists(f"{self.temp_path}/pools.json"):
             for stream in self.streams:
                 self.process_stream(stream)
 
@@ -236,7 +236,7 @@ class PenguinDownloader(BaseDownloader):
         # Make a copy of the segment pools
         # Legacy stuff
         self.segment_pools = deepcopy(self.output_data["segment_pools"])
-        if os.path.exists(f"{self.temp_path}_stats.json"):
+        if os.path.exists(f"{self.temp_path}/stats.json"):
             self.resume_stats = self.load_resume_stats()
 
         # Create segment downloaders
@@ -297,16 +297,10 @@ class PenguinDownloader(BaseDownloader):
             sleep(0.1)
         self.remux_bar.close()
         move(f"{self.temp_path}.mkv", f"{self.output}.mkv")
-        # Remove segments
+        # Remove temporal files
         for file in os.scandir(f'{paths["tmp"]}{self.content["sanitized"]}'):
             os.remove(file.path)
-
-        # Remove temporal files
         os.rmdir(f"{self.temp_path}")
-        os.remove(f"{self.temp_path}_stats.json")
-        os.remove(f"{self.temp_path}_stats.json.old")
-        os.remove(f"{self.temp_path}_pools.json")
-        os.remove(f"{self.temp_path}_ffmpeg.txt")
 
         self.success = True
 
@@ -516,10 +510,10 @@ class PenguinDownloader(BaseDownloader):
             total=self.resume_stats["downloaded_bytes"],
         )
         # Wait until file is created
-        while not os.path.exists(f"{self.temp_path}_ffmpeg.txt"):
+        while not os.path.exists(f"{self.temp_path}/ffmpeg.txt"):
             sleep(0.5)
         while stats["progress"] == "continue":
-            with open(f"{self.temp_path}_ffmpeg.txt", "r") as f:
+            with open(f"{self.temp_path}/ffmpeg.txt", "r") as f:
                 try:
                     # Read the last 15 lines
                     data = f.readlines()[-15:]
@@ -552,7 +546,7 @@ class PenguinDownloader(BaseDownloader):
                 "-metadata",
                 f"encoding_tool=Polarity {polarity_version} with Penguin {__version__}",
                 "-progress",
-                f"{self.temp_path}_ffmpeg.txt",
+                f"{self.temp_path}/ffmpeg.txt",
             ],
         )
 
