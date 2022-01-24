@@ -8,6 +8,7 @@ import time
 import warnings
 from threading import Lock
 from typing import Union, List, Tuple, Dict
+import tomli
 
 from tqdm import TqdmWarning
 
@@ -51,6 +52,8 @@ from polarity.update import (
     windows_setup,
 )
 from polarity.version import __version__
+
+from polarity.utils import FormattedText as FT
 
 
 warnings.filterwarnings("ignore", category=TqdmWarning)
@@ -130,6 +133,19 @@ class Polarity:
         # Then, install new languages
         if options["install_languages"]:
             language_install(options["install_languages"])
+
+        if options["installed_languages"]:
+            installed = get_installed_languages()
+            if not installed:
+                vprint("~temp~ no languages installed", "error")
+                os._exit(1)
+            for _lang in get_installed_languages():
+                with open(f'{paths["lang"]}{_lang}.toml', "r") as lf:
+                    loaded = tomli.load(lf)
+                    print(f"* {FT.bold}{loaded['name']}{FT.reset}", end=" ")
+                    print(f"[{loaded['code']}]", end=" ")
+                    print(f"by {loaded['author']}")
+            os._exit(0)
 
         # Windows dependency install
         if options["windows_setup"]:
