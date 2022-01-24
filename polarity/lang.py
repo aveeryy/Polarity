@@ -45,7 +45,7 @@ internal_lang = {
             "format_series": "formatting for tv series' directories",
             "format_search": "formatting for search results",
             "help": "shows help",
-            "language": "identifier of the language to load",
+            "language": "load specified language",
             "max_results": "maximum number of results",
             "max_results_per_extractor": "maximum number of results per extractor",
             "max_results_per_type": "maximum number of results per media type",
