@@ -139,12 +139,14 @@ class Polarity:
             if not installed:
                 vprint("~temp~ no languages installed", "error")
                 os._exit(1)
+            print(f"{FT.bold}{lang['polarity']['installed_languages']}{FT.reset}")
             for _lang in get_installed_languages():
                 with open(f'{paths["lang"]}{_lang}.toml', "r") as lf:
                     loaded = tomli.load(lf)
-                    print(f"* {FT.bold}{loaded['name']}{FT.reset}", end=" ")
-                    print(f"[{loaded['code']}]", end=" ")
-                    print(f"by {loaded['author']}")
+                    name = f"{FT.bold}{loaded['name']}{FT.reset}"
+                    print(
+                        f"* {lang['polarity']['language_format'] % (name, loaded['code'], loaded['author'],)}"
+                    )
             os._exit(0)
 
         # Windows dependency install
