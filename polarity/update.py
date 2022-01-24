@@ -69,11 +69,11 @@ def language_install(language_list: list):
         vprint(f"Installing language {lang}", "debug", "update")
         with open(paths["lang"] + f"{lang}.toml", "wb") as f:
             f.write(response.content)
-        vprint(f"Language {lang} written to file", "debug", "update", "debug")
+        vprint(f"Language {lang} written to file", "debug", "update")
     if failed:
         vprint("Language installer finished with warnings", "warning" "update")
     else:
-        vprint("All languages installed successfully", "update")
+        vprint("All languages installed successfully", module_name="update")
     # After install reload the language strings
     from polarity.config import change_language, lang_code
 
