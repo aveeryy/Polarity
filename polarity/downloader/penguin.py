@@ -73,8 +73,15 @@ class PenguinDownloader(BaseDownloader):
         },
     }
 
-    def __init__(self, item: Union[Episode, Movie], _options=None) -> None:
-        super().__init__(item, _options=_options)
+    _SIGNAL = {}
+
+    def __init__(
+        self,
+        item: Union[Episode, Movie],
+        _options=None,
+        __stack_id: int = 0,
+    ) -> None:
+        super().__init__(item, __stack_id, _options=_options)
 
         self.segment_downloaders = []
 
@@ -96,8 +103,6 @@ class PenguinDownloader(BaseDownloader):
             "total_bytes": 0,
             "segments_downloaded": [],
         }
-
-        self.indexes = {"video": 0, "audio": 0, "subtitles": 0, "files": 0}
 
     def save_output_data(self) -> None:
         # Clone the output data dictionary
@@ -248,9 +253,7 @@ class PenguinDownloader(BaseDownloader):
         )
         for i in range(self.options["penguin"]["segment_downloaders"]):
             sdl_name = f"{threading.current_thread().name}/sdl{i}"
-            sdl = threading.Thread(
-                target=self.segment_downloader, name=sdl_name, daemon=True
-            )
+            sdl = Thread(target=self.segment_downloader, name=sdl_name, daemon=True)
             self.segment_downloaders.append(sdl)
             sdl.start()
 
@@ -315,11 +318,13 @@ class PenguinDownloader(BaseDownloader):
     def process_stream(self, stream: Stream) -> None:
         if not stream.preferred:
             return
-        vprint(f"~TEMP~ processing stream: {stream.id}", "debug", "penguin")
+        vprint(lang["penguin"]["processing_stream"] % stream.id, "debug", "penguin")
         for prot in ALL_PROTOCOLS:
             if not get_extension(stream.url) in prot.SUPPORTED_EXTENSIONS:
                 continue
-            vprint(f"~TEMP~ stream {stream.id}, protocol: {prot.__name__}", "debug")
+            vprint(
+                lang["penguin"]["stream_protocol"] % (prot.__name__, stream.id), "debug"
+            )
             processed = prot(stream=stream, options=self.options).extract()
             for pool in processed["segment_pools"]:
                 self.output_data["total_segments"] += len(pool.segments)
@@ -430,7 +435,7 @@ class PenguinDownloader(BaseDownloader):
         """
 
         def download_key(segment: Segment) -> None:
-            vprint(f"~TEMP~ downloading key of segment {segment._id}", "debug")
+            vprint(lang["penguin"]["key_download"] % segment._id, "debug")
             key_contents = request_webpage(url=unquote(segment.key["video"].url))
 
             with open(f"{self.temp_path}/{pool.id}_{key_num}.key", "wb") as key_file:
@@ -620,7 +625,7 @@ class PenguinDownloader(BaseDownloader):
                     thread_vprint(
                         message=lang["penguin"]["segment_skip"]
                         % f"{segment.group}_{segment.number}",
-                        module_name="penguin",
+                        module_name=thread_name,
                         level="verbose",
                         lock=self.thread_lock,
                     )
@@ -649,11 +654,12 @@ class PenguinDownloader(BaseDownloader):
                             )
                         # TODO: available space checks
                         # TODO: better exception handling
-                        except BaseException as e:
+                        except BaseException as ex:
                             thread_vprint(
-                                f"~TEMP~ Exception in download of segment {segment._id}: {e}",
+                                lang["penguin"]["except"]["download_fail"]
+                                % (segment._id, ex),
                                 module_name=thread_name,
-                                level="error",
+                                level="exception",
                                 lock=self.thread_lock,
                             )
                             sleep(0.5)
@@ -728,8 +734,8 @@ class PenguinDownloader(BaseDownloader):
                         thread_vprint(
                             lang["penguin"]["segment_downloaded"]
                             % (f"{segment.group}_{segment.number}"),
-                            level="debug",
-                            module_name="penguin",
+                            level="verbose",
+                            module_name=thread_name,
                             lock=self.thread_lock,
                         )
 

@@ -7,8 +7,13 @@ import os
 
 
 class BaseDownloader(Thread):
-    def __init__(self, item: Union[Episode, Movie], _options=None) -> None:
-        super().__init__(thread_type="Downloader")
+    def __init__(
+        self,
+        item: Union[Episode, Movie],
+        _options: dict = None,
+        __stack_id: int = 0,
+    ) -> None:
+        super().__init__(thread_type="Downloader", stack_id=__stack_id)
         from polarity.config import options, paths
 
         self.streams = item.streams
@@ -22,6 +27,7 @@ class BaseDownloader(Thread):
         self.output = item.output
         self.temp_path = f'{paths["tmp"]}{self.content["sanitized"]}'
         self.success = False
+        self._thread_id = __stack_id
 
     def _start(self) -> None:
         path, _ = os.path.split(self.output)
