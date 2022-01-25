@@ -14,7 +14,11 @@ from polarity.utils import dict_merge, mkfile, vprint
 
 class BaseExtractor:
     def __init__(
-        self, url: str = "", filter_list: list = None, options: dict = None
+        self,
+        url: str = "",
+        filter_list: list = None,
+        options: dict = None,
+        __stack_id: int = 0,
     ) -> None:
 
         from polarity.config import options as user_options
@@ -26,6 +30,7 @@ class BaseExtractor:
         self._seasons = {}
         # List containing subextractors
         self._workers = []
+        self.__stack_id = __stack_id
 
         options = {self.extractor_name.lower(): {}} if options is None else options
         self.hooks = options.pop("hooks", {})
@@ -110,10 +115,10 @@ class BaseExtractor:
             raise ExtractorError(lang["extractor"]["except"]["no_url"])
         # Create a thread to execute the extraction function in the background
         self._extractor = Thread(
-            "__Extraction_Executor", target=self._extract, daemon=True
+            "__Extraction_Executor", self.__stack_id, target=self._extract, daemon=True
         )
         _watchdog_thread = Thread(
-            "__Extraction_Watchdog", target=self._watchdog, daemon=True
+            "__Extraction_Watchdog", self.__stack_id, target=self._watchdog, daemon=True
         )
         # start the threads
         self._extractor.start()

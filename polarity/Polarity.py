@@ -119,8 +119,10 @@ class Polarity:
     def start(self):
         def create_tasks(name: str, _range: int, _target: object) -> List[Thread]:
             tasks = []
-            for _ in range(_range):
-                t = Thread(f"{name}_Task", target=_target, daemon=True)
+            for i in range(_range):
+                t = Thread(
+                    f"{name}_Task", i, target=_target, kwargs={"id": i}, daemon=True
+                )
                 tasks.append(t)
             return tasks
 
@@ -137,7 +139,9 @@ class Polarity:
         if options["installed_languages"]:
             installed = get_installed_languages()
             if not installed:
-                vprint("~temp~ no languages installed", "error")
+                # since no languages are installed there's no need to
+                # load this string from lang
+                vprint("no languages installed", "error")
                 os._exit(1)
             print(f"{FT.bold}{lang['polarity']['installed_languages']}{FT.reset}")
             for _lang in get_installed_languages():
@@ -419,9 +423,7 @@ class Polarity:
         for hook in options["hooks"][name]:
             hook(content)
 
-    def _extract_task(
-        self,
-    ) -> None:
+    def _extract_task(self, id: int) -> None:
         def take_item() -> Union[dict, None]:
             with self.__extract_lock:
                 available = [i for i in self.pool if not i["reserved"]]
@@ -480,7 +482,7 @@ class Polarity:
                 "finished_extraction", {"extractor": name, "name": item["url"]}
             )
 
-    def _download_task(self) -> None:
+    def _download_task(self, id: int) -> None:
         while True:
             if not self.download_pool and self.status["extraction"]["finished"]:
                 break
@@ -508,9 +510,10 @@ class Polarity:
 
             vprint(lang["dl"]["downloading_content"] % (item.short_name, item.title))
 
-            # ~TEMP~ Set the downloader to Penguin
+            # Set the downloader to Penguin
+            # TODO: external downloader support
             _downloader = PenguinDownloader
-            downloader = _downloader(item=item)
+            downloader = _downloader(item=item, __stack_id=id)
             downloader.start()
 
             while downloader.is_alive():

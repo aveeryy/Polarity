@@ -1,10 +1,16 @@
 import threading
+from typing import Union
 
 
 class Thread(threading.Thread):
-    def __init__(self, thread_type=None, *args, **kwargs) -> None:
+    def __init__(
+        self, thread_type: str = None, stack_id: Union[str, int] = None, *args, **kwargs
+    ) -> None:
         if "name" not in kwargs:
-            kwargs["name"] = thread_type
+            kwargs["name"] = thread_type.lower()
+            if stack_id is not None:
+                kwargs["name"] += f"-{stack_id}"
+
         self.type = thread_type if thread_type is not None else "Base"
         super().__init__(*args, **kwargs)
 
