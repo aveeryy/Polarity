@@ -162,6 +162,7 @@ def vprint(
         "warning": (3, FormattedText.yellow),
         "error": (2, FormattedText.red),
         "critical": (1, FormattedText.red),
+        "exception": (1, FormattedText.red),
         "quiet": (-8, None),
     }
 
