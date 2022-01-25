@@ -114,9 +114,11 @@ internal_lang = {
         "debug_time_download": "segment download took: %s",
         "debug_time_remux": "remux took: %s",
         "incompatible_stream": "incompatible stream: %s",
+        "key_download": "downloading: key of segment %s",
         # Output file
         "output_file_broken": "failed to load output data file, recreating",
         # Resume file
+        "processing_stream": "processing stream: %s",
         "resume_file_backup_broken": "error: failed to load backup of resume data, recreating",
         "resume_file_broken": "error: failed to load resume data file, using backup",
         "resume_file_recreation": "recreating: resume data",
@@ -125,12 +127,14 @@ internal_lang = {
         "segment_retry": "failed: segment %s download",
         "segment_skip": "skipping: segment %s",
         "segment_start": "start: download of segment %s",
+        "stream_protocol": "using: protocol %s for stream %s",
         "thread_started": 'start: downloader "%s"',
         "threads_started": "start: %d download threads",
         "args": {
             "ffmpeg_codec": "Postprocessing codification settings",
             "segment_downloaders": "number of threads per download",
         },
+        "except": {"download_fail": "failed to download segment %s: %s"},
         "protocols": {
             "getting_playlist": "parsing: playlist",
             "getting_stream": "parsing: streams",
