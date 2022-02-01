@@ -43,6 +43,8 @@ def main(module: str) -> None:
     )
     if response in ("Y", "y", ""):
         bump_version(current[module][1], current[module][0], new_version)
+        if module == "polarity":
+            bump_version("../setup.cfg", current[module][0], new_version)
         print("bumped!")
         return True
     return False
