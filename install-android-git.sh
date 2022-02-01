@@ -1,11 +1,21 @@
 # Polarity installation script for Android
-# Installs the latest commit from the stable (main) branch
+# Installs from the latest commit of the branch specified
+# Defaults to main branch
 # Requires Termux to be installed
 
-VERSION='2021.10.25 (git)'
-REPO='https://github.com/Aveeryy/Polarity.git'
+VERSION='2021.12.31 (git)'
+REPO='https://github.com/aveeryy/Polarity.git'
 
 echo '[-] Polarity Installer for Android' $VERSION
+
+if [ $# -ne 1 ]; then
+    # Use default branch if no branch has been specified
+    BRANCH='main'
+else
+    BRANCH=$1
+fi
+
+echo 'Installing from branch:' $BRANCH
 
 # Allow Termux to use internal storage
 if [ ! -d ~/storage ]
@@ -14,32 +24,17 @@ then
     echo '[-] Allow Termux to access files otherwise Polarity won''t work'
     termux-setup-storage
 fi
-# Remove old Polarity installation
-if [ -d ~/Polarity ]
-then
-    echo '[-] Updating Polarity installation'
-    rm -rf ~/Polarity/
-fi
-# Update repos and install dependencies
 echo '[-] Updating repositories'
-apt -qqqq update
+apt update
 echo '[-] Installing/Updating dependencies'
-apt -qqqq install -y git python ffmpeg termux-api
-# Clone the repository
-echo '[-] Downloading latest git release'
-cd ~
-git clone --quiet $REPO
-cd ~/Polarity/
-# Install python dependencies
-echo '[-] Installing Python dependencies'
-pip install --no-input -q -q -q -r requirements.txt
+apt install -y git python ffmpeg termux-api
 # Install Polarity
 echo '[-] Installing Polarity'
-pip install --no-input -q -q -q -e .
+pip install --no-input 'git+'$REPO'@'$BRANCH
 # Add alias to ~/.bashrc
+# TODO: add check to avoid adding multiple aliases on update
 echo "alias polarity='python -m polarity'" >> ~/.bashrc
 echo '[-] Installation complete'
 echo '[-] Use Polarity with ''polarity <urls> [OPTIONS]'''
-# Create a new shell so settings apply
-cd $OLDPWD
+# Create a new shell so alias settings apply
 bash
