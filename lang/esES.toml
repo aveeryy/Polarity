@@ -1,0 +1,188 @@
+# Polarity language file
+# THIS FILE MUST BE MODIFIED MANUALLY, USE VSCODE, VIM, EMACS OR SIMILARS
+# Language rules: https://github.com/Aveeryy/Polarity/wiki/Language-rules
+
+name = "Español (España)"
+code = "esES"
+author = "Aveeryy"
+
+[main]
+exit_msg = "Saliendo..."
+
+[args]
+added_arg = "Añadido argumento \"%s\" de %s"
+
+[args.groups]
+general = "Opciones generales"
+download = "Opciones de descarga"
+extractor = "Opciones de %s"
+sync = "Opciones de sincronización"
+debug = "Opciones de depuración"
+
+[args.help]
+add_to_sync = "Añade los enlaces a la lista de sincronización, luego sale"
+all_extractors = "Muestra información de todos los extractores, luego sale"
+debug_dump_options = "Escribe un archivo con las opciones en la carpeta de depuración"
+debug_print_options = "Muestra las opciones, luego sale"
+download_dir_series = "Directorio de descarga para las series"
+download_dir_movies = "Directorio de descarga para las películas"
+extended_help = "Muestra las opciones de los argumentos"
+format_episode = "Formato para el nombre de archivo de los episodios"
+format_movie = "Formato para el nombre de archivo de las películas"
+format_season = "Formato para el nombre del directorio de las temporadas"
+format_series = "Formato para el nombre del directorio de las series"
+help = "Muestra la ayuda"
+postprocessing = "Alterna la función de postprocesado de los extractores"
+redownload = "Redescarga contenido ya descargado previamente"
+resolution = "Resolución de video preferida"
+search = "Busca contenido en sitios que tengan compatibilidad"
+status_file = "Report download status to file"
+sync_refresh = "Intervalo en el que se actualiza la lista de sincronización, en minutos"
+update_git = 'Actualiza al último lanzamiento git'
+url = "Enlaces introducidos"
+verbose = "Nivel de detallado de la salida"
+
+[args.metavar]
+proxy = "<ruta>"
+search = "<término de búsqueda>"
+verbose = "<nivel>"
+
+[polarity]
+all_tasks_finished = "Todas las tareas han finalizado"
+available_languages = "Idiomas disponibles:"
+language_format = "%s (%s) por %s"
+no_urls = "Error: no se han introducido enlaces."
+use_help = "Usa --ayuda para mostrar todas las opciones disponibles"
+use = 'Uso: '
+search_no_extractor = "No se ha especificado un extractor de búsqueda"
+search_no_results = "No se han encontrado resultados"
+search_term = "Término de búsqueda: "
+using_version = "Usando Polarity %s"
+
+[singularity]
+extracting_keys = "Extrayendo llaves de Widevine"
+using_version = "Usando Singularity %s"
+
+[polarity.except]
+verbose_error = "El nivel de detallado debe de estar entre 0 y 5. Valor actual: %s"
+
+[dl]
+cannot_download_content = "No se puede descargar %s \"%s\": %s"
+download_id = "el id de descarga"
+download_successful = "Se ha descargado %s \"%s\""
+downloading_content = "Descargando %s \"%s\""
+fail_to_delete = "Can't delete old file. you'll need to do it manually"
+fail_to_move = "Can't move file to download directory. you'll need to do it manually"
+redownload_enabled = "La redescarga está activada, borrando el archivo antiguo..."
+no_extractor_available = "Saltando %s \"%s\". No hay un extractor compatible"
+no_redownload = "Saltando %s \"%s\". Ya se ha descargado previamente"
+url = "la URL"
+
+[penguin]
+doing_binary_concat = "Realizando unión de segmentos binaria en la pista %s de %s"
+doing_decryption = "Desencriptando la pista %s de %s con la llave %s"
+debug_already_downloaded = "Saltando el segmento %s, ya se ha descargado previamente"
+debug_time_download = "La descarga ha tardado: %d segundos"
+debug_time_remux = "El multiplexado ha tardado: %d segundos"
+resuming = "Resumiendo la descarga de %s..."
+segment_downloaded = "Se ha descargado con éxito el segmento %s"
+segment_retry = "La descarga del segmento %s ha fallado, reintentando..."
+thread_started = "Se ha iniciado el descargador \"%s\""
+threads_started = "Iniciando %d descargadores de segmentos"
+
+[penguin.args]
+ffmpeg_codec = "Ajustes de codificación del postprocesado"
+retries = "Número de reintentos para descargar un segmento"
+segment_downloaders = "Número de descargadores de segmentos"
+
+[penguin.protocols]
+getting_playlist = "Analizando playlist"
+getting_stream = "Analizando stream"
+multiple_video_bitrates = "Múltiples pistas de audio con la misma resolución detectadas"
+picking_best_stream_0 = "Seleccionando el stream de video con mayor resolución"
+picking_best_stream_1 = "Seleccionando el stream de video con mayor bitrate"
+picking_best_stream_2 = "Seleccionando el stream de audio con mayor bitrate"
+selected_stream = "Stream seleccionado: %s"
+
+[extractor.base]
+login_email_prompt = "Email/Usuario: "
+login_password_prompt = "Contraseña: "
+
+[extractor.base.except]
+argument_variable_empty = "El argumento de la variable está vacio"
+content_unavailable = "Este contenido no está disponible en tu región o ha sido eliminado de la plataforma"
+invalid_type_season = "Solo puedes crear una temporada en una serie de televisión"
+invalid_type_episode = "Solo puedes crear un episodio con una serie o un podcast"
+need_to_create_season = "Tienes que crear una temporada antes de crear un episodio o usar el parámetro \"independent\""
+
+[extractor]
+cloudflare_timeout = "Has hecho demasiadas peticiones a %s."
+cloudflare_info = "Todos los episodios procesados serán descargados, ¡prueba dentro de 24 horas para descargar el resto!"
+generic_error = "¡Ha ocurrido un error! Mensaje de error: "
+get_all_seasons = "Obteniendo información de todas las temporadas"
+get_media_info = "Obteniendo información %s \"%s\" (%s)"
+login_failure = "Error al iniciar sesión. Error: %s"
+login_loggedas = "Sesión iniciada como %s"
+login_success = "Inicio de sesión exitoso"
+search_no_results = "No ha habido resultados en la categoría %s con el término %s"
+skip_episode_id = "Saltando el episodio con identificador %s, %s"
+skip_episode_name = "Saltando el episodio \"%s\", %s"
+waiting_for_login = "Esperando a que inicies sesión"
+
+[extractor.generals.except]
+cannot_identify_url = "No se ha podido identificar el enlace"
+
+[types]
+series = "la serie"
+season = "la temporada"
+episode = "el episodio"
+movie = "la película"
+
+[types.alt]
+series = "de la serie"
+season = "de la temporada"
+episode = "del episodio"
+movie = "de la película"
+
+[update]
+downloading_git = "Descargando el último lanzamiento git"
+downloading_release = "Descargando el último lanzamiento estable"
+downloading_native = "Descargando el último binario nativo"
+installing_to_path = "Instalando en %s"
+successful_install = "¡Instalación exitosa! Saliendo en %d segundos"
+updating = 'Actualizando...'
+
+[update.except]
+unsupported_native = "Actualizar binarios nativos no está implementado"
+
+[atresplayer]
+no_content_in_season = "No hay episodios en %s (%s)"
+
+[atresplayer.except]
+invalid_codec = "El códec especificado en los ajustes es inválido."
+
+[atresplayer.args]
+codec = "Preferencia del códec"
+
+[crunchyroll]
+alt_bearer_fail = "La obtención del token Bearer alternativa ha fallado, reintentando con el servidor principal"
+alt_bearer_no_server = "No se ha especificado un servidor de token Bearer alternativo, cambiando al principal"
+alt_bearer_success = "Se ha obtenido con éxito el token Bearer del servidor alternativo"
+getting_bearer = "Obteniendo token Bearer"
+getting_cms = "Obteniendo políticas CMS"
+getting_cms_fail = "Ha fallado la obtención de políticas CMS"
+skip_download_reason = "El contenido requiere una cuenta premium o no está disponible en tu región"
+spoof_region_fail = "Cambio de región fallido"
+spoof_region_success = "Cambio de región exitoso. Tu región es ahora: \"%s\""
+using_method = "Usando el método \"%s\""
+
+[crunchyroll.args]
+subs = "Idiomas de los subtítulos a descargar"
+dubs = "Idiomas de los doblajes a descargar"
+meta = "Idioma de los metadatos"
+hard = "Descarga una versión \"hardsub\""
+email = "Email de tu cuenta de Crunchyroll"
+pass = "Contraseña de tu cuenta de Crunchyroll"
+region = "Cambia la región del contenido a la especificada"
+use_alt_bearer = "Redirige la obtención del token Bearer a un servidor alternativo"
+alt_bearer_server = "Servidor alternativo del cual obtener el token Bearer"
