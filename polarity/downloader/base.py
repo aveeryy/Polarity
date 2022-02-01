@@ -21,7 +21,7 @@ class BaseDownloader(Thread):
         if _options is None:
             _options = {}
         # merge options
-        self.options = dict_merge(options, _options, True, False)
+        self.options = dict_merge(options["download"], _options, True, False)
         # dictionary with content name and identifier
         self.content = {
             "name": item.short_name,
