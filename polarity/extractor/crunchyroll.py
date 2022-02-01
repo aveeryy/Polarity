@@ -209,7 +209,6 @@ class CrunchyrollExtractor(BaseExtractor):
         # Since there are no individual movies in Crunchyroll, set
         # information variable to a Series object
         self.info = Series()
-        #
 
     @staticmethod
     def check_for_error(contents: dict, error_msg: str = None) -> bool:
@@ -680,9 +679,9 @@ class CrunchyrollExtractor(BaseExtractor):
                 number=episode["episode_number"],
             )
             e._season = season if season is not None else None
-            if self.check_content(episode=e) and not get_partial_episodes:
+            if self.check_content(e) and not get_partial_episodes:
                 yield self._parse_episode_info(episode)
-            elif self.check_content(episode=e) and get_partial_episodes:
+            elif self.check_content(e) and get_partial_episodes:
                 yield e
             if hasattr(self, "progress_bar"):
                 self.progress_bar.update()
@@ -916,7 +915,7 @@ class CrunchyrollExtractor(BaseExtractor):
                     not in self.options["crunchyroll"]["dub_language"]
                 ):
                     vprint(
-                        lang["crunchyroll"]["unwanted_dub"] % season.title,
+                        lang["crunchyroll"]["unwanted_season"] % season.title,
                         "warning",
                         "crunchyroll",
                     )

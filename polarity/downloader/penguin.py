@@ -9,7 +9,7 @@ from dataclasses import asdict
 from random import choice
 from shutil import move
 from time import sleep
-from typing import List, Tuple, Union
+from typing import List, Union
 from urllib.parse import unquote
 
 import cloudscraper
@@ -22,6 +22,7 @@ from polarity.types.stream import ContentKey, Segment, SegmentPool, Stream
 from polarity.utils import (
     browser,
     get_extension,
+    mkfile,
     request_webpage,
     retry_config,
     strip_extension,
@@ -31,7 +32,17 @@ from polarity.utils import (
 from polarity.version import __version__ as polarity_version
 from requests.adapters import HTTPAdapter
 
-__version__ = "2022.01.22"
+__version__ = "2022.02.01"
+
+
+class PenguinSignals:
+    """
+    Signals for communication between segment downloaders and/or
+    PenguinDownloader threads
+    """
+
+    PAUSE = 0
+    STOP = 1
 
 
 class PenguinDownloader(BaseDownloader):
@@ -79,9 +90,9 @@ class PenguinDownloader(BaseDownloader):
         self,
         item: Union[Episode, Movie],
         _options=None,
-        __stack_id: int = 0,
+        _stack_id: int = 0,
     ) -> None:
-        super().__init__(item, __stack_id, _options=_options)
+        super().__init__(item, _stack_id=_stack_id, _options=_options)
 
         self.segment_downloaders = []
 
@@ -110,9 +121,7 @@ class PenguinDownloader(BaseDownloader):
         # Convert segment pools to dictionaries
         data["segment_pools"] = [asdict(p) for p in data["segment_pools"]]
         data["inputs"] = [asdict(p) for p in data["inputs"]]
-        with open(f"{self.temp_path}/pools.json", "w") as f:
-            # Save to file
-            json.dump(data, f, indent=4)
+        mkfile(f"{self.temp_path}/pools.json", json.dumps(data, indent=4), overwrite=True)
 
     def load_output_data(self) -> dict:
         with open(f"{self.temp_path}/pools.json", "r") as f:
@@ -167,8 +176,11 @@ class PenguinDownloader(BaseDownloader):
             if os.path.exists(f"{self.temp_path}/stats.json.old"):
                 os.remove(f"{self.temp_path}/stats.json.old")
             os.rename(f"{self.temp_path}/stats.json", f"{self.temp_path}/stats.json.old")
-        with open(f"{self.temp_path}/stats.json", "w") as f:
-            json.dump(self.resume_stats, f, indent=4)
+        mkfile(
+            f"{self.temp_path}/stats.json",
+            json.dumps(self.resume_stats, indent=4),
+            overwrite=True,
+        )
 
     def load_resume_stats(self, use_backup=False) -> dict:
         path = f"{self.temp_path}/stats.json"
@@ -438,8 +450,11 @@ class PenguinDownloader(BaseDownloader):
             vprint(lang["penguin"]["key_download"] % segment._id, "debug")
             key_contents = request_webpage(url=unquote(segment.key["video"].url))
 
-            with open(f"{self.temp_path}/{pool.id}_{key_num}.key", "wb") as key_file:
-                key_file.write(key_contents.content)
+            mkfile(
+                f"{self.temp_path}/{pool.id}_{key_num}.key",
+                contents=key_contents.content,
+                writing_mode="wb",
+            )
 
         s = "/" if sys.platform != "win32" else "\\"
         last_key = None
@@ -471,8 +486,7 @@ class PenguinDownloader(BaseDownloader):
         # Write end of file
         playlist += "#EXT-X-ENDLIST\n"
         # Write playlist to file
-        with open(f"{self.temp_path}/{pool.id}.m3u8", "w") as playlist_file:
-            playlist_file.write(playlist)
+        mkfile(f"{self.temp_path}/{pool.id}.m3u8", playlist)
 
     def calculate_final_size(self) -> float:
         try:
@@ -566,7 +580,7 @@ class PenguinDownloader(BaseDownloader):
         def get_unreserved_pools() -> List[SegmentPool]:
             return [p for p in self.output_data["segment_pools"] if not p._reserved]
 
-        def get_pool() -> Tuple[SegmentPool, bool]:
+        def get_pool() -> SegmentPool:
             unfinished = get_unfinished_pools()
             pools = get_unreserved_pools()
 
@@ -576,8 +590,8 @@ class PenguinDownloader(BaseDownloader):
             if not pools:
                 pool = choice(unfinished)
                 vprint(
-                    f"Assisting {pool._reserved_by} with pool {pool.id}",
-                    "debug",
+                    lang["penguin"]["assisting"] % (pool._reserved_by, pool.id),
+                    "verbose",
                     thread_name,
                 )
                 return pool
@@ -588,7 +602,7 @@ class PenguinDownloader(BaseDownloader):
         thread_name = threading.current_thread().name
 
         thread_vprint(
-            message=f"Started segment downloader {thread_name}",
+            message=lang["penguin"]["thread_started"] % thread_name,
             module_name="penguin",
             level="debug",
             lock=self.thread_lock,
@@ -602,8 +616,8 @@ class PenguinDownloader(BaseDownloader):
                 return
 
             thread_vprint(
-                "Current pool: " + pool.id,
-                level="debug",
+                lang["penguin"]["current_pool"] % pool.id,
+                level="verbose",
                 module_name=thread_name,
                 lock=self.thread_lock,
             )
@@ -615,13 +629,10 @@ class PenguinDownloader(BaseDownloader):
 
                 segment = pool.segments.pop(0)
 
-                segment_path = (
-                    f"{self.temp_path}/{segment.group}_{segment.number}{segment._ext}"
-                )
-                if (
-                    f"{segment.group}_{segment.number}"
-                    in self.resume_stats["segments_downloaded"]
-                ):
+                segment_path = f"{self.temp_path}/{segment._filename}"
+
+                if segment._id in self.resume_stats["segments_downloaded"]:
+                    # segment has already been downloaded, skip
                     thread_vprint(
                         message=lang["penguin"]["segment_skip"]
                         % f"{segment.group}_{segment.number}",
@@ -630,7 +641,7 @@ class PenguinDownloader(BaseDownloader):
                         lock=self.thread_lock,
                     )
                     continue
-                # Segment download
+
                 thread_vprint(
                     message=lang["penguin"]["segment_start"]
                     % f"{segment.group}_{segment.number}",
@@ -638,6 +649,9 @@ class PenguinDownloader(BaseDownloader):
                     level="verbose",
                     lock=self.thread_lock,
                 )
+
+                self.size = 0
+
                 for i in range(1, 6):
                     # Create a cloudscraper session
                     with cloudscraper.create_scraper(browser=browser) as session:
@@ -652,7 +666,6 @@ class PenguinDownloader(BaseDownloader):
                                 if segment.byte_range is not None
                                 else {},
                             )
-                        # TODO: available space checks
                         # TODO: better exception handling
                         except BaseException as ex:
                             thread_vprint(
@@ -665,9 +678,8 @@ class PenguinDownloader(BaseDownloader):
                             sleep(0.5)
                             continue
                         if "Content-Length" in segment_data.headers:
-                            self.resume_stats["downloaded_bytes"] += int(
-                                segment_data.headers["Content-Length"]
-                            )
+                            self.size = int(segment_data.headers["Content-Length"])
+                            self.resume_stats["downloaded_bytes"] += self.size
                         segment_contents = segment_data.content
 
                         if segment._ext == ".vtt":
@@ -727,13 +739,27 @@ class PenguinDownloader(BaseDownloader):
                             segment_contents = subrip_contents.encode()
                             segment_path = segment_path.replace(".ttml2", ".srt")
 
+                        # handle signaling
+                        while True:
+                            signals = self.check_signal()
+                            if signals:
+                                # take the first signal
+                                signal = signals[0]
+                                # if signal is stop, return
+                                if signal == PenguinSignals.STOP:
+                                    return
+                                # if signal is pause or nospace, halt execution
+                                # until signal is cleared
+                                if signal == PenguinSignals.PAUSE:
+                                    while signal == PenguinSignals.PAUSE:
+                                        sleep(0.2)
+                            break
+
                         # Write fragment data to file
-                        with open(segment_path, "wb") as f:
-                            f.write(segment_contents)
+                        mkfile(segment_path, segment_contents, False, "wb")
 
                         thread_vprint(
-                            lang["penguin"]["segment_downloaded"]
-                            % (f"{segment.group}_{segment.number}"),
+                            lang["penguin"]["segment_downloaded"] % segment._id,
                             level="verbose",
                             module_name=thread_name,
                             lock=self.thread_lock,
@@ -741,7 +767,9 @@ class PenguinDownloader(BaseDownloader):
 
                         segment._finished = True
 
-                        self.resume_stats["segments_downloaded"].append(
-                            f"{segment.group}_{segment.number}"
-                        )
+                        self.resume_stats["segments_downloaded"].append(segment._id)
                         break
+
+    def check_signal(self) -> int:
+        """Check if a signal has been sent to this PenguinDownloader object"""
+        return [x for x in ("all", self._thread_id) if x in self._SIGNAL]

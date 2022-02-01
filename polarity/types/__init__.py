@@ -15,6 +15,7 @@ all_types = [v for v in globals().values() if v.__class__.__name__ == "MetaMedia
 
 stringified_types = [t.__name__.lower() for t in all_types]
 
+
 def str_to_type(text: str) -> MediaType:
     """Get a media type by it's name"""
     _type = [t for t in all_types if t.__name__.lower() == text]

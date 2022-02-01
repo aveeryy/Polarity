@@ -1,9 +1,9 @@
-from typing import Union
-from polarity.utils import get_extension, dict_merge, sanitize_path
-from polarity.types.thread import Thread
-from polarity.types import Stream, Episode, Movie
-
 import os
+from typing import Union
+
+from polarity.types import Episode, Movie
+from polarity.types.thread import Thread
+from polarity.utils import dict_merge, sanitize_path
 
 
 class BaseDownloader(Thread):
@@ -11,13 +11,18 @@ class BaseDownloader(Thread):
         self,
         item: Union[Episode, Movie],
         _options: dict = None,
-        __stack_id: int = 0,
+        _stack_id: int = 0,
     ) -> None:
-        super().__init__(thread_type="Downloader", stack_id=__stack_id)
+        super().__init__(thread_type="Downloader", stack_id=_stack_id)
+
         from polarity.config import options, paths
 
         self.streams = item.streams
-        self.options = options["download"]
+        if _options is None:
+            _options = {}
+        # merge options
+        self.options = dict_merge(options, _options, True, False)
+        # dictionary with content name and identifier
         self.content = {
             "name": item.short_name,
             "id": item.id,
@@ -27,7 +32,7 @@ class BaseDownloader(Thread):
         self.output = item.output
         self.temp_path = f'{paths["tmp"]}{self.content["sanitized"]}'
         self.success = False
-        self._thread_id = __stack_id
+        self._thread_id = _stack_id
 
     def _start(self) -> None:
         path, _ = os.path.split(self.output)
