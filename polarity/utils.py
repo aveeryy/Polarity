@@ -1,9 +1,10 @@
+import errno
 import json
 import logging
 import ntpath
 import os
 import re
-import subprocess
+import shutil
 import sys
 from copy import deepcopy
 from dataclasses import dataclass
@@ -11,8 +12,7 @@ from datetime import datetime
 from json.decoder import JSONDecodeError
 from shutil import which
 from sys import platform
-from tabnanny import check
-from time import time
+from time import sleep, time
 from typing import List, Tuple, Union
 from urllib.parse import urlparse
 from xml.parsers.expat import ExpatError
@@ -39,7 +39,9 @@ scraper.mount("https://", HTTPAdapter(max_retries=retry_config))
 requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += "HIGH:!DH:!aNULL"
 
 dump_requests = False
+vprint_locked = False
 vprint_failed_to_print = False
+write_lock = False
 
 ##########################
 #  Printing and logging  #
@@ -94,6 +96,8 @@ def vprint(
     level: str = "info",
     module_name: str = "polarity",
     end: str = "\n",
+    extra_loggers: list = None,
+    lock_printing=False,
 ) -> None:
     """
     ### Verbose print
@@ -110,9 +114,9 @@ def vprint(
     >>>
     """
 
-    global vprint_failed_to_print
+    global vprint_failed_to_print, vprint_locked
 
-    def build_head(level: str) -> str:
+    def build_head() -> str:
         string = f"{FormattedText.bold}{table[level][1]}[{module_name}"
         if level != "info":
             string += f"/{level if level != 'verbose' else 'debug'}"
@@ -120,10 +124,16 @@ def vprint(
 
         return string
 
-    def get_logger(level: str):
-        return getattr(logging, level) if level != "verbose" else logging.debug
+    def get_loggers() -> list:
+        main_logger = logging.getLogger("polarity")
+        _level = level if level != "verbose" else "debug"
+        return [getattr(logger, _level) for logger in [main_logger, *extra_loggers]]
 
-    checks_disabled = False
+    locked_by_me = False
+
+    if lock_printing:
+        vprint_locked = True
+        locked_by_me = True
 
     try:
         from polarity.config import options, VALID_VERBOSE_LEVELS, ConfigError, lang
@@ -138,22 +148,26 @@ def vprint(
         options = {"verbose": "debug", "verbose_logs": "debug"}
         # since VALID_VERBOSE_LEVELS and ConfigError could not be imported
         # and using fallback config, do not check if verbose level is valid
-        checks_disabled = True
 
     if not options:
         # using shtab, fallback to quiet
         options = {"verbose": "quiet", "verbose_logs": "quiet"}
 
     # Check if verbose level is valid
-    if options["verbose"] not in VALID_VERBOSE_LEVELS and not checks_disabled:
+    if options["verbose"] not in VALID_VERBOSE_LEVELS and not vprint_failed_to_print:
         raise ConfigError(
             lang["polarity"]["except"]["verbose_error"] % options["verbose"]
         )
     # Check if verbose logs level is valid
-    elif options["verbose_logs"] not in VALID_VERBOSE_LEVELS and not checks_disabled:
+    elif (
+        options["verbose_logs"] not in VALID_VERBOSE_LEVELS and not vprint_failed_to_print
+    ):
         raise ConfigError(
             lang["polarity"]["except"]["verbose_log_error"] % options["verbose_logs"]
         )
+
+    if extra_loggers is None:
+        extra_loggers = []
 
     table = {
         "verbose": (6, FormattedText.cyan),
@@ -171,20 +185,21 @@ def vprint(
 
     # build the message head
     # example: [polarity/debug]
-    head = build_head(level)
+    head = build_head()
 
-    if table[level][0] <= table[options["verbose"]][0]:
+    if table[level][0] <= table[options["verbose"]][0] and (
+        not vprint_locked or locked_by_me
+    ):
         # Print the message if level is equal or smaller
         tqdm.write(f"{head} {message}{FormattedText.reset}", end=end)
 
     # Redact emails when logging
     message = redact_emails(message)
 
-    logger = get_logger(level)
-
-    # Log message if level is equal or smaller
-    if table[level][0] <= table[options["verbose_logs"]][0]:
-        logger(f"[{module_name}] {message}")
+    for logger in get_loggers():
+        # Log message if level is equal or smaller
+        if table[level][0] <= table[options["verbose_logs"]][0]:
+            logger(f"[{module_name}] {message}")
 
 
 def thread_vprint(*args, lock, **kwargs) -> None:
@@ -469,7 +484,7 @@ def request_webpage(url: str, method: str = "get", **kwargs) -> Response:
     vprint(lang["polarity"]["requesting"] % url, "verbose", "cloudscraper")
     # check if method is valid
     if not hasattr(scraper, method.lower()):
-        raise Exception("~TEMP~ invalid method")
+        raise Exception(lang["polarity"]["except"]["invalid_http_method"] % method)
     request = getattr(scraper, method.lower())(url, **kwargs)
 
     return request
@@ -643,8 +658,31 @@ def mkfile(
     path: str,
     contents: str,
     overwrite=False,
+    writing_mode: str = "w",
+    *args,
+    **kwargs,
 ):
-    "Create a file POSIX's touch-style"
+    """
+    Create a file POSIX's touch-style
+
+    :param path: file path
+    :param contents: contents to write to file
+    :param overwrite: if false, won't overwrite a file if it does exist
+    :param writing_mode:
+    """
+
     if os.path.exists(path) and not overwrite:
         return
-    open(path, "w").write(contents)
+    try:
+        with open(path, writing_mode, *args, **kwargs) as fp:
+            fp.write(contents)
+    except OSError as ex:
+        from polarity.config import lang
+
+        if ex.errno == errno.ENOSPC:
+            vprint(
+                lang["polarity"]["no_space_left"],
+                "critical",
+                lock_printing=True,
+            )
+            os._exit(1)

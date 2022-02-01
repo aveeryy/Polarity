@@ -20,7 +20,7 @@ class Episode(MediaType, metaclass=MetaMediaType):
     skip_download = None
 
     def link_stream(self, stream=Stream) -> None:
-        if not stream in self.streams:
+        if stream not in self.streams:
             stream._parent = self
             self.streams.append(stream)
 
@@ -36,10 +36,10 @@ class Episode(MediaType, metaclass=MetaMediaType):
             return
         return preferred[0]
 
-    def get_extra_audio(self) -> list:
+    def get_extra_audio(self) -> List[Stream]:
         return [s for s in self.streams if s.extra_audio]
 
-    def get_extra_subs(self) -> list:
+    def get_extra_subs(self) -> List[Stream]:
         return [s for s in self.streams if s.extra_sub]
 
     def convert_to_movie(self):

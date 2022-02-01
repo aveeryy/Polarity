@@ -234,8 +234,21 @@ class AtresplayerExtractor(BaseExtractor):
 
         return self.info
 
-    def get_seasons(self, return_raw_info=False) -> List[Season]:
+    def get_seasons(self, series_id: str = None, return_raw_info=False) -> List[Season]:
         vprint(lang["extractor"]["get_all_seasons"], "info", "atresplayer")
+
+        if not hasattr(self, "__series_json"):
+            if series_id is None:
+                vprint(
+                    lang["extractor"]["except"]["argument_missing"] % "series_id",
+                    "error",
+                    "atresplayer",
+                )
+                return
+            self.get_series_info(series_id=series_id)
+
+        if return_raw_info:
+            return self.__series_json["seasons"]
 
         seasons = [
             Season(

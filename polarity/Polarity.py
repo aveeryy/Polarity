@@ -78,6 +78,8 @@ class Polarity:
         :param _logging_level: override log verbose lvl
         """
 
+        from polarity import log_filename
+
         self.urls = urls
         # Load the download log from the default path
         self.__download_log = DownloadLog()
@@ -94,6 +96,7 @@ class Polarity:
             % (platform.python_version(), platform.platform()),
             level="debug",
         )
+        vprint(lang["polarity"]["log_path"] % log_filename, "debug")
 
         set_console_title(f"Polarity {__version__}")
 
@@ -116,6 +119,14 @@ class Polarity:
         if _logging_level is not None:
             change_verbose_level(_logging_level, False, True)
 
+    def delete_session_log(self) -> None:
+        try:
+            from polarity import log_filename
+        except ImportError:
+            return
+        if os.path.exists(log_filename):
+            os.remove(log_filename)
+
     def start(self):
         def create_tasks(name: str, _range: int, _target: object) -> List[Thread]:
             tasks = []
@@ -127,6 +138,8 @@ class Polarity:
             return tasks
 
         # Pre-start functions
+
+        from polarity import log_filename
 
         # Language installation / update
         # First update old languages
@@ -142,6 +155,7 @@ class Polarity:
                 # since no languages are installed there's no need to
                 # load this string from lang
                 vprint("no languages installed", "error")
+                self.delete_session_log()
                 os._exit(1)
             print(f"{FT.bold}{lang['polarity']['installed_languages']}{FT.reset}")
             for _lang in get_installed_languages():
@@ -151,6 +165,7 @@ class Polarity:
                     print(
                         f"* {lang['polarity']['language_format'] % (name, loaded['code'], loaded['author'],)}"
                     )
+            self.delete_session_log()
             os._exit(0)
 
         # Windows dependency install
@@ -172,6 +187,8 @@ class Polarity:
         # Actual start-up
         if options["mode"] == "download":
             if not self.urls:
+                vprint(lang["polarity"]["deleting_log"], "debug")
+                self.delete_session_log()
                 # Exit if not urls have been inputted
                 print(f"{lang['polarity']['use']}{USAGE}\n")
                 print(lang["polarity"]["use_help"])
@@ -242,7 +259,15 @@ class Polarity:
             vprint(lang["polarity"]["all_tasks_finished"])
 
         elif options["mode"] == "search":
-            search_string = " ".join(self.status["pool"])
+            if not self.urls:
+                # no search parameters, clear log and exit
+                vprint(lang["polarity"]["deleting_log"], "debug")
+                self.delete_session_log()
+                print(f'{lang["polarity"]["use"]}{lang["polarity"]["search_usage"]}\n')
+                print(lang["polarity"]["use_help"])
+                os._exit(1)
+
+            search_string = " ".join(self.urls)
             results = self.search(
                 search_string,
                 options["search"]["results"],
@@ -351,11 +376,18 @@ class Polarity:
         dump_time = filename_datetime()
 
         if "options" in info:
-            vprint(lang["polarity"]["dump_options"], "debug")
             with open(
                 f'{paths["log"]}/options_{dump_time}.json', "w", encoding="utf-8"
             ) as f:
                 json.dump(options, f, indent=4)
+            vprint(
+                lang["polarity"]["dumped_to"]
+                % (
+                    lang["polarity"]["dump_options"],
+                    f"{paths['log']}/options{dump_time}.json",
+                ),
+                level="info",
+            )
 
         # if 'requests' in options['dump']:
         #    vprint('Enabled dumping of HTTP requests', error_level='debug')
@@ -454,7 +486,8 @@ class Polarity:
             self.execute_hooks(
                 "started_extraction", {"extractor": name, "name": item["url"]}
             )
-            extracted_info = extractor(item["url"], item["filters"]).extract()
+            extractor_object = extractor(item["url"], item["filters"], _stack_id=id)
+            extracted_info = extractor_object.extract()
             self.extracted_items.append(extracted_info)
 
             if type(extracted_info) is Series:
@@ -476,6 +509,11 @@ class Polarity:
                 while not extracted_info._extracted:
                     time.sleep(0.1)
                 media_object = self._format_filenames(extracted_info)
+
+                # name = f"{paths['log']}/{item['url'].replace('/', '_')}-{filename_datetime()}.log"
+
+                # with open(name, "w") as log:
+                #     log.write(extractor_object.logs)
 
                 self.download_pool.append(media_object)
             self.execute_hooks(
@@ -513,7 +551,7 @@ class Polarity:
             # Set the downloader to Penguin
             # TODO: external downloader support
             _downloader = PenguinDownloader
-            downloader = _downloader(item=item, __stack_id=id)
+            downloader = _downloader(item=item, _stack_id=id)
             downloader.start()
 
             while downloader.is_alive():

@@ -31,15 +31,13 @@
 ## Configuration
 Configuration files are found at:
 
-<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/> Windows `C:\Users\<username>\.Polarity\`
+<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/> Windows `C:\Users\<username>\AppData\Local\Polarity\`
 
-<img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/> Linux `/home/<username>/.Polarity/`
+<img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/> Linux `/home/<username>/.local/share/Polarity/`
 
-<img src="https://aveeryy.github.io/icons/small/MacOS.png" alt="MacOS" width="16"/> macOS `/Users/<username>/.Polarity/`
+<img src="https://aveeryy.github.io/icons/small/MacOS.png" alt="MacOS" width="16"/> macOS `/Users/<username>/Library/Application Support/.olarity/`
 
 <img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/> Android `/storage/emulated/0/.Polarity/`
-
-🌐 Universal `~/.Polarity/`
     
 
 ## Testing devices

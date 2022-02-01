@@ -1,3 +1,4 @@
+import logging
 import os
 from dataclasses import dataclass
 from getpass import getpass
@@ -9,7 +10,8 @@ from polarity.config import lang, paths
 from polarity.extractor import flags
 from polarity.types import Episode, Movie, SearchResult, Season, Series, Thread
 from polarity.types.filter import MatchFilter, NumberFilter
-from polarity.utils import dict_merge, mkfile, vprint
+from polarity.utils import dict_merge, mkfile
+from polarity.utils import vprint as true_vprint
 
 
 class BaseExtractor:
@@ -17,11 +19,11 @@ class BaseExtractor:
         self,
         url: str = "",
         filter_list: list = None,
-        options: dict = None,
-        __stack_id: int = 0,
+        _options: dict = None,
+        _stack_id: int = 0,
     ) -> None:
 
-        from polarity.config import options as user_options
+        from polarity.config import options
 
         self.url = url
         self.extractor_name = self.__class__.__name__.replace("Extractor", "")
@@ -30,16 +32,32 @@ class BaseExtractor:
         self._seasons = {}
         # List containing subextractors
         self._workers = []
-        self.__stack_id = __stack_id
+        self._stack_id = _stack_id
 
-        options = {self.extractor_name.lower(): {}} if options is None else options
+        # create logger for capturing extractor specific messages
+        # TODO: implement this in a better way
+
+        # logging.Logger(f"extractor-{_stack_id}")
+        # logging.getLogger(f"extractor-{_stack_id}").setLevel(10)
+
+        # add the handler
+        # self.log_capture = io.StringIO()
+
+        # create a temporal handler to capture config vprint statements
+        # handler = logging.StreamHandler(self.log_capture)
+        # handler.setLevel(10)
+        # logging.getLogger(f"extractor-{_stack_id}").addHandler(handler)
+
+        if _options is None:
+            _options = {self.extractor_name: {}}
+
         self.hooks = options.pop("hooks", {})
 
         if self.extractor_name.lower() != "base":
             self.options = dict_merge(
-                user_options["extractor"], options, overwrite=True, modify=False
+                options["extractor"], options, overwrite=True, modify=False
             )
-            self.__opts = user_options["extractor"][self.extractor_name.lower()]
+            self.__opts = options["extractor"][self.extractor_name.lower()]
             self.extractor_lang = lang[self.extractor_name.lower()]
 
             # Do extractor validation
@@ -94,6 +112,8 @@ class BaseExtractor:
                 )
                 hook_main_content = True
             sleep(0.5)
+        # remove handler from the logger
+        logging.getLogger(f"extractor-{self._stack_id}").handlers = []
         self.info._extracted = True
 
     def __execute_hooks(self, hook: str, contents: dict) -> None:
@@ -115,10 +135,10 @@ class BaseExtractor:
             raise ExtractorError(lang["extractor"]["except"]["no_url"])
         # Create a thread to execute the extraction function in the background
         self._extractor = Thread(
-            "__Extraction_Executor", self.__stack_id, target=self._extract, daemon=True
+            "__Extraction_Executor", self._stack_id, target=self._extract, daemon=True
         )
         _watchdog_thread = Thread(
-            "__Extraction_Watchdog", self.__stack_id, target=self._watchdog, daemon=True
+            "__Extraction_Watchdog", self._stack_id, target=self._watchdog, daemon=True
         )
         # start the threads
         self._extractor.start()
@@ -144,7 +164,7 @@ class BaseExtractor:
     def _print_filter_warning(self) -> None:
         if not self._using_filters:
             return
-        vprint(
+        true_vprint(
             lang["extractor"]["base"]["using_filters"],
             module_name=self.__class__.__name__.lower().replace("extractor", ""),
             level="warning",
@@ -171,7 +191,7 @@ class BaseExtractor:
             checked = [v.condition for v in feature.conditions]
             valid = all(checked) or not any(checked)
             if not valid:
-                vprint(
+                true_vprint(
                     lang["extractor"]["base"]["check_failed"]
                     % (
                         feature.name,
@@ -186,7 +206,7 @@ class BaseExtractor:
             checked = [v.condition for v in feature.conditions]
             valid = all(checked)
             if not valid:
-                vprint(
+                true_vprint(
                     lang["extractor"]["base"]["check_failed"]
                     % (
                         feature.name,
@@ -377,9 +397,9 @@ class BaseExtractor:
             # Orphan Episode object, not applicable
             pass
         # Finally check if passes title check
-        return self._check_episode_by_title(content)
+        return self._check_content_by_title(content)
 
-    def _check_episode_by_title(self, episode: Episode) -> bool:
+    def _check_content_by_title(self, episode: Episode) -> bool:
         """Check if episode passes the title match filters"""
         passes = True
         for _filter in [f for f in self.filters if type(f) is MatchFilter]:
@@ -390,6 +410,8 @@ class BaseExtractor:
             # Modify variable only if 'passes' is False
             passes = match if not match else passes
         return passes
+
+    # *--- End of BaseExtraction methods ---*#
 
 
 def check_season_wrapper(func) -> Season:

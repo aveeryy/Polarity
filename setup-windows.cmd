@@ -1,9 +1,7 @@
 @echo off
 :: Install python dependencies
 echo [update] Installing dependencies
-pip install --no-input -q -q -q -r requirements.txt
-:: Re-do because of "tqdm cannot delete" bug
-pip install --no-input -q -q -q -r requirements.txt
+pip install --no-input -r requirements.txt
 :: Execute the python installer
 python -m polarity --windows-setup
 echo [update] Done, press any key to exit.

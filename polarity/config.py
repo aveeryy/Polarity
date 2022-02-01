@@ -43,6 +43,8 @@ def load_config(config_path: str) -> dict:
         except tomli.TOMLDecodeError:
             # TODO: corrupt config handler
             raise Exception
+    # this won't print on initial load
+    vprint(f"loaded config from {config_path}", "debug")
     return config
 
 
@@ -170,13 +172,6 @@ def parse_arguments(get_parser=False) -> dict:
     # Set language dictionaries
     lang_help = lang["args"]["help"]
     lang_group = lang["args"]["groups"]
-    # Set logging filename and configuration
-    log_filename = paths["log"] + f"log_{filename_datetime()}.log"
-    logging.basicConfig(
-        filename=log_filename,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        level=logging.DEBUG,
-    )
     # Set options' base dictionaries
     opts = {"download": {}, "search": {}, "extractor": {}}
     args_map = {}
@@ -537,6 +532,7 @@ options = {"verbose": "info", "verbose_logs": "debug"}
 
 lang = internal_lang
 
+
 # Part 2: Load options from configuration file (and some arguments)
 
 __path_arguments = {
@@ -614,6 +610,12 @@ if "--log-verbose" in sys.argv:
     options["verbose_logs"] = get_argument_value("--log-verbose")
 elif "verbose_logs" in config:
     options["verbose_logs"] = config["verbose_logs"]
+
+# vprint statements must be under this line
+
+vprint(lang["polarity"]["config_path"] % paths["cfg"], "debug")
+
+
 # Part 3: Load options from the rest of command line arguments
 
 # Parse arguments
