@@ -12,7 +12,6 @@ from time import sleep
 from typing import List, Union
 from urllib.parse import unquote
 
-import cloudscraper
 from polarity.config import lang, paths
 from polarity.downloader.base import BaseDownloader
 from polarity.downloader.protocols import ALL_PROTOCOLS, HTTPLiveStream, MPEGDASHStream
@@ -20,17 +19,14 @@ from polarity.types import Episode, Movie, ProgressBar, Thread
 from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO, FFmpegCommand, FFmpegInput
 from polarity.types.stream import ContentKey, Segment, SegmentPool, Stream
 from polarity.utils import (
-    browser,
     get_extension,
     mkfile,
     request_webpage,
-    retry_config,
     strip_extension,
     thread_vprint,
     vprint,
 )
 from polarity.version import __version__ as polarity_version
-from requests.adapters import HTTPAdapter
 
 __version__ = "2022.02.01"
 
@@ -58,6 +54,7 @@ class PenguinDownloader(BaseDownloader):
     ]
 
     DEFAULTS = {
+        "attempts": 10,
         "segment_downloaders": 10,
         # Delete segments as these are merged to the final file
         # 'delete_merged_segments': True,
@@ -652,123 +649,117 @@ class PenguinDownloader(BaseDownloader):
 
                 self.size = 0
 
-                for i in range(1, 6):
+                for i in range(1, self.options["penguin"]["attempts"]):
                     # Create a cloudscraper session
-                    with cloudscraper.create_scraper(browser=browser) as session:
-
-                        session.mount("https://", HTTPAdapter(max_retries=retry_config))
-                        session.mount("http://", HTTPAdapter(max_retries=retry_config))
-                        try:
-                            segment_data = session.get(
-                                segment.url,
-                                timeout=15,
-                                headers={"range": f"bytes={segment.byte_range}"}
-                                if segment.byte_range is not None
-                                else {},
-                            )
-                        # TODO: better exception handling
-                        except BaseException as ex:
-                            thread_vprint(
-                                lang["penguin"]["except"]["download_fail"]
-                                % (segment._id, ex),
-                                module_name=thread_name,
-                                level="exception",
-                                lock=self.thread_lock,
-                            )
-                            sleep(0.5)
-                            continue
-                        if "Content-Length" in segment_data.headers:
-                            self.size = int(segment_data.headers["Content-Length"])
-                            self.resume_stats["downloaded_bytes"] += self.size
-                        segment_contents = segment_data.content
-
-                        if segment._ext == ".vtt":
-                            # Workarounds for Atresplayer subtitles
-                            # Fix italic characters
-                            # Replace facing (#) characters
-                            segment_contents = re.sub(
-                                r"^# ",
-                                "<i>",
-                                segment_contents.decode(),
-                                flags=re.MULTILINE,
-                            )
-                            # Replace trailing (#) characters
-                            segment_contents = re.sub(
-                                r" #$", "</i>", segment_contents, flags=re.MULTILINE
-                            )
-                            # Fix aposthrophes
-                            segment_contents = segment_contents.replace(
-                                "&apos;", "'"
-                            ).encode()
-
-                        elif segment._ext == ".ttml2":
-                            # Convert ttml2 subtitles to Subrip
-                            subrip_contents = ""
-                            subtitle_entries = re.findall(
-                                r"<p.+</p>", segment_contents.decode()
-                            )
-                            i = 1
-                            for p in subtitle_entries:
-                                # begin time
-                                begin = (
-                                    re.search(r'begin="([\d:.]+)"', p)
-                                    .group(1)
-                                    .replace(".", ",")
-                                )
-                                # end time
-                                end = (
-                                    re.search(r'end="([\d:.]+)"', p)
-                                    .group(1)
-                                    .replace(".", ",")
-                                )
-                                # Get the entries content and replace
-                                # line break tags with new lines
-                                contents = (
-                                    re.search(r">(.+)</p>", p)
-                                    .group(1)
-                                    .replace("<br/>", "\n")
-                                )
-                                # Cleanup
-                                contents = re.sub(r"<(|/)span>", "", p)
-                                contents = contents.replace("&gt;", "")
-                                contents = contents.strip()
-                                subrip_contents += (
-                                    f"{i}\n{begin} --> {end}\n{contents}\n\n"
-                                )
-                                i += 1
-                            segment_contents = subrip_contents.encode()
-                            segment_path = segment_path.replace(".ttml2", ".srt")
-
-                        # handle signaling
-                        while True:
-                            signals = self.check_signal()
-                            if signals:
-                                # take the first signal
-                                signal = signals[0]
-                                # if signal is stop, return
-                                if signal == PenguinSignals.STOP:
-                                    return
-                                # if signal is pause or nospace, halt execution
-                                # until signal is cleared
-                                if signal == PenguinSignals.PAUSE:
-                                    while signal == PenguinSignals.PAUSE:
-                                        sleep(0.2)
-                            break
-
-                        # Write fragment data to file
-                        mkfile(segment_path, segment_contents, False, "wb")
-
+                    try:
+                        segment_data = request_webpage(
+                            segment.url,
+                            "get",
+                            timeout=15,
+                            headers={"range": f"bytes={segment.byte_range}"}
+                            if segment.byte_range is not None
+                            else {},
+                        )
+                    # TODO: better exception handling
+                    except BaseException as ex:
                         thread_vprint(
-                            lang["penguin"]["segment_downloaded"] % segment._id,
-                            level="verbose",
+                            lang["penguin"]["except"]["download_fail"]
+                            % (segment._id, ex),
                             module_name=thread_name,
+                            level="exception",
                             lock=self.thread_lock,
                         )
+                        sleep(0.5)
+                        continue
+                    if "Content-Length" in segment_data.headers:
+                        self.size = int(segment_data.headers["Content-Length"])
+                        self.resume_stats["downloaded_bytes"] += self.size
+                    segment_contents = segment_data.content
 
-                        segment._finished = True
+                    if segment._ext == ".vtt":
+                        # Workarounds for Atresplayer subtitles
+                        # Fix italic characters
+                        # Replace facing (#) characters
+                        segment_contents = re.sub(
+                            r"^# ",
+                            "<i>",
+                            segment_contents.decode(),
+                            flags=re.MULTILINE,
+                        )
+                        # Replace trailing (#) characters
+                        segment_contents = re.sub(
+                            r" #$", "</i>", segment_contents, flags=re.MULTILINE
+                        )
+                        # Fix aposthrophes
+                        segment_contents = segment_contents.replace(
+                            "&apos;", "'"
+                        ).encode()
 
-                        self.resume_stats["segments_downloaded"].append(segment._id)
+                    elif segment._ext == ".ttml2":
+                        # Convert ttml2 subtitles to Subrip
+                        subrip_contents = ""
+                        subtitle_entries = re.findall(
+                            r"<p.+</p>", segment_contents.decode()
+                        )
+                        i = 1
+                        for p in subtitle_entries:
+                            # begin time
+                            begin = (
+                                re.search(r'begin="([\d:.]+)"', p)
+                                .group(1)
+                                .replace(".", ",")
+                            )
+                            # end time
+                            end = (
+                                re.search(r'end="([\d:.]+)"', p)
+                                .group(1)
+                                .replace(".", ",")
+                            )
+                            # Get the entries content and replace
+                            # line break tags with new lines
+                            contents = (
+                                re.search(r">(.+)</p>", p).group(1).replace("<br/>", "\n")
+                            )
+                            # Cleanup
+                            contents = re.sub(r"<(|/)span>", "", p)
+                            contents = contents.replace("&gt;", "")
+                            contents = contents.strip()
+                            subrip_contents += f"{i}\n{begin} --> {end}\n{contents}\n\n"
+                            i += 1
+                        segment_contents = subrip_contents.encode()
+                        segment_path = segment_path.replace(".ttml2", ".srt")
+
+                    # handle signaling
+                    while True:
+                        signals = self.check_signal()
+                        if signals:
+                            # take the first signal
+                            signal = signals[0]
+                            # if signal is stop, return
+                            if signal == PenguinSignals.STOP:
+                                return
+                            # if signal is pause or nospace, halt execution
+                            # until signal is cleared
+                            if signal == PenguinSignals.PAUSE:
+                                while signal == PenguinSignals.PAUSE:
+                                    sleep(0.2)
                         break
+
+                    # Write fragment data to file
+                    mkfile(segment_path, segment_contents, False, "wb")
+
+                    thread_vprint(
+                        lang["penguin"]["segment_downloaded"] % segment._id,
+                        level="verbose",
+                        module_name=thread_name,
+                        lock=self.thread_lock,
+                    )
+
+                    segment._finished = True
+
+                    self.resume_stats["segments_downloaded"].append(segment._id)
+
+                    break
 
     def check_signal(self) -> int:
         """Check if a signal has been sent to this PenguinDownloader object"""
