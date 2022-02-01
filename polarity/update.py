@@ -53,7 +53,7 @@ def selfupdate(mode: str = "git", version: str = None, branch: str = "main"):
 
 def language_install(language_list: list):
     """Install specified language files"""
-    LANGUAGE_URL = "https://aveeryy.github.io/Polarity-Languages/%s.toml"
+    LANGUAGE_URL = "https://raw.githubusercontent.com/aveeryy/Polarity/main/lang/%s.toml"
 
     failed = 0
 
