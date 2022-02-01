@@ -1,462 +1,653 @@
-from copy import deepcopy
-from datetime import datetime
-from pprint import pprint
-from time import sleep
-from threading import Lock, Thread, current_thread
-from tqdm import TqdmWarning
-
 import json
 import os
-import toml
+import platform
+import re
+import shutil
+import sys
+import time
 import warnings
+from threading import Lock
+from typing import Union, List, Tuple, Dict
+import tomli
 
-from polarity.config import config, ConfigError, verbose_level, USAGE, lang
-from polarity.downloader import DOWNLOADERS
-from polarity.extractor import EXTRACTORS
-from polarity.paths import DOWNLOAD_LOG, LANGUAGES
-from polarity.types import *
-from polarity.utils import filename_datetime, get_compatible_extractor, is_content_id, parse_content_id, request_webpage, sanitize_filename, sanitized_file_exists, send_android_notification, vprint, recurse_merge_dict, normalize_integer
-from polarity.update import windows_install, download_languages
+from tqdm import TqdmWarning
+
+from polarity.config import (
+    USAGE,
+    change_verbose_level,
+    get_installed_languages,
+    lang,
+    options,
+    paths,
+)
+from polarity.downloader import PenguinDownloader
+from polarity.extractor import EXTRACTORS, flags
+from polarity.types import (
+    Episode,
+    Movie,
+    SearchResult,
+    Season,
+    Series,
+    Thread,
+)
+from polarity.types.base import MediaType
+from polarity.types.filter import Filter, build_filter
+from polarity.types.progressbar import ProgressBar
+from polarity.types.download_log import DownloadLog
+from polarity.utils import (
+    dict_merge,
+    filename_datetime,
+    get_compatible_extractor,
+    is_content_id,
+    normalize_number,
+    parse_content_id,
+    sanitize_path,
+    send_android_notification,
+    set_console_title,
+    vprint,
+)
+from polarity.update import (
+    check_for_updates,
+    language_install,
+    windows_setup,
+)
 from polarity.version import __version__
 
-_ALL_PROCESSES = []
+from polarity.utils import FormattedText as FT
 
-downloader_lock = Lock()
 
-warnings.filterwarnings('ignore', category=TqdmWarning)
+warnings.filterwarnings("ignore", category=TqdmWarning)
+
 
 class Polarity:
-    
-    def __init__(self, urls: list, options: dict):
-        self.url_pool = urls
-        # _STATS['url_queue'] = self.url_pool
-        if not options:
-            options = {'mode': {}}
-        if verbose_level < 0 or verbose_level > 5:
-            raise ConfigError(lang['polarity']['except']['verbose_error'] % verbose_level)
-        self.options = recurse_merge_dict(config, options)
+    def __init__(
+        self,
+        urls: list,
+        opts: dict = None,
+        _verbose_level: str = None,
+        _logging_level: str = None,
+    ) -> None:
+        """
+        Polarity object
+
+
+        :param urls: urls/content identifiers if mode is download,
+        list of keywords if mode is search
+        :param opts: scripting options
+        :param _verbose_level: override print verbose lvl
+        :param _logging_level: override log verbose lvl
+        """
+
+        from polarity import log_filename
+
+        self.urls = urls
+        # Load the download log from the default path
+        self.__download_log = DownloadLog()
+        self.__extract_lock = Lock()
+        # List with extracted Episode or Movie objects, for download tasks
+        self.download_pool = []
+        # List with extracted Series or Movie objects, for metadata tasks
+        self.extracted_items = []
+
+        # Print versions
+        vprint(lang["polarity"]["using_version"] % __version__, level="debug")
+        vprint(
+            lang["polarity"]["python_version"]
+            % (platform.python_version(), platform.platform()),
+            level="debug",
+        )
+        vprint(lang["polarity"]["log_path"] % log_filename, "debug")
+
+        set_console_title(f"Polarity {__version__}")
+
+        # Warn user of unsupported Python versions
+        if sys.version_info <= (3, 6):
+            vprint(
+                lang["polarity"]["unsupported_python"] % platform.python_version(),
+                level="warning",
+            )
+
+        self.status = {"pool": urls, "extraction": {"finished": False, "tasks": []}}
+
+        if opts is not None:
+            # Merge user's script options with processed options
+            dict_merge(options, opts, overwrite=True)
+        # Scripting only, override the session verbose level,
+        # since verbose level is set before options merge.
+        if _verbose_level is not None:
+            change_verbose_level(_verbose_level, True)
+        if _logging_level is not None:
+            change_verbose_level(_logging_level, False, True)
+
+    def delete_session_log(self) -> None:
+        try:
+            from polarity import log_filename
+        except ImportError:
+            return
+        if os.path.exists(log_filename):
+            os.remove(log_filename)
 
     def start(self):
-        if 'dump' in self.options:
-            dump_time = filename_datetime()
-            if 'options' in self.options['dump']:
-                with open(f'dump_options_{dump_time}.json', 'w') as s:
-                    json.dump(self.options, s, indent=4)
-            if 'urls' in self.options['dump']:
-                with open(f'dump_urls_{dump_time}.log', 'a') as s:
-                    for uri in self.url_pool:
-                        s.write(f'{uri}\n')
-            if 'exit_after_dump' in self.options:
-                os._exit(0)
-                
-        if self.options['update_languages']:
-            installed = [f.name.replace('.toml', '') for f in os.scandir(LANGUAGES)]
-            download_languages(language_list=installed)
-                
-        if 'install_windows' in self.options:
-            windows_install()
-            
-        if 'installed_languages' in self.options:
-            languages = os.scandir(LANGUAGES)
-            if languages is True:
-                vprint('Listing installed languages')
-                for lang_file in languages:
-                    with open(lang_file.path, 'r') as l:
-                        _lang = toml.load(f=l)
-                    print(f'{_lang["name"]} [{_lang["code"]}] - {lang["author"]}')
-            else:
-                vprint('No languages found', 1, error_level='critical')
-            os._exit(0)
-        elif 'list_languages' in self.options:
-            language_list = request_webpage('https://aveeryy.github.io/Polarity-Languages/languages.toml')
-            parsed_list = toml.loads(language_list.content.decode())
-            vprint('Listing available languages')
-            for _lang in parsed_list['lang']:
-                print(f'{_lang["name"]} [{_lang["code"]}] - {lang["author"]}')
-            os._exit(0)
-        elif 'install_languages' in self.options:
-            download_languages(self.options['install_languages'])
+        def create_tasks(name: str, _range: int, _target: object) -> List[Thread]:
+            tasks = []
+            for i in range(_range):
+                t = Thread(
+                    f"{name}_Task", i, target=_target, kwargs={"id": i}, daemon=True
+                )
+                tasks.append(t)
+            return tasks
 
-        self.mode = self.options['mode']
-        
-        if self.mode == 'download':
-            '''
-            Download mode
-            Default mode in Polarity
-            Downloads content and metadata from inputted urls and ids
-            Uses worker functions
-            Input(s): URLs and Download IDs
-            External Output(s): video, audio and metadata files
-            '''
-            if not self.url_pool:
-                print(lang['polarity']['use'] + USAGE + '\n')
-                print(lang['polarity']['no_urls'])
-                print(lang['polarity']['use_help'])
-                os._exit(1)
-            url_pool = []
-            self.workers = []
-            for url in self.url_pool:
-                extractor = get_compatible_extractor(url=url)
-                if extractor[0] is None:
-                    continue
-                if 'REQUIRES_LOGIN' in extractor[1].FLAGS and not extractor[1]().is_logged_in():
-                    vprint(f'Extractor {extractor[0]} requires to be logged in')
-                    # Display login form if login is required for that extractor and not logged in
-                    username, password = None, None
-                    # See if username and password has been passed as an argument
-                    if 'username' in self.options['extractor'][extractor[0].lower()]:
-                        username = self.options['extractor'][extractor[0].lower()]['username']
-                    if 'password' in self.options['extractor'][extractor[0].lower()]:
-                        password = self.options['extractor'][extractor[0].lower()]['password']
-                    extractor[1]().login_with_form(username, password)
-                url_pool.append((url, *extractor))
-            for i in range(self.options['download']['simultaneous_urls']):
-                worker = Thread(target=self.worker, daemon=True, name=f'worker{i}')
-                self.workers.append(worker)
-                worker.start()
+        # Pre-start functions
 
-            while True:
-                if [t for t in self.workers if t.is_alive()]:
-                    sleep(0.5)
-                    continue
-                break
-            vprint(lang['polarity']['all_tasks_finished'])
-        elif self.mode == 'search':
-            '''
-            Search mode
-            Searchs for media content in supported extractors
-            Input: words
-            Output: results formatted `type - name (download_id)`
-            '''
-            if not self.options['search_extractor']:
-                vprint(lang['polarity']['search_no_extractor'], 1, error_level='error')
-                os._exit(0)
-            extractor = EXTRACTORS[self.options['search_extractor']]
-            if not hasattr(extractor[1], 'search'):
-                # TODO: better error handling lol
-                raise Exception
-            # Join all search terms in a string
-            search_term = ' '.join(self.url_pool)
-            vprint(lang['polarity']['search_term'] + search_term, 3, error_level='debug')
-            results = extractor[1]().search(search_term)
-            if not results:
-                vprint(lang['polarity']['search_no_results'], 1, error_level='error')
+        from polarity import log_filename
+
+        # Language installation / update
+        # First update old languages
+        if options["update_languages"] or options["auto_update_languages"]:
+            language_install(get_installed_languages())
+        # Then, install new languages
+        if options["install_languages"]:
+            language_install(options["install_languages"])
+
+        if options["installed_languages"]:
+            installed = get_installed_languages()
+            if not installed:
+                # since no languages are installed there's no need to
+                # load this string from lang
+                vprint("no languages installed", "error")
+                self.delete_session_log()
                 os._exit(1)
-            for result in results:
-                if 'search_max_length' in self.options and self.options['search_max_length']:
-                    # Limit name length if specified in settings
-                    self.options['search_max_length'] = int(self.options['search_max_length'])
-                    if len(result.name) > self.options['search_max_length']:
-                        result.name = result.name[:self.options['search_max_length']] + '...'
-                print(f'{result.type.__name__} - {result.name} ({result.id})')
-        elif self.mode == 'live_tv':
-            '''
-            Live TV mode
-            Prints bare m3u8 playlist url, allowing it to be used with
-            mpv or vlc for watching, ffmpeg for recording...
-            Input: slightly modified download id `extractor/live-name`
-            Output: m3u8 playlist `https://example.com/playlist.m3u8`
-            '''
-            channel = self.url_pool[0]
-            parsed = parse_content_id(id=channel)
-            print(EXTRACTORS[parsed.extractor][1].get_live_stream(parsed.id))
+            print(f"{FT.bold}{lang['polarity']['installed_languages']}{FT.reset}")
+            for _lang in get_installed_languages():
+                with open(f'{paths["lang"]}{_lang}.toml', "r") as lf:
+                    loaded = tomli.load(lf)
+                    name = f"{FT.bold}{loaded['name']}{FT.reset}"
+                    print(
+                        f"* {lang['polarity']['language_format'] % (name, loaded['code'], loaded['author'],)}"
+                    )
+            self.delete_session_log()
             os._exit(0)
-        elif self.mode == 'print':
-            '''
-            Print mode
-            Prints useful information
-            Input: terms via the --printer argument
-            Output: requested information
-            '''
-            def mprint(msg: str):
-                'Print a small identifier if more than one information type is requested'
-                if multi_print:
-                    print(f'======={msg}=======')
-            multi_print = len(self.options['printer']) > 1
-            if 'urls' in self.options['printer']:
-                mprint('URLs')
-                print('\n'.join(self.url_pool))
-            if 'options' in self.options['printer']:
-                mprint('OPTIONS')
-                pprint(self.options)
-            if 'lang' in self.options['printer']:
-                mprint('LANGUAGE')
-                pprint(lang)
-            if 'live_channels' in self.options['printer']:
-                mprint('LIVE_CHANNELS')
-                for extractor in EXTRACTORS.values():
-                    if hasattr(extractor[1], 'LIVE_CHANNELS'):
-                        for channel in extractor[1].LIVE_CHANNELS:
-                            print(f'{extractor[0].lower()}/live-{channel}')
-                           
-        
-    def worker(self):
-        '''
-        ## Worker
-        ### Grabs an URL from a pool of URLs and does the extract and download process
-        #### Embedded usage
-            >>> from polarity import Polarity
-            # Mode must be download and there must be at least one URL in urls
-            >>> polar = Polarity(urls=[...], options={'mode': 'download', ...})
-            # The start function automatically creates worker Threads
-            >>> polar.start()
-        #### TODO(s)
-        - Metadata files creation
-        - Status
-        '''
-        worker_stats = {
-            'current_url': '',
-            'current_tasks': {
-                'extract': {
-                    'extractor': None,
-                    'finished': False,
-                },
-                'download': {},
-                'metadata': {
-                    'items_processed': 0,
-                    'finished': False,
+
+        # Windows dependency install
+        if options["windows_setup"]:
+            windows_setup()
+
+        # Check for updates
+        if options["check_for_updates"]:
+            update, last_version = check_for_updates()
+            if update:
+                vprint(
+                    lang["polarity"]["update_available"] % last_version,
+                    module_name="update",
+                )
+
+        if options["dump"]:
+            self.dump_information(options["dump"])
+
+        # Actual start-up
+        if options["mode"] == "download":
+            if not self.urls:
+                vprint(lang["polarity"]["deleting_log"], "debug")
+                self.delete_session_log()
+                # Exit if not urls have been inputted
+                print(f"{lang['polarity']['use']}{USAGE}\n")
+                print(lang["polarity"]["use_help"])
+                os._exit(1)
+
+            if not shutil.which("ffmpeg"):
+                raise Exception(lang["polarity"]["except"]["missing_ffmpeg"])
+
+            self.pool = [
+                {
+                    "url": url,
+                    "filters": [],
+                    "reserved": False,
+                    "extractor": get_compatible_extractor(url),
                 }
-            },
-            'total_items': 0,
-        }
-        thread_name = current_thread().name
-        # _STATS['running_threads'][thread_name] = stats
+                for url in self.urls
+            ]
 
-        def info_extract():
-            extract_function = extractor(
-                url=thread_url,
-                options=self.options['extractor'][extractor_name.lower()]
-            )
-            # Call extractor's extract function
-            worker_stats['current_tasks']['extract']['finished'] = True
-            return extract_function.extract()
-        
-        def download_task():
+            for item in self.pool:
+                # check if item's extractor requires login, if yes,
+                # ask user for login here, otherwise if more than one url
+                # is inputted the email and password prompts would collide one
+                # with eachother
+                if (
+                    flags.ExtractionLoginRequired in item["extractor"][1].FLAGS
+                    and not item["extractor"][1]().is_logged_in()
+                ):
+                    vprint(f"{item['extractor'][0]} requires login")
+                    # login into the extractor
+                    item["extractor"][1]().login()
+
+            if options["filters"]:
+                self.process_filters(filters=options["filters"])
+
+            # create tasks
+            tasks = {
+                "extraction": create_tasks(
+                    "Extraction",
+                    options["extractor"]["active_extractions"],
+                    self._extract_task,
+                ),
+                "download": create_tasks(
+                    "Download",
+                    options["download"]["active_downloads"],
+                    self._download_task,
+                ),
+                "metadata": [],
+            }
+            # If there are more desired extraction tasks than urls
+            # set the number of extraction tasks to the number of urls
+            if options["extractor"]["active_extractions"] > len(self.pool):
+                options["extractor"]["active_extractions"] = len(self.pool)
+
+            # Start the tasks
+            for task_group in tasks.values():
+                for task in task_group:
+                    task.start()
+
+            # Wait until workers finish
             while True:
-                if not download_pool:
-                    return
-                item = download_pool.pop(0)
-                content_extended_id = f'{extractor_name.lower()}/{type(item).__name__.lower()}-{item.id}'
-                # Skip if output file already exists or id in download log
-                if self.id_in_archive(content_extended_id) or sanitized_file_exists(item.output): 
-                    if not self.id_in_archive(content_extended_id):
-                        self.add_id_to_archive(content_extended_id)
-                    if not self.options['download']['redownload']:
-                        vprint(
-                            message=lang['dl']['no_redownload'] % (
-                                lang['types'][type(item).__name__.lower()],
-                                item.title),
-                            level=1,
-                            error_level='warning'
+                if not [w for w in tasks["extraction"] if w.is_alive()]:
+                    if not self.status["extraction"]["finished"]:
+                        vprint(lang["polarity"]["finished_extraction"])
+                    self.status["extraction"]["finished"] = True
+                    if not [w for w in tasks["download"] if w.is_alive()]:
+                        break
+                time.sleep(0.1)
+            vprint(lang["polarity"]["all_tasks_finished"])
+
+        elif options["mode"] == "search":
+            if not self.urls:
+                # no search parameters, clear log and exit
+                vprint(lang["polarity"]["deleting_log"], "debug")
+                self.delete_session_log()
+                print(f'{lang["polarity"]["use"]}{lang["polarity"]["search_usage"]}\n')
+                print(lang["polarity"]["use_help"])
+                os._exit(1)
+
+            search_string = " ".join(self.urls)
+            results = self.search(
+                search_string,
+                options["search"]["results"],
+                options["search"]["results_per_extractor"],
+                options["search"]["results_per_type"],
+            )
+            for group, group_results in results.items():
+                for result in group_results:
+                    name = result.name
+                    if (
+                        options["search"]["trim_names"] > 0
+                        and len(name) > options["search"]["trim_names"]
+                    ):
+                        name = f"{name[:options['search']['trim_names']]}..."
+
+                    print(
+                        options["search"]["result_format"].format(
+                            n=name,
+                            t=group,
+                            i=result.id,
+                            I=result.content_id,
+                            u=result.url,
                         )
+                    )
+
+        elif options["mode"] == "livetv":
+            # TODO: add check for urls
+            channel = self.get_live_tv_channel(self.urls[0])
+            if channel is None:
+                vprint(lang["polarity"]["unknown_channel"], level="error")
+                return
+            print(channel)
+
+        elif options["mode"] == "debug":
+            if options["debug_colors"]:
+
+                change_verbose_level("debug")
+                # Test for different color printing
+                vprint("demo", module_name="demo")
+                vprint("demo", "warning", "demo")
+                vprint("demo", "error", "demo")
+                vprint("demo", "critical", "demo")
+                vprint("demo", "debug", "demo")
+                ProgressBar(head="demo", desc="progress_bar", total=0)
+                ProgressBar(head="demo", desc="progress_bar", total=1)
+
+    @classmethod
+    def search(
+        self,
+        string: str,
+        absolute_max: int = -1,
+        max_per_extractor: int = -1,
+        max_per_type: int = -1,
+    ) -> Dict[MediaType, List[SearchResult]]:
+        """Search for content in compatible extractors"""
+
+        def can_add_to_list(media_type) -> bool:
+            """Returns True if item can be added to results list"""
+            conditions = (
+                # Absolute maximum
+                (sum([len(t) for t in results.values()]), absolute_max, False),
+                # Maximum per extractor
+                (extractor_results, max_per_extractor, True),
+                # Maximum per type
+                (len(results[media_type]), max_per_type, False),
+            )
+            for cond in conditions:
+                if cond[0] >= cond[1] and cond[1] > 0:
+                    if cond[2] and cond[0] < 0:
                         continue
+                    return False
+            return True
 
-                if hasattr(item, 'skip_download'):
-                    vprint(
-                        message=lang['dl']['cannot_download_content'] % (
-                            lang['types'][type(item).__name__.lower()],
-                            item.title,
-                            item.skip_download),
-                        error_level='warning'
-                    )
-                    continue
+        # Get a list of extractors with search capabilities
+        compatible_extractors = [
+            e for e in EXTRACTORS.items() if flags.EnableSearch in e[1].FLAGS
+        ]
+        # Create an empty dictionary for the results
+        results = {Series: [], Season: [], Episode: [], Movie: []}
 
-                # Set preferred stream as main stream if set else use stream 0
-                stream = item.get_preferred_stream()
-                if stream is None:
-                    stream = item.streams[0]
+        for _, extractor in compatible_extractors:
+            # Current extractor results added to list
+            extractor_results = 0
+            # Do the search
+            search_results = extractor().search(string, max_per_extractor, max_per_type)
+            for media_type, _results in search_results.items():
+                for result in _results:
+                    if can_add_to_list(media_type):
+                        # Add item to respective list
+                        results[media_type].append(result)
+                        extractor_results += 1
+        return results
 
-                if type(item) == Episode and not item.movie:
-                    name = f"{content_info.title} {item.season_id}"
-                elif type(item) == Movie or type(item) == Episode and item.movie:
-                    name = f"{item.title} ({item.year})"
-                    
-                vprint(
-                    message=lang['dl']['downloading_content']%(
-                        lang['types'][type(item).__name__.lower()],
-                        item.title
-                        )
-                    )
-                _downloader = DOWNLOADERS[self.options['download']['downloader']] if self.options['download']['downloader'] in DOWNLOADERS else DOWNLOADERS['penguin']
-                downloader = _downloader(
-                    stream,
-                    options=self.options['download'],
-                    extra_audio=item.get_extra_audio(),
-                    extra_subs=item.get_extra_subs(),
-                    name=name,
-                    id=item.id,
-                    output=item.output
-                    )
-                downloader.start()
-                
+    @classmethod
+    def get_live_tv_channel(self, id: str) -> str:
+        extractors = {
+            n.lower(): e for n, e in EXTRACTORS.items() if flags.EnableLiveTV in e.FLAGS
+        }
+        parsed_id = parse_content_id(id)
+        if parsed_id.extractor not in extractors:
+            return
+        return extractors[parsed_id.extractor].get_live_tv_stream(parsed_id.id)
 
-                download_successful = lang['dl']['download_successful'] % (
-                    lang['types'][type(item).__name__.lower()],
-                    name
-                    ) 
+    def dump_information(self, info: list) -> None:
+        "Dump requested debug information to current directory"
+        dump_time = filename_datetime()
 
-                vprint(download_successful)
-
-                send_android_notification(contents=download_successful)
-
-                # if self.options['extractor']['postprocessing'] and hasattr(self.extractor[0], 'postprocessing'):
-                #     extractor[0]().postprocessing(item['output'])
-                if not self.id_in_archive(content_extended_id):
-                    self.add_id_to_archive(content_extended_id)
-                    
-        def make_metafiles_task():
-            if content_info['type'] == 'series':
-                pass
-                               
-        while True:
-            # Return if there aren't any urls available
-            if not self.url_pool:
-                return
-            thread_url = self.url_pool.pop(0)
-            worker_stats['current_url'] = thread_url
-            extractor_tupl = get_compatible_extractor(thread_url)
-            # Skip if there's not an extractor available
-            if extractor_tupl[0] is None:
-                vprint(
-                    lang['dl']['no_extractor_available'] % (
-                        lang['dl']['url'] if not is_content_id(thread_url) else lang['dl']['download_id'],
-                        thread_url
-                        ),
-                    error_level='error'
-                    )
-                return
-            extractor_name, extractor = extractor_tupl
-            content_info = info_extract()
-            if content_info is None:
-                continue
-            # Create download and metadata pools
-            download_pool = self.build_download_list(extractor_name, content_info)
-            metadata_pool = deepcopy(download_pool)
-            # Create downloader threads
-            for i in range(self.options['download']['simultaneous_downloads_per_url']):
-                worker_stats['current_tasks']['download'][f'{thread_name}-{i}'] = {
-                    'thread': None,
-                    'stats': {
-                        'downloader': None,
-                        'downloader_stats': {}
-                        }
-                    }
-                worker_stats['current_tasks']['download'][f'{thread_name}-{i}']['thread'] = Thread(target=download_task, name=f'{thread_name}-{i}')
-            for t in worker_stats['current_tasks']['download'].values():
-                t['thread'].start()
-            while True:
-                if [t for t in worker_stats['current_tasks']['download'].values() if t['thread'].is_alive()]:
-                    sleep(.25)
-                    continue
-                break
-            
-    def synchro_worker(self):
-        pass
-
-
-    def build_download_list(self, extractor_name: str, content_info: PolarType):
-        'Build a download list out of an extractor output'
-        download_list = []
-        if type(content_info) == Series:
-            # Format series output directory
-            series_directory = self.options['download']['series_format'].format(
-                W=extractor_name,
-                S=content_info.title,
-                i=content_info.id,
-                y=content_info.year)
-            # Sanitize series directory
-            series_directory = sanitize_filename(series_directory, True)
-            for season in content_info.seasons:
-                # Format season output directory
-                season_directory = self.options['download']['season_format'].format(
-                    W= extractor_name,
-                    S=content_info.title,
-                    s=season.title,
-                    i=season.id,
-                    sn=normalize_integer(season.number),
-                    Sn=season.number)
-                # Sanitize season directory
-                season_directory = sanitize_filename(season_directory, True)
-                for episode in season.episodes:
-                    if type(episode) == Episode and not episode.movie:
-                        # Format episode output name
-                        output_name = self.options['download']['episode_format'].format(
-                            W=extractor_name,
-                            S=content_info.title,
-                            s=season.title,
-                            E=episode.title,
-                            i=episode.id,
-                            Sn=season.number,
-                            sn=normalize_integer(season.number),
-                            En=episode.number,
-                            en=normalize_integer(episode.number))
-                        # Sanitize filename
-                        episode.season_id = f'S{normalize_integer(season.number)}E{normalize_integer(episode.number)}'
-                        output_name = sanitize_filename(output_name)
-                        # Join all paths
-                        output_path = os.path.join(
-                            self.options['download']['series_directory'],
-                            series_directory,
-                            season_directory,
-                            output_name
-                            )
-                    elif type(episode) == Movie or type(episode) == Episode and episode.movie:
-                        # Format movie output name
-                        output_name = self.options['download']['movie_format'].format(
-                            W=extractor_name,
-                            E=episode.title,
-                            i=episode.id,
-                            Y=episode.year)
-                        output_name = sanitize_filename(output_name)
-                        output_path = os.path.join(
-                            self.options['download']['movies_directory'],
-                            output_name
-                        )
-                    episode.output = output_path + '.mkv'
-                    download_list.append(episode)
-        elif type(content_info) == Movie:
-            # Format movie output name
-            output_name = self.options['download']['movie_format'].format(
-                W=extractor_name,
-                E=content_info.title,
-                i=content_info.id,
-                Y=content_info.year)
-            output_name = sanitize_filename(output_name)
-            output_path = os.path.join(
-                self.options['download']['movies_directory'],
-                output_name
+        if "options" in info:
+            with open(
+                f'{paths["log"]}/options_{dump_time}.json', "w", encoding="utf-8"
+            ) as f:
+                json.dump(options, f, indent=4)
+            vprint(
+                lang["polarity"]["dumped_to"]
+                % (
+                    lang["polarity"]["dump_options"],
+                    f"{paths['log']}/options{dump_time}.json",
+                ),
+                level="info",
             )
-            content_info.output = output_path + '.mkv'
-            download_list.append(content_info)
-        return download_list
 
+        # if 'requests' in options['dump']:
+        #    vprint('Enabled dumping of HTTP requests', error_level='debug')
+
+    def process_filters(self, filters: str, link=True) -> List[Filter]:
+        "Create Filter objects from a string and link them to their respective links"
+        filter_list = []
+        skip_next_item = False  # If True, skip a item in the loop
+        current_index = None  # If None, apply filter to all URLs
+        indexed = 0
+        url_specifier = r"(global|i(\d)+)"
+        filters = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', filters)
+        vprint("Starting filter processing", "debug", "polarity")
+        for filter in filters:
+            if skip_next_item:
+                skip_next_item = False
+                continue
+            specifier = re.match(url_specifier, filter)
+            if specifier:
+                if specifier.group(1) == "global":
+                    current_index = None
+                elif specifier.group(1) != "global":
+                    current_index = int(specifier.group(2))
+                vprint(
+                    lang["polarity"]["changed_index"] % current_index
+                    if current_index is not None
+                    else "global",
+                    level="debug",
+                )
+            else:
+                _index = filters.index(filter, indexed)
+                # Create a Filter object with specified parameters
+                # and the next iterator, the actual filter
+                raw_filter = filters[_index + 1]
+                # Remove quotes
+                if raw_filter.startswith('"') and raw_filter.endswith('"'):
+                    raw_filter = raw_filter[1:-1]
+                _filter, filter_type = build_filter(params=filter, filter=raw_filter)
+                filter_list.append(_filter)
+                vprint(
+                    lang["polarity"]["created_filter"]
+                    % (filter_type.__name__, filter, raw_filter),
+                    level="debug",
+                )
+                # Append to respective url's filter list
+                if link:
+                    if current_index is not None:
+                        self.pool[current_index]["filters"].append(_filter)
+                    elif current_index is None:
+                        # If an index is not specified, or filter is in
+                        # global group, append to all url's filter lists
+                        for url in self.pool:
+                            url["filters"].append(_filter)
+                # Avoid creating another Filter object with the filter
+                # as the parameter
+                skip_next_item = True
+                indexed += 2
+        return filter_list
+
+    def execute_hooks(self, name: str, content: dict) -> None:
+        if "hooks" not in options:
+            return
+        if name not in options["hooks"]:
+            return
+        for hook in options["hooks"][name]:
+            hook(content)
+
+    def _extract_task(self, id: int) -> None:
+        def take_item() -> Union[dict, None]:
+            with self.__extract_lock:
+                available = [i for i in self.pool if not i["reserved"]]
+                if not available:
+                    return
+                item = available[0]
+                self.pool[self.pool.index(item)]["reserved"] = True
+            return item
+
+        while True:
+            item = take_item()
+            if item is None:
+                break
+            _extractor = get_compatible_extractor(item["url"])
+            if _extractor is None:
+                vprint(
+                    lang["dl"]["no_extractor"]
+                    % (
+                        lang["dl"]["url"]
+                        if not is_content_id(item["url"])
+                        else lang["dl"]["content_id"],
+                        item["url"],
+                    )
+                )
+                continue
+
+            name, extractor = _extractor
+            self.execute_hooks(
+                "started_extraction", {"extractor": name, "name": item["url"]}
+            )
+            extractor_object = extractor(item["url"], item["filters"], _stack_id=id)
+            extracted_info = extractor_object.extract()
+            self.extracted_items.append(extracted_info)
+
+            if type(extracted_info) is Series:
+                while True:
+                    episodes = extracted_info.get_all_episodes(pop=True)
+                    if not episodes and extracted_info._extracted:
+                        # No more episodes to add to download list
+                        # and extractor finish, end loop
+                        break
+                    for episode in episodes:
+                        if type(episode) is Episode:
+                            media = (extracted_info, episode._season, episode)
+                        elif type(episode) is Movie:
+                            media = Episode
+                        media_object = self._format_filenames(media)
+                        self.download_pool.append(media_object)
+
+            elif type(extracted_info) is Movie:
+                while not extracted_info._extracted:
+                    time.sleep(0.1)
+                media_object = self._format_filenames(extracted_info)
+
+                # name = f"{paths['log']}/{item['url'].replace('/', '_')}-{filename_datetime()}.log"
+
+                # with open(name, "w") as log:
+                #     log.write(extractor_object.logs)
+
+                self.download_pool.append(media_object)
+            self.execute_hooks(
+                "finished_extraction", {"extractor": name, "name": item["url"]}
+            )
+
+    def _download_task(self, id: int) -> None:
+        while True:
+            if not self.download_pool and self.status["extraction"]["finished"]:
+                break
+            elif not self.download_pool:
+                time.sleep(1)
+                continue
+            # Take an item from the download pool
+            item = self.download_pool.pop(0)
+            if (
+                item.skip_download is not None
+                and item.skip_download != lang["extractor"]["filter_check_fail"]
+            ):
+                vprint(
+                    lang["dl"]["cannot_download_content"] % type(item).__name__,
+                    item.short_name,
+                    item,
+                    level="warning",
+                )
+            elif (
+                self.__download_log.in_log(item.content_id)
+                and not options["download"]["redownload"]
+            ):
+                vprint(lang["dl"]["no_redownload"] % item.short_name, level="warning")
+                continue
+
+            vprint(lang["dl"]["downloading_content"] % (item.short_name, item.title))
+
+            # Set the downloader to Penguin
+            # TODO: external downloader support
+            _downloader = PenguinDownloader
+            downloader = _downloader(item=item, _stack_id=id)
+            downloader.start()
+
+            while downloader.is_alive():
+                time.sleep(0.1)
+
+            if downloader.success:
+                vprint(
+                    lang["dl"]["download_successful"]
+                    % (lang["types"][item.__class__.__name__.lower()], item.short_name)
+                )
+                send_android_notification(
+                    "Polarity",
+                    lang["dl"]["download_successful"]
+                    % (lang["types"][item.__class__.__name__.lower()], item.short_name),
+                    id=item.short_name,
+                    # TODO: rework when music support is finished
+                    action=f"'termux-share \"{item.output}{options['download']['video_extension']}\"'",
+                )
+                # Download finished, add identifier to download log
+                self.__download_log.add(item.content_id)
 
     @staticmethod
-    def add_id_to_archive(id=str):
-        with open(DOWNLOAD_LOG, 'a') as dl:
-            dl.write(f'{id}\n')
-
-    @staticmethod
-    def id_in_archive(id=str):
-        return id in open(DOWNLOAD_LOG, 'r').read()
-
-    '''def write_status_file(self):
-        global _STATS
-        with open(self.status_file_path, 'w') as status:
-            json.dump(_STATS, status)
-    '''
-    def search(self, extractor=str, search_term=str):
-        pass
-
-    def dump_options(self, format=str):
-        with open(f'options_dump_{filename_datetime()}.txt', 'a') as z:
-            z.write('Polarity (%s) %s' % (__version__, datetime.now()))
-            for opt in self.opts_map:
-                z.write('\n%s' % opt[0])
-                if format == 'json':
-                    # JSON
-                    z.write(json.dumps(opt[1], indent=4))
-
-
-class SearchError(Exception):
-    pass
+    def _format_filenames(
+        media_obj: Union[Tuple[Series, Season, Episode], Movie],
+    ) -> Union[Episode, Movie, Tuple[str]]:
+        """
+        Create an output path out of an MediaType object metadata
+        :param media_obj: a tuple with a series, season and episode object, in that order,
+        or a movie object
+        """
+        if type(media_obj) is tuple:
+            series_dir = options["download"]["series_format"].format(
+                # Extractor's name
+                W=media_obj[0]._extractor,
+                # Series' title
+                S=media_obj[0].title,
+                # Series' identifier
+                i=media_obj[0].id,
+                # Series' year
+                y=media_obj[0].year,
+            )
+            season_dir = options["download"]["season_format"].format(
+                # Extractor's name
+                W=media_obj[0]._extractor,
+                # Series' title
+                S=media_obj[0].title,
+                # Season's title
+                s=media_obj[1].title,
+                # Season's identifier
+                i=media_obj[1].id,
+                # Season's number with trailing 0 if < 10
+                sn=normalize_number(media_obj[1].number),
+                # Season's number
+                Sn=media_obj[1].number,
+            )
+            output_filename = options["download"]["episode_format"].format(
+                # Extractor's name
+                W=media_obj[0]._extractor,
+                # Series' title
+                S=media_obj[0].title,
+                # Season's title
+                s=media_obj[1].title,
+                # Episode's title
+                E=media_obj[2].title,
+                # Episode's identifier
+                i=media_obj[2].id,
+                # Season's number with trailing 0 if < 10
+                sn=normalize_number(media_obj[1].number),
+                # Season's number
+                Sn=media_obj[1].number,
+                # Episode's number with trailing 0 if < 10
+                en=normalize_number(media_obj[2].number),
+                # Episode's number
+                En=media_obj[2].number,
+            )
+            output_path = os.path.join(
+                options["download"]["series_directory"],
+                series_dir,
+                season_dir,
+                output_filename,
+            )
+            media_obj[2].output = sanitize_path(output_path)
+            return media_obj[2]
+        if type(media_obj) is Movie:
+            output_filename = options["download"]["movie_format"].format(
+                # Extractor's name
+                W=media_obj._extractor,
+                # Movie's title
+                E=media_obj.title,
+                # Movie's identifier
+                i=media_obj.id,
+                # Movie's year
+                Y=media_obj.year,
+            )
+            output_path = os.path.join(
+                options["download"]["movie_directory"], output_filename
+            )
+            media_obj.output = sanitize_path(output_path)
+            return media_obj
