@@ -159,7 +159,7 @@ class Polarity:
                 os._exit(1)
             print(f"{FT.bold}{lang['polarity']['installed_languages']}{FT.reset}")
             for _lang in get_installed_languages():
-                with open(f'{paths["lang"]}{_lang}.toml', "r") as lf:
+                with open(f'{paths["lang"]}{_lang}.toml', "rb") as lf:
                     loaded = tomli.load(lf)
                     name = f"{FT.bold}{loaded['name']}{FT.reset}"
                     print(
