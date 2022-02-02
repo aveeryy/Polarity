@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 from polarity.downloader.penguin import __version__ as penguin
-from polarity.utils import normalize_number, version_to_tuple
+from polarity.utils import version_to_tuple
 from polarity.version import __version__
 
 
@@ -30,7 +30,7 @@ def main(module: str) -> None:
 
     os.chdir(os.path.dirname(__file__))
     current_module = version_to_tuple(current[module][0])
-    new_version = f"{dt.year}.{normalize_number(dt.month)}.{normalize_number(dt.day)}"
+    new_version = f"{dt.year}.{dt.month}.{dt.day}"
     # check if current version is today
     if current_module[:3] == version_to_tuple(new_version):
         revision = 1
@@ -44,6 +44,7 @@ def main(module: str) -> None:
     if response in ("Y", "y", ""):
         bump_version(current[module][1], current[module][0], new_version)
         if module == "polarity":
+            # also bump the configuration file
             bump_version("../setup.cfg", current[module][0], new_version)
         print("bumped!")
         return True
