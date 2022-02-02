@@ -258,6 +258,7 @@ def send_android_notification(
     if not running_on_android() or not which("termux-notification"):
         # Return if not running on an Android device, or if Termux-API is not installed
         return
+    regex = r"([^ ])(')([^ ])"
     args = [
         "termux-notification",
         "-t",
@@ -272,6 +273,9 @@ def send_android_notification(
 
     if action is not None:
         args.extend(("--action", action))
+
+    command = " ".join(args)
+    command = re.sub(regex, r"\1'\\\2'\3", command)
 
     os.system(" ".join(args))
 
