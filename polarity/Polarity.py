@@ -534,11 +534,11 @@ class Polarity:
                 and item.skip_download != lang["extractor"]["filter_check_fail"]
             ):
                 vprint(
-                    lang["dl"]["cannot_download_content"] % type(item).__name__,
-                    item.short_name,
-                    item,
+                    lang["dl"]["cannot_download_content"]
+                    % (type(item).__name__, item.short_name, item.skip_download),
                     level="warning",
                 )
+                continue
             elif (
                 self.__download_log.in_log(item.content_id)
                 and not options["download"]["redownload"]
