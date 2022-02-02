@@ -607,25 +607,29 @@ class Polarity:
                 # Season's number
                 Sn=media_obj[1].number,
             )
-            output_filename = options["download"]["episode_format"].format(
-                # Extractor's name
-                W=media_obj[0]._extractor,
-                # Series' title
-                S=media_obj[0].title,
-                # Season's title
-                s=media_obj[1].title,
-                # Episode's title
-                E=media_obj[2].title,
-                # Episode's identifier
-                i=media_obj[2].id,
-                # Season's number with trailing 0 if < 10
-                sn=normalize_number(media_obj[1].number),
-                # Season's number
-                Sn=media_obj[1].number,
-                # Episode's number with trailing 0 if < 10
-                en=normalize_number(media_obj[2].number),
-                # Episode's number
-                En=media_obj[2].number,
+            output_filename = (
+                options["download"]["episode_format"]
+                .format(
+                    # Extractor's name
+                    W=media_obj[0]._extractor,
+                    # Series' title
+                    S=media_obj[0].title,
+                    # Season's title
+                    s=media_obj[1].title,
+                    # Episode's title
+                    E=media_obj[2].title,
+                    # Episode's identifier
+                    i=media_obj[2].id,
+                    # Season's number with trailing 0 if < 10
+                    sn=normalize_number(media_obj[1].number),
+                    # Season's number
+                    Sn=media_obj[1].number,
+                    # Episode's number with trailing 0 if < 10
+                    en=normalize_number(media_obj[2].number),
+                    # Episode's number
+                    En=media_obj[2].number,
+                )
+                .replace("/", "-")
             )
             output_path = os.path.join(
                 options["download"]["series_directory"],
@@ -636,15 +640,19 @@ class Polarity:
             media_obj[2].output = sanitize_path(output_path)
             return media_obj[2]
         if type(media_obj) is Movie:
-            output_filename = options["download"]["movie_format"].format(
-                # Extractor's name
-                W=media_obj._extractor,
-                # Movie's title
-                E=media_obj.title,
-                # Movie's identifier
-                i=media_obj.id,
-                # Movie's year
-                Y=media_obj.year,
+            output_filename = (
+                options["download"]["movie_format"]
+                .format(
+                    # Extractor's name
+                    W=media_obj._extractor,
+                    # Movie's title
+                    E=media_obj.title,
+                    # Movie's identifier
+                    i=media_obj.id,
+                    # Movie's year
+                    Y=media_obj.year,
+                )
+                .replace("/", "-")
             )
             output_path = os.path.join(
                 options["download"]["movie_directory"], output_filename
