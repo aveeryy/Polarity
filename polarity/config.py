@@ -43,8 +43,6 @@ def load_config(config_path: str) -> dict:
         except tomli.TOMLDecodeError:
             # TODO: corrupt config handler
             raise Exception
-    # this won't print on initial load
-    vprint(f"loaded config from {config_path}", "debug")
     return config
 
 
@@ -75,13 +73,13 @@ def change_language(language_code: str) -> dict:
         dict_merge(lang, internal_lang, True)
     elif os.path.exists(__lang_path):
         lang_code = language_code
-        with open(__lang_path, "r", encoding="utf-8") as l:
+        with open(__lang_path, "rb") as fp:
             # Change language to internal without modifying the variable
             # Doing this to avoid more languages than the internal one
             # and the currently loaded overlapping
             dict_merge(lang, internal_lang, True)
             # Now, change
-            dict_merge(lang, tomli.load(l), True)
+            dict_merge(lang, tomli.load(fp), True)
             # Merge internal language with loaded one, avoids errors due
             # missing strings
     return lang
@@ -179,7 +177,7 @@ def parse_arguments(get_parser=False) -> dict:
     parser = argparse.ArgumentParser(
         usage=USAGE,
         description="Polarity %s | https://github.com/aveeryy/Polarity/" % (__version__),
-        prog="Polarity",
+        prog="polarity",
         add_help=False,
         formatter_class=__FORMATTER,
     )
@@ -612,8 +610,8 @@ elif "verbose_logs" in config:
     options["verbose_logs"] = config["verbose_logs"]
 
 # vprint statements must be under this line
-
-vprint(lang["polarity"]["config_path"] % paths["cfg"], "debug")
+if "shtab" not in sys.argv[0]:
+    vprint(lang["polarity"]["config_path"] % paths["cfg"], "debug")
 
 
 # Part 3: Load options from the rest of command line arguments
