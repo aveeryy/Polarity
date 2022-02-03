@@ -277,7 +277,7 @@ def send_android_notification(
     command = " ".join(args)
     command = re.sub(regex, r"\1'\\\2'\3", command)
 
-    os.system(" ".join(args))
+    os.system(command)
 
 
 def remove_android_notification(id: str) -> None:
