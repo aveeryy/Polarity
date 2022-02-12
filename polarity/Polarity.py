@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import platform
 import re
@@ -124,6 +125,10 @@ class Polarity:
             from polarity import log_filename
         except ImportError:
             return
+
+        for handler in logging.getLogger("polarity").handlers:
+            handler.close()
+
         if os.path.exists(log_filename):
             os.remove(log_filename)
 
