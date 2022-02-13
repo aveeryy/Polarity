@@ -1,17 +1,16 @@
 import argparse
-import logging
 import os
 import re
 import sys
 from typing import List
 
+import shtab
 import tomli
 import tomli_w
 
 from polarity.lang import internal_lang
 from polarity.utils import (
     dict_merge,
-    filename_datetime,
     get_argument_value,
     get_config_path,
     get_home_path,
@@ -23,6 +22,18 @@ from polarity.version import __version__
 
 
 # Part 0: Functions
+
+VALID_VERBOSE_LEVELS = [
+    "quiet",
+    "critical",
+    "error",
+    "warning",
+    "info",
+    "debug",
+    "verbose",
+]
+
+
 class ConfigError(Exception):
     pass
 
@@ -73,13 +84,15 @@ def change_language(language_code: str) -> dict:
         dict_merge(lang, internal_lang, True)
     elif os.path.exists(__lang_path):
         lang_code = language_code
-        with open(__lang_path, "rb") as fp:
+        with open(__lang_path, "r") as fp:
+            # FIXME: language does not load?, don't actually know why
+
             # Change language to internal without modifying the variable
             # Doing this to avoid more languages than the internal one
             # and the currently loaded overlapping
             dict_merge(lang, internal_lang, True)
             # Now, change
-            dict_merge(lang, tomli.load(fp), True)
+            dict_merge(lang, tomli.loads(fp.read()), True)
             # Merge internal language with loaded one, avoids errors due
             # missing strings
     return lang
@@ -111,6 +124,14 @@ def change_options(new_options: dict):
 
 
 def parse_arguments(get_parser=False) -> dict:
+    """ """
+
+    # predefine preambles for shtab custom completion
+    preamble = {"bash": "", "zsh": "", "tcsh": ""}
+    types = {}
+    # extensions to generate preambles of
+    PREAMBLES = (".toml", ".log")
+
     def parse_external_args(args: dict, dest: dict, dest_name: str) -> None:
         "Convert an ARGUMENTS object to argparse arguments"
         group_name = lang["args"]["groups"]["extractor"] % dest_name
@@ -174,6 +195,31 @@ def parse_arguments(get_parser=False) -> dict:
     opts = {"download": {}, "search": {}, "extractor": {}}
     args_map = {}
 
+    # shtab stuff, generate file completion with custom extensions
+    # for --config-file arguments and alike
+
+    # bash template
+    BASE = """
+    # $1=COMP_WORDS[1]
+    _polarity_compgen_%s(){
+      compgen -d -- $1
+      compgen -f -X '!*?%s' -- $1
+      compgen -f -X '!*?%s' -- $1
+    }\n
+    """
+
+    for ext in PREAMBLES:
+        # generate preamble for bash
+        preamble["bash"] += BASE % (f"{ext.strip('.')}File", ext.lower(), ext.upper())
+        types[ext] = {
+            "bash": "_polarity_compgen_%s" % f"{ext.strip('.')}File",
+            "zsh": f"_files -g '(*{ext.lower()}|*{ext.upper()})'",
+            "tcsh": f"f:*{ext}",
+        }
+
+    # remove identation from python code in bash preamble
+    preamble["bash"] = preamble["bash"].replace(" " * 4, "")
+
     parser = argparse.ArgumentParser(
         usage=USAGE,
         description="Polarity %s | https://github.com/aveeryy/Polarity/" % (__version__),
@@ -187,6 +233,8 @@ def parse_arguments(get_parser=False) -> dict:
     parser.add_argument("url", help=argparse.SUPPRESS, nargs="*")
     # Windows install finisher
     parser.add_argument("--windows-setup", help=argparse.SUPPRESS, action="store_true")
+
+    shtab.add_argument_to(parser, preamble=preamble)
 
     general.add_argument("-h", "--help", action="store_true", help=lang_help["help"])
     general.add_argument(
@@ -231,13 +279,27 @@ def parse_arguments(get_parser=False) -> dict:
         "--check-for-updates", action="store_true", help=lang_help["update_check"]
     )
     general.add_argument("--filters", help=lang_help["filters"])
-    general.add_argument("--accounts-directory", help=lang_help["accounts_dir"])
-    general.add_argument("--binaries-directory", help=lang_help["binaries_dir"])
-    general.add_argument("--config-file", help=lang_help["config_file"])
-    general.add_argument("--download-log-file", help=lang_help["log_file"])
-    general.add_argument("--language-directory", help=lang_help["language_dir"])
-    general.add_argument("--log-directory", help=lang_help["log_dir"])
-    general.add_argument("--temp-directory", help=lang_help["temp_dir"])
+    general.add_argument(
+        "--accounts-directory", help=lang_help["accounts_dir"]
+    ).complete = shtab.DIRECTORY
+    general.add_argument(
+        "--binaries-directory", help=lang_help["binaries_dir"]
+    ).complete = shtab.DIRECTORY
+    general.add_argument("--config-file", help=lang_help["config_file"]).complete = types[
+        ".toml"
+    ]
+    general.add_argument(
+        "--download-log-file", help=lang_help["log_file"]
+    ).complete = types[".log"]
+    general.add_argument(
+        "--language-directory", help=lang_help["language_dir"]
+    ).complete = shtab.DIRECTORY
+    general.add_argument(
+        "--log-directory", help=lang_help["log_dir"]
+    ).complete = shtab.DIRECTORY
+    general.add_argument(
+        "--temp-directory", help=lang_help["temp_dir"]
+    ).complete = shtab.DIRECTORY
 
     # Search options
     search = parser.add_argument_group(title=lang_group["search"])
@@ -427,15 +489,7 @@ __FORMATTER = HelpFormatter if "--extended-help" not in sys.argv else ExtendedFo
 __main_path = get_config_path()
 # Default base path for downloads
 __download_path = f"{get_home_path()}/Polarity Downloads/"
-VALID_VERBOSE_LEVELS = [
-    "quiet",
-    "critical",
-    "error",
-    "warning",
-    "info",
-    "debug",
-    "verbose",
-]
+
 
 # Default paths
 paths = {
@@ -448,7 +502,7 @@ paths = {
         "dump": "Dumps/",
         "lang": "Languages/",
         "log": "Logs/",
-        "sync_list": "sync.json",
+        # "sync_list": "sync.json",
         "tmp": "Temp/",
     }.items()
 }
@@ -547,6 +601,9 @@ __path_arguments = {
 for arg, path_name in __path_arguments.items():
     if arg in sys.argv:
         _value = sys.argv[sys.argv.index(arg) + 1]
+        if _value[-1] not in ("/", "\\") and "directory" in arg:
+            separator = "\\" if sys.platform == "win32" else "/"
+            _value = f"{_value}{separator}"
         paths[path_name] = _value
     # Create the directory if it does not exist
     if "directory" in arg:
@@ -561,6 +618,7 @@ if paths["cfg"] and not os.path.exists(paths["cfg"]):
 
 # Load configuration from file
 config = load_config(paths["cfg"])
+
 # Import DOWNLOADER and EXTRACTOR list here to avoid import loops
 from polarity.downloader import DOWNLOADERS  # noqa: E402
 from polarity.extractor import EXTRACTORS  # noqa: E402
@@ -592,7 +650,7 @@ if get_argument_value(["-m", "--mode"]) == "live_tv":
     # Mode is set to one designed to output a parsable string
     # This is forced to 0 to avoid any status msg breaking any script
     options["verbose"] = "quiet"
-elif any(a in sys.argv for a in ("-q", "--quiet")):
+elif any(a in sys.argv for a in ("-q", "--quiet", "--print-completion")):
     # Quiet parameter passed,
     options["verbose"] = "quiet"
 elif any(a in sys.argv for a in ("-v", "--verbose")):
