@@ -1,6 +1,7 @@
 import sys
 
 import tqdm
+from polarity.config import options
 from polarity.utils import FormattedText
 
 
@@ -40,6 +41,11 @@ class ProgressBar(tqdm.tqdm):
         head=None,
         **kwargs,
     ):
+
+        if options["verbose"] == "quiet":
+            # do not show progress bars while quiet
+            return
+
         if head is not None:
             desc = f"{FormattedText.magenta}{FormattedText.bold}[{head}]{FormattedText.reset} {desc}"  # noqa
 
