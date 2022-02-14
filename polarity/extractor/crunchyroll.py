@@ -124,13 +124,15 @@ class CrunchyrollExtractor(BaseExtractor):
         },
         {
             "args": ["--crunchyroll-email"],
-            "attrib": {"help": lang["args"]["help"]["email"]},
+            "attrib": {
+                "help": lang["args"]["help"]["email"] % "Crunchyroll",
+            },
             "variable": "username",
         },
         {
             "args": ["--crunchyroll-password"],
             "attrib": {
-                "help": lang["args"]["help"]["pass"],
+                "help": lang["args"]["help"]["pass"] % "Crunchyroll",
             },
             "variable": "password",
         },
@@ -403,10 +405,7 @@ class CrunchyrollExtractor(BaseExtractor):
             cookies=self.cjar,
         )
         if not login_req[0]["error"]:
-            vprint(
-                lang["extractor"]["login_success"],
-                module_name="crunchyroll",
-            )
+            vprint(lang["extractor"]["login_success"], module_name="crunchyroll")
             self.save_cookies(login_req[1].cookies, ["session_id", "etp_rt"])
         else:
             vprint(

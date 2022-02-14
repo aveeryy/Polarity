@@ -62,12 +62,16 @@ class AtresplayerExtractor(BaseExtractor):
         },
         {
             "args": ["--atresplayer-email"],
-            "attrib": {"help": lang["args"]["help"]["email"]},
+            "attrib": {
+                "help": lang["args"]["help"]["email"] % "Atresplayer",
+            },
             "variable": "username",
         },
         {
             "args": ["--atresplayer-password"],
-            "attrib": {"help": lang["args"]["help"]["pass"]},
+            "attrib": {
+                "help": lang["args"]["help"]["pass"] % "Atresplayer",
+            },
             "variable": "password",
         },
     ]
@@ -90,10 +94,11 @@ class AtresplayerExtractor(BaseExtractor):
         )
         if res[1].status_code == 200:
             vprint(lang["extractor"]["login_success"], "info", "atresplayer")
+            vprint(lang["extractor"]["login_loggedas"] % username, "info", "atresplayer")
             self.save_cookies(res[1].cookies, ["A3PSID"])
             return True
         vprint(
-            lang["extractor"]["login_success"] % res[0]["error"],
+            lang["extractor"]["login_failure"] % res[0]["error"],
             "error",
             "atresplayer",
         )
@@ -247,18 +252,24 @@ class AtresplayerExtractor(BaseExtractor):
                 return
             self.get_series_info(series_id=series_id)
 
+        is_single_season = "episode" in self.__series_json
+
         if return_raw_info:
+            if is_single_season:
+                vprint("~TEMP~ content does not have seasons", "warning")
+                return
             return self.__series_json["seasons"]
 
-        seasons = [
-            Season(
-                title=season["title"],
-                id=season["link"]["href"][-24:],
-                **self.get_season_jsonld_info(season["link"]["href"][-24:]),
-            )
-            for season in self.__series_json["seasons"]
-        ]
-        return seasons
+        if not is_single_season:
+            seasons = [
+                Season(
+                    title=season["title"],
+                    id=season["link"]["href"][-24:],
+                    **self.get_season_jsonld_info(season["link"]["href"][-24:]),
+                )
+                for season in self.__series_json["seasons"]
+            ]
+            return seasons
 
     def get_season_jsonld_info(self, season_id: str) -> Dict[str, int]:
         # This endpoint is only needed to get the season number and ep. count
