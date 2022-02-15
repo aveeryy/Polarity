@@ -2,7 +2,7 @@
 # Installs the latest release version from pip
 # Requires Termux to be installed
 
-VERSION='2021.12.31 (release)'
+VERSION='2022.2.15 (release)'
 
 echo '[-] Polarity Installer for Android' $VERSION
 
@@ -21,10 +21,7 @@ apt install -y python ffmpeg termux-api
 # Install Polarity using pip
 echo '[-] Installing the latest release'
 pip install --no-input Polarity
-# Add alias to ~/.bashrc
-# TODO: add check to avoid adding multiple aliases on update
-echo "alias polarity='python -m polarity'" >> ~/.bashrc
 echo '[-] Installation complete'
 echo '[-] Use Polarity with ''polarity <urls> [OPTIONS]'''
-# Create a new shell so settings apply
+# Open a new shell so settings apply
 bash

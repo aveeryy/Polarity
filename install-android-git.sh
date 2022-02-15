@@ -3,7 +3,7 @@
 # Defaults to main branch
 # Requires Termux to be installed
 
-VERSION='2021.12.31 (git)'
+VERSION='2022.2.15 (git)'
 REPO='https://github.com/aveeryy/Polarity.git'
 
 echo '[-] Polarity Installer for Android' $VERSION
@@ -31,10 +31,7 @@ apt install -y git python ffmpeg termux-api
 # Install Polarity
 echo '[-] Installing Polarity'
 pip install --no-input 'git+'$REPO'@'$BRANCH
-# Add alias to ~/.bashrc
-# TODO: add check to avoid adding multiple aliases on update
-echo "alias polarity='python -m polarity'" >> ~/.bashrc
 echo '[-] Installation complete'
 echo '[-] Use Polarity with ''polarity <urls> [OPTIONS]'''
-# Create a new shell so alias settings apply
+# Open a new shell so alias settings apply
 bash
