@@ -12,17 +12,13 @@ from polarity.version import __version__
 
 
 def main():
-    # Launches Polarity
-    Polarity(urls=urls).start()
-
-
-if __name__ == "__main__":
     if "--update" in sys.argv:
         selfupdate(mode="release")
     elif "--update-git" in sys.argv:
         selfupdate(mode="git")
     try:
-        main()
+        # Launches Polarity
+        Polarity(urls=urls).start()
     except KeyboardInterrupt:
         # Exit the program
         vprint(lang["main"]["exit_msg"])
@@ -43,3 +39,7 @@ if __name__ == "__main__":
             )
         # Re-raise exception
         raise
+
+
+if __name__ == "__main__":
+    main()
