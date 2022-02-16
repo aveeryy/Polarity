@@ -41,13 +41,11 @@ Configuration files are found at:
     
 
 ## Testing devices
-<img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/>  **Arch Linux** (latest kernel)
+<img src="https://aveeryy.github.io/icons/small/Linux.png" alt="Linux" width="16"/>  **Arch Linux** (Latest kernel/Python)
 
-<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/>  **Windows 10** (Ameliorated)
+<img src="https://aveeryy.github.io/icons/small/Windows.png" alt="Windows" width="16"/>  **Windows 10** (Ameliorated/Python 3.9)
 
-<img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>  **Android 11** (Termux latest/4.9.118)
-
-<img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>  **Android 10** (Termux 0.101/4.4.210-Sultan)
+<img src="https://aveeryy.github.io/icons/small/Android.png" alt="Android" width="16"/>  **Android 12** (Termux/Python 3.10)
 
 ## Legal disclaimer
 This application is not affiliated nor endorsed by any of the sites mentioned above. This application enables downloading videos for *offline viewing* which may be forbidden in your country or cause a violation of the Terms of Service of your Internet Service Provider and/or streaming provider. Neither I nor this tool are responsible of your actions and therefore, consequences.
