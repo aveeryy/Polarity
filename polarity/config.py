@@ -546,7 +546,7 @@ __defaults = {
         # Default format: Movie title (Year)
         "movie_format": "{extractor}/{title} ({year}).mkv",
         # Filename formatting for generic content
-        "generic_format": "{extractor}/{title} [{id}].mkv"
+        "generic_format": "{extractor}/{title} [{id}].mkv",
         # Desired video resolution, number must be height
         # If resolution is not available, gets the closest value
         "resolution": 4320,
