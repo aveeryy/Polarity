@@ -532,27 +532,26 @@ __defaults = {
         "series_directory": f'{__download_path}{"Series/"}'.replace("\\", "/"),
         # Output directory for movies
         "movies_directory": f'{__download_path}{"Movies/"}'.replace("\\", "/"),
-        # Path formatting for series directories
-        # Default format: Extractor/Title (Year)
-        "series_format": "{W}/{S} ({y})",
-        # Path formatting for season directories
-        # Default format: Season 1 - Season identifier
-        "season_format": "Season {Sn} - {i}",
-        # Filename formatting for episodes
-        # Default format: Title S01E01 - Episode title
-        "episode_format": "{S} S{sn}E{en} - {E}",
+        # Output directory for generic content
+        "generic_directory": f"{__download_path}".replace("\\", "/"),
+        # Formatting for episodes
+        "episode_format": """
+        {extractor}/{series_title} ({year}) [{series_id}]\
+        Season {season_number} [{season_id}]/\
+        {series_title} S{season_number_0}E{number_0} - {title}.mkv
+        """.strip(
+            "\n"  # strip newlines
+        ),
         # Filename formatting for movies
         # Default format: Movie title (Year)
-        "movie_format": "{E} ({Y})",
+        "movie_format": "{extractor}/{title} ({year}).mkv",
+        # Filename formatting for generic content
+        "generic_format": "{extractor}/{title} [{id}].mkv"
         # Desired video resolution, number must be height
         # If resolution is not available, gets the closest value
         "resolution": 4320,
         # Allow downloading previously downloaded episodes
         "redownload": False,
-        # Extension for video extractor downloads
-        "video_extension": ".mkv",
-        # Extension for audio extractor downloads
-        "audio_extension": "auto",
     },
     # Extractor options
     "extractor": {
