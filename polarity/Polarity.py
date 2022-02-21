@@ -7,10 +7,11 @@ import shutil
 import sys
 import time
 import warnings
+from copy import deepcopy
 from threading import Lock
-from typing import Union, List, Tuple, Dict
-import tomli
+from typing import Dict, List, Tuple, Union
 
+import tomli
 from tqdm import TqdmWarning
 
 from polarity.config import (
@@ -24,17 +25,21 @@ from polarity.config import (
 from polarity.downloader import PenguinDownloader
 from polarity.extractor import EXTRACTORS, flags
 from polarity.types import (
+    Content,
+    ContentContainer,
     Episode,
+    MediaType,
     Movie,
     SearchResult,
     Season,
     Series,
     Thread,
 )
-from polarity.types.base import MediaType
+from polarity.types.download_log import DownloadLog
 from polarity.types.filter import Filter, build_filter
 from polarity.types.progressbar import ProgressBar
-from polarity.types.download_log import DownloadLog
+from polarity.update import check_for_updates, language_install, windows_setup
+from polarity.utils import FormattedText as FT
 from polarity.utils import (
     dict_merge,
     filename_datetime,
@@ -47,15 +52,7 @@ from polarity.utils import (
     set_console_title,
     vprint,
 )
-from polarity.update import (
-    check_for_updates,
-    language_install,
-    windows_setup,
-)
 from polarity.version import __version__
-
-from polarity.utils import FormattedText as FT
-
 
 warnings.filterwarnings("ignore", category=TqdmWarning)
 
@@ -495,32 +492,17 @@ class Polarity:
             extracted_info = extractor_object.extract()
             self.extracted_items.append(extracted_info)
 
-            if type(extracted_info) is Series:
-                while True:
-                    episodes = extracted_info.get_all_episodes(pop=True)
-                    if not episodes and extracted_info._extracted:
-                        # No more episodes to add to download list
-                        # and extractor finish, end loop
-                        break
-                    for episode in episodes:
-                        if type(episode) is Episode:
-                            media = (extracted_info, episode._season, episode)
-                        elif type(episode) is Movie:
-                            media = Episode
-                        media_object = self._format_filenames(media)
-                        self.download_pool.append(media_object)
+            while True:
+                contents = extracted_info.get_all_content(pop=True)
+                if not contents and extracted_info._extracted:
+                    # No more content to add to download list
+                    # and extractor finish, end loop
+                    break
+                for content in contents:
+                    file_path = self._format_filename(content)
+                    content.output = file_path
+                    self.download_pool.append(content)
 
-            elif type(extracted_info) is Movie:
-                while not extracted_info._extracted:
-                    time.sleep(0.1)
-                media_object = self._format_filenames(extracted_info)
-
-                # name = f"{paths['log']}/{item['url'].replace('/', '_')}-{filename_datetime()}.log"
-
-                # with open(name, "w") as log:
-                #     log.write(extractor_object.logs)
-
-                self.download_pool.append(media_object)
             self.execute_hooks(
                 "finished_extraction", {"extractor": name, "name": item["url"]}
             )
@@ -579,88 +561,113 @@ class Polarity:
                 self.__download_log.add(item.content_id)
 
     @staticmethod
-    def _format_filenames(
-        media_obj: Union[Tuple[Series, Season, Episode], Movie],
-    ) -> Union[Episode, Movie, Tuple[str]]:
+    def _format_filename(content: Union[Episode, Movie, Content]) -> str:
         """
-        Create an output path out of an MediaType object metadata
-        :param media_obj: a tuple with a series, season and episode object, in that order,
-        or a movie object
+        Create an output path for an Content object using it's
+        metadata
+
+        :param content: an instance of a Content class
+        :return: formatted path based on configuration
         """
-        if type(media_obj) is tuple:
-            series_dir = options["download"]["series_format"].format(
-                # Extractor's name
-                W=media_obj[0]._extractor,
-                # Series' title
-                S=media_obj[0].title,
-                # Series' identifier
-                i=media_obj[0].id,
-                # Series' year
-                y=media_obj[0].year,
-            )
-            season_dir = options["download"]["season_format"].format(
-                # Extractor's name
-                W=media_obj[0]._extractor,
-                # Series' title
-                S=media_obj[0].title,
-                # Season's title
-                s=media_obj[1].title,
-                # Season's identifier
-                i=media_obj[1].id,
-                # Season's number with trailing 0 if < 10
-                sn=normalize_number(media_obj[1].number),
-                # Season's number
-                Sn=media_obj[1].number,
-            )
-            output_filename = (
-                options["download"]["episode_format"]
-                .format(
-                    # Extractor's name
-                    W=media_obj[0]._extractor,
-                    # Series' title
-                    S=media_obj[0].title,
-                    # Season's title
-                    s=media_obj[1].title,
-                    # Episode's title
-                    E=media_obj[2].title,
-                    # Episode's identifier
-                    i=media_obj[2].id,
-                    # Season's number with trailing 0 if < 10
-                    sn=normalize_number(media_obj[1].number),
-                    # Season's number
-                    Sn=media_obj[1].number,
-                    # Episode's number with trailing 0 if < 10
-                    en=normalize_number(media_obj[2].number),
-                    # Episode's number
-                    En=media_obj[2].number,
+
+        fields = {
+            "title": "",
+            "id": "",
+            "number": 0,
+            "number_0": "00",
+            "year": "",
+            "extractor": "",
+            "season_title": "",
+            "season_id": "",
+            "season_number": 0,
+            "season_number_0": "00",
+            "season_year": "",
+            "series_title": "",
+            "series_id": "",
+            "series_year": "",
+        }
+
+        # create a copy of the empty fields
+        empty_fields = deepcopy(fields)
+
+        if type(content) in (Episode, Content):
+            # merge Episode fields
+            if type(content) is Episode:
+                path = options["download"]["series_directory"]
+                base = options["download"]["episode_format"]
+                dict_merge(
+                    fields,
+                    {
+                        "number": content.number,
+                        "number_0": normalize_number(content.number),
+                    },
+                    overwrite=True,
                 )
-                .replace("/", "-")
+
+            elif type(content) is Content:
+                path = options["download"]["generic_directory"]
+                base = options["download"]["generic_format"]
+
+            # merge Episode/Content common fields
+            dict_merge(
+                fields,
+                {
+                    "extractor": content._parent._extractor,
+                    "title": content.title,
+                    "id": content.id,
+                    "year": content.date.year,
+                },
+                overwrite=True,
             )
-            output_path = os.path.join(
-                options["download"]["series_directory"],
-                series_dir,
-                season_dir,
-                output_filename,
-            )
-            media_obj[2].output = sanitize_path(output_path)
-            return media_obj[2]
-        if type(media_obj) is Movie:
-            output_filename = (
-                options["download"]["movie_format"]
-                .format(
-                    # Extractor's name
-                    W=media_obj._extractor,
-                    # Movie's title
-                    E=media_obj.title,
-                    # Movie's identifier
-                    i=media_obj.id,
-                    # Movie's year
-                    Y=media_obj.year,
+
+            if hasattr(content, "_series") and content._series:
+                dict_merge(
+                    fields,
+                    {
+                        "series_title": content._series.title,
+                        "series_id": content._series.id,
+                        "series_year": content._series.year,
+                    },
+                    overwrite=True,
                 )
-                .replace("/", "-")
+
+                if hasattr(content, "_season") and content._season:
+                    dict_merge(
+                        fields,
+                        {
+                            "season_title": content._season.title,
+                            "season_id": content._season.id,
+                            "season_number": content._season.number,
+                            "season_number_0": normalize_number(content._season.number),
+                            "season_year": content._season.year,
+                        },
+                        overwrite=True,
+                    )
+
+        elif type(content) == Movie:
+            path = options["download"]["movie_directory"]
+            base = options["download"]["movie_format"]
+
+            dict_merge(
+                fields,
+                {
+                    "extractor": content._parent._extractor,
+                    "title": content.title,
+                    "id": content.id,
+                    "year": content.date.year,
+                },
+                overwrite=True,
             )
-            output_path = os.path.join(
-                options["download"]["movie_directory"], output_filename
-            )
-            media_obj.output = sanitize_path(output_path)
-            return media_obj
+
+        # TODO: add check for invalid fields
+
+        # fill the fields
+        filled = base.format(**fields).split("/")
+        empty = base.format(**empty_fields).split("/")
+        # remove empty segments of the path
+        removed = [part for n, part in enumerate(filled) if empty[n] != part]
+        # join the download path and the built path
+        final_path = os.path.join(path, "/".join(removed))
+
+        # finally return the sanitized path
+        return sanitize_path(final_path)
