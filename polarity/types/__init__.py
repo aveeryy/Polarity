@@ -1,15 +1,15 @@
 # flake8: noqa
-from .person import Person, Actor, Director, Artist
-from .episode import Episode
-from .movie import Movie
-from .progressbar import ProgressBar
-from .search import SearchResult
-from .season import Season
-from .series import Series
-from .stream import Stream
-from .thread import Thread
-
 from polarity.types.base import MediaType, MetaMediaType
+from polarity.types.episode import Episode
+from polarity.types.generic import Content, ContentContainer
+from polarity.types.movie import Movie
+from polarity.types.person import Actor, Artist, Director, Person
+from polarity.types.progressbar import ProgressBar
+from polarity.types.search import SearchResult
+from polarity.types.season import Season
+from polarity.types.series import Series
+from polarity.types.stream import Stream
+from polarity.types.thread import Thread
 
 all_types = [v for v in globals().values() if v.__class__.__name__ == "MetaMediaType"]
 
