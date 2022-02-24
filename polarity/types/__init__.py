@@ -1,13 +1,16 @@
 # flake8: noqa
 from polarity.types.base import MediaType, MetaMediaType
-from polarity.types.episode import Episode
-from polarity.types.generic import Content, ContentContainer
-from polarity.types.movie import Movie
-from polarity.types.person import Actor, Artist, Director, Person
+from polarity.types.content import (
+    Content,
+    ContentContainer,
+    Episode,
+    Movie,
+    Season,
+    Series,
+)
+from polarity.types.people import Actor, Artist, Director, Person
 from polarity.types.progressbar import ProgressBar
 from polarity.types.search import SearchResult
-from polarity.types.season import Season
-from polarity.types.series import Series
 from polarity.types.stream import Stream
 from polarity.types.thread import Thread
 
