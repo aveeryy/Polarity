@@ -183,7 +183,7 @@ class Episode(Content):
         season_number = self._season.number if self._season is not None else 1
         return "%s S%sE%s" % (
             self._series.title,
-            normalize_number(self._season.number),
+            normalize_number(season_number),
             normalize_number(self.number),
         )
 
