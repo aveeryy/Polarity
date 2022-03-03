@@ -4,6 +4,7 @@ from time import sleep
 from typing import List
 
 from polarity.types.base import MediaType, MetaMediaType
+
 from polarity.types.people import Person
 from polarity.types.stream import Stream
 from polarity.utils import normalize_number
@@ -13,25 +14,26 @@ from polarity.utils import normalize_number
 class Content(MediaType, metaclass=MetaMediaType):
     title: str
     id: str
-    synopsis: str = ""
+    extractor: str = field(default="null")
+    synopsis: str = field(default="")
     date: datetime = field(default=datetime.fromisoformat("1970-01-01"))
-    people: list[Person] = field(default_factory=list)
+    people: List[Person] = field(default_factory=list)
     genres: List[str] = field(default_factory=list)
-    images: list[dict] = field(default_factory=list)
-    streams: list = field(default_factory=list)
+    images: list = field(default_factory=list)
+    streams: List[Stream] = field(default_factory=list)
     # if this value is other than None, don't download the item
     skip_download = None
     output: str = field(init=False, default="")
-    _parent: object = field(init=False)
+    _parent = None
 
     def __post_init__(self):
         # temporarily assign a parent container so unit tests don't fail
         self._parent = ContentContainer(None, None)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(title={self.title}, id={self.id})"
+        return f"{self.__class__.__name__}({self.title}, {self.content_id})"
 
-    def link_stream(self, stream=Stream) -> None:
+    def link_stream(self, stream: Stream) -> None:
         if stream not in self.streams:
             stream._parent = self
             self.streams.append(stream)
@@ -52,16 +54,30 @@ class Content(MediaType, metaclass=MetaMediaType):
     def get_extra_subs(self) -> List[Stream]:
         return [s for s in self.streams if s.extra_sub]
 
+    @property
+    def content_id(self) -> str:
+        return f"{self.extractor.lower()}/{self.__class__.__name__.lower()}-{self.id}"
+
 
 @dataclass
 class ContentContainer(MediaType, metaclass=MetaMediaType):
     title: str
     id: str
+    extractor: str = field(default="null")
+    date: datetime = field(default=datetime.fromisoformat("1970-01-01"))
+    people: List[Person] = field(default_factory=list)
+    genres: List[str] = field(default_factory=list)
     images: list = field(default_factory=list)
-    content: list[Content] = field(init=False, default_factory=list)
-    _extractor: str = field(init=False, default=None)
+    content: List[Content] = field(init=False, default_factory=list)
     # True if all requested contents have been extracted, False if not
     _extracted = False
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.title}, {self.content_id})"
+
+    @property
+    def content_id(self) -> str:
+        return f"{self.extractor.lower()}/{self.__class__.__name__.lower()}-{self.id}"
 
     def link_person(self, person) -> None:
         if person not in self.actors:
@@ -86,13 +102,14 @@ class ContentContainer(MediaType, metaclass=MetaMediaType):
         for content in self.content:
             if isinstance(content, ContentContainer):
                 # iterate though subcontainer contents
-                everything.extend(content.get_all_content())
-            if pop:
-                if hasattr(content, "_popped"):
-                    # if content has been popped skip to next
-                    continue
-                content._popped = None
-            everything.append(content)
+                everything.extend(content.get_all_content(pop))
+            else:
+                if pop is True:
+                    if hasattr(content, "_popped"):
+                        # if content has been popped skip to next
+                        continue
+                    content._popped = None
+                everything.append(content)
 
         return everything
 
@@ -120,12 +137,12 @@ class ContentContainer(MediaType, metaclass=MetaMediaType):
 @dataclass
 class Series(ContentContainer):
     synopsis: str = ""
-    year: int = 1970
     season_count: int = 0
     episode_count: int = 0
+    _parent = None
 
     def __repr__(self) -> str:
-        return f"Series({self.title}, {self.id})"
+        return super().__repr__()
 
     def link_content(self, content: Content) -> None:
         content._series = self
@@ -135,19 +152,21 @@ class Series(ContentContainer):
 @dataclass
 class Season(ContentContainer):
     number: int = None
-    year: int = 1970
     images: List[str] = field(default_factory=list)
     episode_count: int = 0
     finished: bool = True
     synopsis: str = ""
     _series = None
+    _parent = None
     _partial = True
 
+    def __repr__(self) -> str:
+        return super().__repr__()
+
     def link_content(self, content: Content):
-        if content not in self.content:
-            content._season = self
-            content._series = self._series
-            self.content.append(content)
+        content._season = self
+        content._series = self._series
+        return super().link_content(content)
 
 
 @dataclass
@@ -156,19 +175,41 @@ class Episode(Content):
     _series = None
     _season = None
 
+    def __repr__(self) -> str:
+        return super().__repr__()
+
     @property
     def short_name(self) -> str:
+        season_number = self._season.number if self._season is not None else 1
         return "%s S%sE%s" % (
             self._series.title,
             normalize_number(self._season.number),
             normalize_number(self.number),
         )
 
-    @property
-    def content_id(self) -> str:
-        return f"{self._series._extractor.lower()}/episode-{self.id}"
+    def as_movie(self):
+        """
+        Since a lot of streaming services have movies as episodes,
+        this method returns a Movie object equivalent to the Episode object
+        """
+        return Movie(
+            title=self.title,
+            id=self.id,
+            extractor=self.extractor,
+            synopsis=self.synopsis,
+            date=self.date,
+            people=self.people,
+            genres=self.genres,
+            images=self.images,
+            streams=self.streams,
+        )
 
 
 @dataclass
 class Movie(Content):
-    pass
+    def __repr__(self) -> str:
+        return super().__repr__()
+
+    @property
+    def short_name(self) -> str:
+        return f"{self.title} ({self.date.year})"
