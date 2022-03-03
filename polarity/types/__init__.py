@@ -8,7 +8,8 @@ from polarity.types.content import (
     Season,
     Series,
 )
-from polarity.types.people import Actor, Artist, Director, Person
+
+from polarity.types.people import Person
 from polarity.types.progressbar import ProgressBar
 from polarity.types.search import SearchResult
 from polarity.types.stream import Stream
