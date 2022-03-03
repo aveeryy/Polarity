@@ -327,7 +327,7 @@ class BaseExtractor:
                 # final check, return
                 return self._check_episode(content)
         elif type(content) is Season:
-            pass
+            return self._check_season(content)
 
     def _check_season(self, season: Season) -> bool:
         return "ALL" in self._seasons or season.number in self._seasons
