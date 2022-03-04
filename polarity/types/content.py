@@ -3,8 +3,9 @@ from datetime import datetime
 from time import sleep
 from typing import List
 
-from polarity.types.base import MediaType, MetaMediaType
+from polarity.config import lang
 
+from polarity.types.base import MediaType, MetaMediaType
 from polarity.types.people import Person
 from polarity.types.stream import Stream
 from polarity.utils import normalize_number
@@ -25,6 +26,7 @@ class Content(MediaType, metaclass=MetaMediaType):
     skip_download = None
     output: str = field(init=False, default="")
     _parent = None
+    _unwanted = False
 
     def __post_init__(self):
         # temporarily assign a parent container so unit tests don't fail
@@ -58,6 +60,10 @@ class Content(MediaType, metaclass=MetaMediaType):
     def content_id(self) -> str:
         return f"{self.extractor.lower()}/{self.__class__.__name__.lower()}-{self.id}"
 
+    def set_unwanted(self):
+        self.skip_download = lang["extractor"]["filter_check_fail"]
+        self._unwanted = True
+
 
 @dataclass
 class ContentContainer(MediaType, metaclass=MetaMediaType):
@@ -71,6 +77,7 @@ class ContentContainer(MediaType, metaclass=MetaMediaType):
     content: List[Content] = field(init=False, default_factory=list)
     # True if all requested contents have been extracted, False if not
     _extracted = False
+    _unwanted = False
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.title}, {self.content_id})"
@@ -88,6 +95,9 @@ class ContentContainer(MediaType, metaclass=MetaMediaType):
             # ContentContainer is the initial created by BaseExtractor (self.info),
             # link to content as _parent
             content._parent = self
+        # Apply unwanted tag to children
+        if self._unwanted:
+            content.set_unwanted()
         if content not in self.content:
             self.content.append(content)
 
@@ -127,6 +137,11 @@ class ContentContainer(MediaType, metaclass=MetaMediaType):
                 _content = content.get_content_by_id(content_id)
                 if _content:
                     return _content
+
+    def set_unwanted(self):
+        """Sets the unwanted tag on the ContentContainer object"""
+        # this method is for consistency with Content objects
+        self._unwanted = True
 
     def halt_until_extracted(self):
         """Sleep until extraction has finished, useful for scripting"""
