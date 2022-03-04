@@ -427,11 +427,11 @@ class Polarity:
                 # Remove quotes
                 if raw_filter.startswith('"') and raw_filter.endswith('"'):
                     raw_filter = raw_filter[1:-1]
-                _filter, filter_type = build_filter(params=filter, filter=raw_filter)
+                _filter = build_filter(params=filter, filter=raw_filter)
                 filter_list.append(_filter)
                 vprint(
                     lang["polarity"]["created_filter"]
-                    % (filter_type.__name__, filter, raw_filter),
+                    % (_filter.__class__.__name__, filter, raw_filter),
                     level="debug",
                 )
                 # Append to respective url's filter list
@@ -571,6 +571,7 @@ class Polarity:
         """
 
         fields = {
+            "base": "",
             "title": "",
             "id": "",
             "number": 0,
@@ -612,26 +613,28 @@ class Polarity:
             dict_merge(
                 fields,
                 {
-                    "extractor": content._parent._extractor,
+                    "base": path,
+                    "extractor": content.extractor,
                     "title": content.title,
                     "id": content.id,
                     "year": content.date.year,
+                    "ext": "mkv",
                 },
                 overwrite=True,
             )
 
-            if hasattr(content, "_series") and content._series:
+            if hasattr(content, "_series") and content._series is not None:
                 dict_merge(
                     fields,
                     {
                         "series_title": content._series.title,
                         "series_id": content._series.id,
-                        "series_year": content._series.year,
+                        "series_year": content._series.date.year,
                     },
                     overwrite=True,
                 )
 
-                if hasattr(content, "_season") and content._season:
+                if hasattr(content, "_season") and content._season is not None:
                     dict_merge(
                         fields,
                         {
@@ -639,22 +642,24 @@ class Polarity:
                             "season_id": content._season.id,
                             "season_number": content._season.number,
                             "season_number_0": normalize_number(content._season.number),
-                            "season_year": content._season.year,
+                            "season_year": content._season.date.year,
                         },
                         overwrite=True,
                     )
 
         elif type(content) == Movie:
-            path = options["download"]["movie_directory"]
+            path = options["download"]["movies_directory"]
             base = options["download"]["movie_format"]
 
             dict_merge(
                 fields,
                 {
-                    "extractor": content._parent._extractor,
+                    "base": path,
+                    "extractor": content.extractor,
                     "title": content.title,
                     "id": content.id,
                     "year": content.date.year,
+                    "ext": "mkv",
                 },
                 overwrite=True,
             )
@@ -667,7 +672,11 @@ class Polarity:
         # remove empty segments of the path
         removed = [part for n, part in enumerate(filled) if empty[n] != part]
         # join the download path and the built path
-        final_path = os.path.join(path, "/".join(removed))
+        final_path = "/".join(removed)
+        # small workaround if content download path is not present
+        # in output path, adds current working path
+        if path not in final_path:
+            final_path = os.path.join(os.getcwd(), final_path)
 
         # finally return the sanitized path
         return sanitize_path(final_path)
