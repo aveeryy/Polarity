@@ -336,7 +336,7 @@ class AtresplayerExtractor(BaseExtractor):
                 # If pageInfo is not in the json file, the season has no
                 # content, therefore skip it
                 vprint(
-                    self.extractor_lang["no_content_in_season"]
+                    lang["atresplayer"]["no_content_in_season"]
                     % (page_json["title"], season_id),
                     "warning",
                     "atresplayer",
@@ -439,7 +439,7 @@ class AtresplayerExtractor(BaseExtractor):
                 # Case 2.2: Not DRM and not HEVC stream
                 preferred = "hls_avc"
             else:
-                raise ConfigError(self.extractor_lang["except"]["invalid_codec"])
+                raise ConfigError(lang["atresplayer"]["except"]["invalid_codec"])
 
             # set the preferred stream
             [s for s in streams if preferred in s.id][0].preferred = True
