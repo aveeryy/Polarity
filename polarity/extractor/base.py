@@ -46,8 +46,9 @@ class BaseExtractor:
             self.options = dict_merge(
                 options["extractor"], options, overwrite=True, modify=False
             )
+            if self.extractor_name.lower() not in options["extractor"]:
+                options["extractor"][self.extractor_name.lower()] = self.DEFAULTS
             self.__opts = options["extractor"][self.extractor_name.lower()]
-            self.extractor_lang = lang[self.extractor_name.lower()]
 
             # Do extractor validation
             self._validate_extractor()
