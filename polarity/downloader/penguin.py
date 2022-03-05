@@ -96,7 +96,7 @@ class PenguinDownloader(BaseDownloader):
     ) -> None:
         super().__init__(item, _stack_id=_stack_id, _options=_options)
 
-        self.segment_downloaders = []
+        self.threads = []
 
         self.output_data = {
             "inputs": [],
@@ -229,9 +229,7 @@ class PenguinDownloader(BaseDownloader):
         files if those exists, if the files are corrupted
         """
         super()._start()
-        self.options["penguin"]["segment_downloaders"] = int(
-            self.options["penguin"]["segment_downloaders"]
-        )
+        self.options["penguin"]["threads"] = int(self.options["penguin"]["threads"])
         if os.path.exists(f"{self.temp_path}/pools.json"):
             # Open resume file
             output_data = self.load_output_data()
@@ -260,15 +258,14 @@ class PenguinDownloader(BaseDownloader):
 
         # Create segment downloaders
         vprint(
-            lang["penguin"]["threads_started"]
-            % (self.options["penguin"]["segment_downloaders"]),
+            lang["penguin"]["threads_started"] % (self.options["penguin"]["threads"]),
             module_name="penguin",
             level="debug",
         )
-        for i in range(self.options["penguin"]["segment_downloaders"]):
-            sdl_name = f"{threading.current_thread().name}/sdl{i}"
+        for i in range(self.options["penguin"]["threads"]):
+            sdl_name = f"{threading.current_thread().name}/{i}"
             sdl = Thread(target=self.segment_downloader, name=sdl_name, daemon=True)
-            self.segment_downloaders.append(sdl)
+            self.threads.append(sdl)
             sdl.start()
 
         self.progress_bar = ProgressBar(
@@ -298,7 +295,7 @@ class PenguinDownloader(BaseDownloader):
             self._last_updated = self.resume_stats["downloaded_bytes"]
 
             # Check if seg. downloaders have finished
-            if not [sdl for sdl in self.segment_downloaders if sdl.is_alive()]:
+            if not [sdl for sdl in self.threads if sdl.is_alive()]:
                 self.progress_bar.close()
                 self.resume_stats["download_finished"] = True
                 break
