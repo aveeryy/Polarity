@@ -267,9 +267,16 @@ class PokemonTVExtractor(BaseExtractor):
             series.link_content(season)
 
         if url_type is Series:
+            progress_bar = ProgressBar(
+                desc=series.title,
+                total=series.episode_count,
+                leave=False,
+                head="extraction",
+            )
             self._print_filter_warning()
 
             for episode in self.get_episodes_from_series(identifiers[Series]):
+                progress_bar.update()
                 if link_to_season:
                     season.link_content(episode)
                     # add number to season
@@ -281,6 +288,8 @@ class PokemonTVExtractor(BaseExtractor):
                     series.link_content(episode)
 
                 self.check_content(episode)
+
+            progress_bar.close()
         elif url_type is Episode:
             episode = self.get_episode_info(identifiers[Episode], identifiers[Series])
 
