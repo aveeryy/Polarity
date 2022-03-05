@@ -65,6 +65,9 @@ def save_config(config_path: str, config: dict) -> None:
 def merge_external_config(obj: object, name: str, config_path: dict) -> None:
     if not hasattr(obj, "DEFAULTS"):
         pass
+    elif hasattr(obj, "DEFAULTS") and not obj.DEFAULTS:
+        # has defaults but it's empty
+        pass
     elif name.lower() not in config_path:
         # Downloader configuration not in config file, add it
         config_path[name.lower()] = obj.DEFAULTS
