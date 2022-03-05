@@ -315,19 +315,31 @@ class BaseExtractor:
     ##################################
 
     def check_content(self, content: Union[Content, ContentContainer]) -> bool:
-        if isinstance(content, Content):
-            # check if content passes type checks
-            if not self._check_content_by_type(content):
-                return False
-            # check if content passes name checks
-            if not self._check_content_by_title(content):
-                return False
-            # if content is an episode, check for
-            if type(content) is Episode:
-                # final check, return
-                return self._check_episode(content)
-        elif type(content) is Season:
-            return self._check_season(content)
+        def check() -> bool:
+            if isinstance(content, Content):
+                # check if content passes type checks
+                if not self._check_content_by_type(content):
+                    return False
+                # check if content passes name checks
+                if not self._check_content_by_title(content):
+                    return False
+                # if content is an episode, check for
+                if type(content) is Episode:
+                    # final check, return
+                    return self._check_episode(content)
+            elif type(content) is Season:
+                return self._check_season(content)
+
+        if not check():
+            vprint(
+                lang["extractor"]["filter_check_fail"] % content.title,
+                "debug",
+                self.extractor_name,
+            )
+            # set the unwanted tag on the content
+            content.set_unwanted()
+            return False
+        return True
 
     def _check_season(self, season: Season) -> bool:
         return "ALL" in self._seasons or season.number in self._seasons
@@ -370,7 +382,10 @@ class BaseExtractor:
 
     def _check_content_by_type(self, content: Content) -> bool:
         """Check content against TypeFilter objects"""
-        for _filter in [f for f in self.filters if type(f) is TypeFilter]:
+        filters = [f for f in self.filters if type(f) is TypeFilter]
+        if not filters:
+            return True
+        for _filter in filters:
             if _filter.check(content):
                 return True
         return False
@@ -378,7 +393,10 @@ class BaseExtractor:
     def _check_content_by_title(self, content: Content) -> bool:
         """Check content against MatchFilter objects"""
         passes = True
-        for _filter in [f for f in self.filters if type(f) is MatchFilter]:
+        filters = [f for f in self.filters if type(f) is MatchFilter]
+        if not filters:
+            return True
+        for _filter in filters:
             match = _filter.check(content)
             if not match and _filter.absolute:
                 # Since absolute filters must always pass, return False
