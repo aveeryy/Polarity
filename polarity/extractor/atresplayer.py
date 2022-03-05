@@ -6,9 +6,7 @@ from polarity.config import ConfigError, lang
 from polarity.extractor.base import (
     BaseExtractor,
     ExtractorError,
-    check_episode_wrapper,
     requires_login,
-    check_season_wrapper,
 )
 from polarity.extractor import flags
 from polarity.types import (
@@ -194,17 +192,15 @@ class AtresplayerExtractor(BaseExtractor):
                 return utype
 
     def get_series_info(
-        self, series: Series = None, series_id: str = None, return_raw_info=False
+        self, series_id: str = None, return_raw_info=False
     ) -> Union[Series, dict]:
 
-        series_id = series.id if series is not None else series_id
-
-        self.__series_json = request_json(
-            self.API_URL + "client/v1/page/format/" + series_id
+        self._series_json = request_json(
+            f"{self.API_URL}client/v1/page/format/{series_id}"
         )[0]
 
         if return_raw_info:
-            return self.__series_json
+            return self._series_json
 
         _episodes = request_json(
             f"{self.API_URL}client/v1/row/search",
@@ -215,34 +211,37 @@ class AtresplayerExtractor(BaseExtractor):
             lang["extractor"]["get_media_info"]
             % (
                 lang["types"]["alt"]["series"],
-                self.__series_json["title"].strip(),
+                self._series_json["title"].strip(),
                 series_id,
             ),
             module_name="atresplayer",
         )
 
-        self.info = Series(
-            title=self.__series_json["title"].strip(),
+        series = Series(
+            title=self._series_json["title"].strip(),
             id=series_id,
-            synopsis=self.__series_json["description"]
-            if "description" in self.__series_json
+            extractor=self.extractor_name,
+            synopsis=self._series_json["description"]
+            if "description" in self._series_json
             else "",
-            genres=[g["title"] for g in self.__series_json["tags"]],
+            genres=[g["title"] for g in self._series_json["tags"]],
             images=[
-                self.__series_json["image"]["pathHorizontal"] + "1920x1080.jpg",
-                self.__series_json["image"]["pathVertical"] + "720x1280.jpg",
+                self._series_json["image"]["pathHorizontal"] + "1920x1080.jpg",
+                self._series_json["image"]["pathVertical"] + "720x1280.jpg",
             ],
             season_count=None,
             episode_count=_episodes[0]["pageInfo"]["totalElements"],
-            year=1970,
         )
 
-        return self.info
+        # check if is a mono-episode series
+        series._atresplayer_mono = "episode" in self._series_json
+
+        return series
 
     def get_seasons(self, series_id: str = None, return_raw_info=False) -> List[Season]:
         vprint(lang["extractor"]["get_all_seasons"], "info", "atresplayer")
 
-        if not hasattr(self, "__series_json"):
+        if not hasattr(self, "_series_json"):
             if series_id is None:
                 vprint(
                     lang["extractor"]["except"]["argument_missing"] % "series_id",
@@ -252,13 +251,13 @@ class AtresplayerExtractor(BaseExtractor):
                 return
             self.get_series_info(series_id=series_id)
 
-        is_single_season = "episode" in self.__series_json
+        is_single_season = "episode" in self._series_json
 
         if return_raw_info:
             if is_single_season:
                 vprint("~TEMP~ content does not have seasons", "warning")
                 return
-            return self.__series_json["seasons"]
+            return self._series_json["seasons"]
 
         if not is_single_season:
             seasons = [
@@ -267,7 +266,7 @@ class AtresplayerExtractor(BaseExtractor):
                     id=season["link"]["href"][-24:],
                     **self.get_season_jsonld_info(season["link"]["href"][-24:]),
                 )
-                for season in self.__series_json["seasons"]
+                for season in self._series_json["seasons"]
             ]
             return seasons
 
@@ -275,7 +274,7 @@ class AtresplayerExtractor(BaseExtractor):
         # This endpoint is only needed to get the season number and ep. count
         # For some stupid-ass reason it isn't in the season API
         season_jsonld = request_json(
-            url=f"{self.API_URL}client/v1/jsonld/format/{self.info.id}",
+            url=f"{self.API_URL}client/v1/jsonld/format/{self._series_json['id']}",
             params={"seasonId": season_id},
         )
         return {
@@ -283,16 +282,13 @@ class AtresplayerExtractor(BaseExtractor):
             "episode_count": len(season_jsonld[0]["episode"]),
         }
 
-    @check_season_wrapper
     def get_season_info(
-        self, season: Season = None, season_id: str = None, return_raw_info=False
+        self, season_id: str = None, return_raw_info=False
     ) -> Union[Season, dict]:
-
-        season_id = season.id if season is not None else season_id
 
         # Download season info json
         season_json = request_json(
-            f"{self.API_URL}client/v1/page/format/{self.info.id}",
+            f"{self.API_URL}client/v1/page/format/{self._series_json['id']}",
             params={"seasonId": season_id},
         )[0]
 
@@ -307,29 +303,26 @@ class AtresplayerExtractor(BaseExtractor):
             module_name="atresplayer",
         )
 
-        season = Season(
+        return Season(
             title=season_json["title"],
             id=season_id,
+            extractor=self.extractor_name,
+            synopsis=season_json["description"] if "description" in season_json else "",
             number=jsonld_info["number"],
             images=[season_json["image"]["pathHorizontal"] + "1920x1080.jpg"],
             episode_count=jsonld_info["episode_count"],
         )
-        season.synopsis = (
-            season_json["description"] if "description" in season_json else ""
-        )
-        return season
 
     def get_episodes_from_season(
-        self, season: Season = None, season_id: str = None, get_partial_episodes=False
+        self, season_id: str = None, get_partial_episodes=False
     ) -> List[Episode]:
 
-        season_id = season.id if season is not None else season_id
         page = 0
         # Placeholder until the total number of pages is known
         total_pages = 727
         while page < total_pages:
             page_json = request_json(
-                url=self.API_URL + "client/v1/row/search",
+                url=f"{self.API_URL}client/v1/row/search",
                 params={
                     "entityType": "ATPEpisode",
                     "formatId": self.info.id,
@@ -362,16 +355,13 @@ class AtresplayerExtractor(BaseExtractor):
 
             page += 1
 
-    @check_episode_wrapper
     def get_episode_info(
-        self, episode: Episode = None, episode_id: str = None, return_raw_info=False
+        self, episode_id: str = None, return_raw_info=False
     ) -> Union[Episode, dict]:
-
-        episode_id = episode.id if episode is not None else episode_id
 
         # Download episode info json
         episode_info = request_json(
-            url=f"{self.API_URL}client/v1/page/episode/" + episode_id
+            url=f"{self.API_URL}client/v1/page/episode/{episode_id}"
         )[0]
 
         if return_raw_info:
@@ -386,26 +376,22 @@ class AtresplayerExtractor(BaseExtractor):
         episode = Episode(
             title=episode_info["title"],
             id=episode_id,
+            extractor=self.extractor_name,
             synopsis=episode_info["description"] if "description" in episode_info else "",
             number=episode_info["numberOfEpisode"],
             images=[episode_info["image"]["pathHorizontal"] + "1920x1080.jpg"],
+            streams=self._get_streams(episode_id),
         )
 
-        self._get_streams(episode)
-
         # Check if the episode needs to be downloaded
-        if not self.check_content(episode):
-            episode.skip_download = lang["extractor"]["filter_check_fail"]
+        self.check_content(episode)
 
         return episode
 
-    def _get_streams(
-        self, episode: Episode = None, episode_id: str = None
-    ) -> List[Stream]:
+    def _get_streams(self, episode_id: str = None) -> List[Stream]:
 
-        # Create a burner Episode object to set streams to
-        _episode = Episode("t", "t")
-        episode_id = episode.id if episode is not None else episode_id
+        streams = []
+        streams_ids = []
 
         # Download episode player json
         episode_player = request_json(
@@ -414,21 +400,15 @@ class AtresplayerExtractor(BaseExtractor):
             cookies=self.cjar,
         )[0]
 
-        if "error" in episode_player:
-            if episode is not None:
-                episode.skip_download = episode_player["error_description"]
-            return []
-        else:
+        if "error" not in episode_player:
             # Get streams from player json
             stream_map = (
-                ("application/vnd.apple.mpegurl", "hls"),
+                ("application/vnd.apple.mpegurl", "hls_avc"),
                 ("application/hls+hevc", "hls_hevc"),
                 ("application/hls+legacy", "hls_drmless"),
-                ("application/dash+xml", "dash"),
+                ("application/dash+xml", "dash_avc"),
                 ("application/dash+hevc", "dash_hevc"),
             )
-
-            streams = []
 
             for stream in episode_player["sources"]:
                 for stream_type in stream_map:
@@ -437,39 +417,34 @@ class AtresplayerExtractor(BaseExtractor):
                             url=stream["src"],
                             name={AUDIO: ["Español", "English"], SUBTITLES: "Español"},
                             language={AUDIO: ["es", "en"], SUBTITLES: "spa"},
-                            id=stream_type[1],
+                            id=f"{episode_id}[main/{stream_type[1]}]",
                             content_type=VIDEO,
                             preferred=False,
                             key=None,
                         )
-                        if episode is not None:
-                            episode.link_stream(_stream)
-                        _episode.link_stream(_stream)
-                        streams.append(stream_type[1])
+                        streams.append(_stream)
+                        streams_ids.append(stream_type[1])
 
             if (
-                "hls_hevc" in streams
+                "hls_hevc" in streams_ids
                 and self.options["atresplayer"]["codec"].lower() == "hevc"
             ):
                 # Case 1: HEVC stream and preferred codec is HEVC
                 preferred = "hls_hevc"
             elif (
                 self.options["atresplayer"]["codec"].lower() == "avc"
-                or "hls_hevc" not in streams
+                or "hls_hevc" not in streams_ids
             ):
                 # Case 2.1: Not DRM and codec preferance is AVC
                 # Case 2.2: Not DRM and not HEVC stream
-                preferred = "hls"
+                preferred = "hls_avc"
             else:
                 raise ConfigError(self.extractor_lang["except"]["invalid_codec"])
 
-            # Set preferred stream
-            if episode is not None:
-                episode.get_stream_by_id(preferred).preferred = True
-            # This is the only reason to create a burner object lol
-            _episode.get_stream_by_id(preferred).preferred = True
+            # set the preferred stream
+            [s for s in streams if preferred in s.id][0].preferred = True
 
-        return _episode.streams
+        return streams
 
     # Extra stuff
 
@@ -496,14 +471,17 @@ class AtresplayerExtractor(BaseExtractor):
 
     @requires_login
     def get_account_info(self):
-        "Requires to be logged in, returns an untouched dict containing account information like name, email or gender"
+        """
+        Requires to be logged in, returns an untouched dict
+        containing account information like name, email or gender
+        """
         return request_json(
             "https://account.atresplayer.com/user/v1/me", cookies=self.cjar
         )[0]
 
     @classmethod
     def get_live_tv_stream(self, channel: str):
-        "Gets the m3u8 stream of a live tv channel"
+        """Gets the m3u8 stream of a live tv channel"""
 
         _CHANNEL_IDS = {
             "antena3": "5a6a165a7ed1a834493ebf6a",
@@ -561,39 +539,49 @@ class AtresplayerExtractor(BaseExtractor):
             self._print_filter_warning()
 
         # Get the series information
-        self.get_series_info(series_id=identifiers[Series])
+        series = self.get_series_info(identifiers[Series])
+        self.info.link_content(series)
 
         if url_type == Series:
             # Gets information from all seasons
             self.progress_bar = ProgressBar(
                 head="extraction",
-                desc=self.info.title,
-                total=self.info.episode_count,
+                desc=series.title,
+                total=series.episode_count,
                 leave=False,
             )
             # Get all seasons' information
-            for season in self.get_seasons():
-                _season = self.get_season_info(season=season)
-                # Link the season
-                self.info.link_season(_season)
-                for episode in self.get_episodes_from_season(season=_season):
-                    _season.link_episode(episode)
-                    self.progress_bar.update(1)
+            if series._atresplayer_mono:
+                # series only has one episode, with no seasons
+                episode_id = re.search(r"/(\w+)$", self._series_json["episode"]).group(1)
+                episode = self.get_episode_info(episode_id)
+                # link the episode
+                # better to treat it as a pseudo-movie
+                series.link_content(episode.as_movie())
+                self.progress_bar.update()
+            elif not series._atresplayer_mono:
+                for season in self.get_seasons():
+                    _season = self.get_season_info(season.id)
+                    # Link the season
+                    series.link_content(_season)
+                    for episode in self.get_episodes_from_season(_season.id):
+                        _season.link_content(episode)
+                        self.progress_bar.update()
             self.progress_bar.close()
 
         elif url_type == Season:
             # Gets single season information
             season = self.get_season_info(season_id=identifiers[Season])
-            self.info.link_season(season=season)
+            series.link_content(season)
             self.progress_bar = ProgressBar(
                 head="extraction",
-                desc=self.info.title,
+                desc=series.title,
                 total=season.episode_count,
                 leave=False,
             )
             for episode in self.get_episodes_from_season(season):
-                season.link_episode(episode=episode)
-                self.progress_bar.update(1)
+                season.link_content(episode)
+                self.progress_bar.update()
             self.progress_bar.close()
 
         elif url_type in (Episode, Movie):
@@ -602,8 +590,8 @@ class AtresplayerExtractor(BaseExtractor):
             # Get the episode / movie information
             episode = self.get_episode_info(episode_id=identifiers[Episode])
             # Do links
-            self.info.link_season(season)
-            season.link_episode(episode=episode)
+            series.link_content(season)
+            season.link_content(episode)
         elif url_type is None:
             raise ExtractorError(lang["extractor"]["except"]["cannot_identify_url"])
 
