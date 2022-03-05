@@ -531,7 +531,10 @@ class Polarity:
                 vprint(lang["dl"]["no_redownload"] % item.short_name, level="warning")
                 continue
 
-            vprint(lang["dl"]["downloading_content"] % (item.short_name, item.title))
+            vprint(
+                lang["dl"]["downloading_content"]
+                % (lang["types"][type(item).__name__.lower()], item.title)
+            )
 
             # Set the downloader to Penguin
             # TODO: external downloader support
@@ -612,7 +615,6 @@ class Polarity:
             dict_merge(
                 fields,
                 {
-                    "base": path,
                     "extractor": content.extractor,
                     "title": content.title,
                     "id": content.id,
@@ -621,9 +623,6 @@ class Polarity:
                 },
                 overwrite=True,
             )
-
-            # yet another workaround
-            empty_fields["base"] = path
 
             if hasattr(content, "_series") and content._series is not None:
                 dict_merge(
@@ -656,7 +655,6 @@ class Polarity:
             dict_merge(
                 fields,
                 {
-                    "base": path,
                     "extractor": content.extractor,
                     "title": content.title,
                     "id": content.id,
@@ -665,9 +663,6 @@ class Polarity:
                 },
                 overwrite=True,
             )
-
-            # yet another workaround
-            empty_fields["base"] = path
 
         # TODO: add check for invalid fields
 
@@ -680,7 +675,9 @@ class Polarity:
         final_path = "/".join(removed)
         # small workaround if content download path is not present
         # in output path, adds current working path
-        if path not in final_path:
+        if r"{base}" in base:
+            final_path = os.path.join(path, final_path)
+        else:
             final_path = os.path.join(os.getcwd(), final_path)
 
         # finally return the sanitized path

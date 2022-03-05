@@ -1,5 +1,6 @@
 from .atresplayer import AtresplayerExtractor
 from .crunchyroll import CrunchyrollExtractor
+from .pokemontv import PokemonTVExtractor
 
 from .base import BaseExtractor
 

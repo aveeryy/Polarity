@@ -423,7 +423,7 @@ class CrunchyrollExtractor(BaseExtractor):
         # client_id -> not logged in
 
         vprint(
-            self.extractor_lang["bearer_fetch"],
+            lang["crunchyroll"]["bearer_fetch"],
             module_name="crunchyroll",
             level="debug",
         )
@@ -432,7 +432,7 @@ class CrunchyrollExtractor(BaseExtractor):
             if self.cookie_exists("etp_rt") and not force_client_id
             else "client_id"
         )
-        vprint(self.extractor_lang["using_method"] % method, "debug", "crunchyroll")
+        vprint(lang["crunchyroll"]["using_method"] % method, "debug", "crunchyroll")
         # Request the bearer token using the basic token,
         # to get the basic token
         token_req = request_json(
@@ -463,13 +463,13 @@ class CrunchyrollExtractor(BaseExtractor):
         bucket_re = r"/(?P<country>\w{2})/(?P<madurity>M[1-3])"
         if self.account_info["bearer"] is None:
             self.get_bearer_token()
-        vprint(self.extractor_lang["cms_fetch"], "debug", "crunchyroll")
+        vprint(lang["crunchyroll"]["cms_fetch"], "debug", "crunchyroll")
         token_req = request_json(
             url=self.API_URL + "index/v2",
             headers={"Authorization": self.account_info["bearer"]},
         )[0]
         if self.check_for_error(token_req):
-            raise ExtractorError(self.extractor_lang["cms_fetch_fail"])
+            raise ExtractorError(lang["crunchyroll"]["cms_fetch_fail"])
         bucket_match = re.match(bucket_re, token_req["cms"]["bucket"])
         # These variables are used in every request as request data
         self.account_info["policy"] = token_req["cms"]["policy"]

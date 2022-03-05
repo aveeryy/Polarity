@@ -237,4 +237,8 @@ internal_lang = {
             "region": "change content region",
         },
     },
+    "pokemontv": {
+        "get_channel_info": "getting info: channels",
+        "get_region_info": "getting info: region",
+    },
 }

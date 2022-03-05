@@ -25,8 +25,11 @@
 |:-:|:-:|:-:|:-:|
 | Atresplayer | ✔️ | ✔️ | ✔️ 
 | Crunchyroll  | ✔️ | ✔️ | ✔️️
+| Pokémon TV  | - | 🍝 | -
 
-> Note: "🍝" means in progress
+> "🍝": in progress
+
+> "-": not applicable
 
 ## Configuration
 Configuration files are found at:
