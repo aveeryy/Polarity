@@ -330,6 +330,7 @@ class BaseExtractor:
                     return self._check_episode(content)
             elif type(content) is Season:
                 return self._check_season(content)
+            return True
 
         if not check():
             # set the unwanted tag on the content
