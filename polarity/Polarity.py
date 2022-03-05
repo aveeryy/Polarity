@@ -586,6 +586,7 @@ class Polarity:
             "series_title": "",
             "series_id": "",
             "series_year": "",
+            "ext": "mkv",
         }
 
         # create a copy of the empty fields
@@ -622,6 +623,9 @@ class Polarity:
                 },
                 overwrite=True,
             )
+
+            # yet another workaround
+            empty_fields["base"] = path
 
             if hasattr(content, "_series") and content._series is not None:
                 dict_merge(
@@ -663,6 +667,9 @@ class Polarity:
                 },
                 overwrite=True,
             )
+
+            # yet another workaround
+            empty_fields["base"] = path
 
         # TODO: add check for invalid fields
 
