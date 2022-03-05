@@ -331,11 +331,6 @@ class BaseExtractor:
                 return self._check_season(content)
 
         if not check():
-            vprint(
-                lang["extractor"]["filter_check_fail"] % content.title,
-                "debug",
-                self.extractor_name,
-            )
             # set the unwanted tag on the content
             content.set_unwanted()
             return False
@@ -414,6 +409,7 @@ class BaseExtractor:
         ]
 
     def _parse_number_filters(self, filters: list) -> dict:
+        _dict = {}
         for _filter in filters:
             if _filter.seasons and _filter.episodes:
                 # S01E01-like string

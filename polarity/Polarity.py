@@ -399,7 +399,7 @@ class Polarity:
         indexed = 0
         url_specifier = r"(global|i(\d)+)"
         filters = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', filters)
-        vprint("Starting filter processing", "debug", "polarity")
+        vprint(lang["polarity"]["filter_processing"], "debug", "polarity")
         for filter in filters:
             if skip_next_item:
                 skip_next_item = False
@@ -516,7 +516,11 @@ class Polarity:
             if item.skip_download is not None:
                 vprint(
                     lang["dl"]["cannot_download_content"]
-                    % (type(item).__name__, item.short_name, item.skip_download),
+                    % (
+                        lang["types"][type(item).__name__.lower()],
+                        item.short_name,
+                        item.skip_download,
+                    ),
                     level="warning",
                 )
                 continue
