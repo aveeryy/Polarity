@@ -9,7 +9,7 @@ import time
 import warnings
 from copy import deepcopy
 from threading import Lock
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Union
 
 import tomli
 from tqdm import TqdmWarning
@@ -26,7 +26,6 @@ from polarity.downloader import PenguinDownloader
 from polarity.extractor import EXTRACTORS, flags
 from polarity.types import (
     Content,
-    ContentContainer,
     Episode,
     MediaType,
     Movie,
@@ -140,8 +139,6 @@ class Polarity:
             return tasks
 
         # Pre-start functions
-
-        from polarity import log_filename
 
         # Language installation / update
         # First update old languages
@@ -516,10 +513,7 @@ class Polarity:
                 continue
             # Take an item from the download pool
             item = self.download_pool.pop(0)
-            if (
-                item.skip_download is not None
-                and item.skip_download != lang["extractor"]["filter_check_fail"]
-            ):
+            if item.skip_download is not None:
                 vprint(
                     lang["dl"]["cannot_download_content"]
                     % (type(item).__name__, item.short_name, item.skip_download),
