@@ -26,9 +26,7 @@ from polarity.utils import (
     thread_vprint,
     vprint,
 )
-from polarity.version import __version__ as polarity_version
-
-__version__ = "2022.02.01"
+from polarity.version import __version__
 
 
 class PenguinSignals:
@@ -48,14 +46,21 @@ class PenguinDownloader(BaseDownloader):
     ARGUMENTS = [
         {
             "args": ["--penguin-threads"],
-            "attrib": {"help": lang["penguin"]["args"]["segment_downloaders"]},
+            "attrib": {"help": lang["penguin"]["args"]["threads"]},
             "variable": "threads",
-        }
+        },
+        {
+            "args": ["--penguin-tag-output"],
+            "attrib": {},
+            "variable": "tag_output",
+        },
     ]
 
     DEFAULTS = {
         "attempts": 10,
         "threads": 10,
+        # Add a metadata entry with the Polarity version
+        "tag_output": False,
         # Delete segments as these are merged to the final file
         # 'delete_merged_segments': True,
         "ffmpeg": {
@@ -557,12 +562,15 @@ class PenguinDownloader(BaseDownloader):
                 "file,crypto,data,http,https,tls,tcp",
             ],
             metadata_arguments=[
-                "-metadata",
-                f"encoding_tool=Polarity {polarity_version} with Penguin {__version__}",
                 "-progress",
                 f"{self.temp_path}/ffmpeg.txt",
             ],
         )
+
+        if self.options["tag_output"]:
+            command.metadata_arguments.extend(
+                ["-metadata", f"encoding_tool=Polarity {__version__} with Penguin"]
+            )
 
         command.extend(self.output_data["inputs"])
 
