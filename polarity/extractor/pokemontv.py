@@ -64,12 +64,12 @@ class PokemonTVExtractor(BaseExtractor):
 
     def __post_init__(self) -> None:
         # get the region from the webpage
-        vprint("~TEMP~ getting info: region", "debug", "pokemontv")
+        vprint(lang["pokemontv"]["get_region_info"], "debug", "pokemontv")
         page = request_webpage(self.url).content.decode()
 
         self.region = re.search(r"region: \"(\w{2})\"", page).group(1)
         self.language = re.search(r"language: \"([\w-]{5})\"", page).group(1)
-        vprint("~TEMP~ getting info: channels", "debug", "pokemontv")
+        vprint(lang["pokemontv"]["get_channel_info"], "debug", "pokemontv")
         # get the channels information
         self.channels = request_json(f"{self.API_URL}/channels/{self.region}")[0]
 
