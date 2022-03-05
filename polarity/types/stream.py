@@ -12,6 +12,7 @@ class ContentKey(MediaType, metaclass=MetaMediaType):
 
     - `AES-128`
     - `Widevine` (Only on Singularity)
+    - Other key types supported by ffmpeg
     """
 
     url: str

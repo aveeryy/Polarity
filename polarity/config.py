@@ -330,10 +330,9 @@ def parse_arguments(get_parser=False) -> dict:
     )
     download.add_argument("--series-directory", help=lang_help["download_dir_series"])
     download.add_argument("--movies-directory", help=lang_help["download_dir_movies"])
-    download.add_argument("--series-format", help=lang_help["format_series"])
-    download.add_argument("--season-format", help=lang_help["format_season"])
     download.add_argument("--episode-format", help=lang_help["format_episode"])
     download.add_argument("--movie-format", help=lang_help["format_movie"])
+    # TODO: add general format / directory arguments and lang strings
 
     # Gets all extractors with an ARGUMENTS object and converts their arguments to
     # argparse equivalents.
@@ -491,7 +490,7 @@ __FORMATTER = HelpFormatter if "--extended-help" not in sys.argv else ExtendedFo
 # Base path for configuration files
 __main_path = get_config_path()
 # Default base path for downloads
-__download_path = f"{get_home_path()}/Polarity Downloads/"
+__download_path = f"{get_home_path()}/Polarity Downloads"
 
 
 # Default paths
@@ -532,30 +531,29 @@ __defaults = {
         # Maximum active downloads
         "active_downloads": 5,
         # Output directory for series
-        "series_directory": f'{__download_path}{"Series/"}'.replace("\\", "/"),
+        "series_directory": f'{__download_path}/{"Series"}'.replace("\\", "/"),
         # Output directory for movies
-        "movies_directory": f'{__download_path}{"Movies/"}'.replace("\\", "/"),
-        # Path formatting for series directories
-        # Default format: Extractor/Title (Year)
-        "series_format": "{W}/{S} ({y})",
-        # Path formatting for season directories
-        # Default format: Season 1 - Season identifier
-        "season_format": "Season {Sn} - {i}",
-        # Filename formatting for episodes
-        # Default format: Title S01E01 - Episode title
-        "episode_format": "{S} S{sn}E{en} - {E}",
+        "movies_directory": f'{__download_path}/{"Movies"}'.replace("\\", "/"),
+        # Output directory for generic content
+        "generic_directory": f"{__download_path}".replace("\\", "/"),
+        # Formatting for episodes
+        "episode_format": """
+        {extractor}/{series_title} ({year}) [{series_id}]\
+        Season {season_number} [{season_id}]/\
+        {series_title} S{season_number_0}E{number_0} - {title}.{ext}
+        """.strip(
+            "\n"  # strip newlines
+        ),
         # Filename formatting for movies
         # Default format: Movie title (Year)
-        "movie_format": "{E} ({Y})",
+        "movie_format": "{extractor}/{title} ({year}).{ext}",
+        # Filename formatting for generic content
+        "generic_format": "{extractor}/{title} [{id}].{ext}",
         # Desired video resolution, number must be height
         # If resolution is not available, gets the closest value
         "resolution": 4320,
         # Allow downloading previously downloaded episodes
         "redownload": False,
-        # Extension for video extractor downloads
-        "video_extension": ".mkv",
-        # Extension for audio extractor downloads
-        "audio_extension": "auto",
     },
     # Extractor options
     "extractor": {

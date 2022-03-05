@@ -9,9 +9,9 @@ class MetaMediaType(type):
         return self.__name__
 
 
-class MediaType:
-    def set_metadata(self, **metadata) -> None:
-        for key, val in metadata.items():
+class MediaType(metaclass=MetaMediaType):
+    def set_values(self, **values) -> None:
+        for key, val in values.items():
             setattr(self, key, val)
 
     def as_dict(self) -> dict:

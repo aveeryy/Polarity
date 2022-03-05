@@ -308,7 +308,7 @@ class PenguinDownloader(BaseDownloader):
         while watchdog.is_alive():
             sleep(0.1)
         self.remux_bar.close()
-        move(f"{self.temp_path}.mkv", f"{self.output}.mkv")
+        move(f"{self.temp_path}{get_extension(self.output)}", f"{self.output}")
         # Remove temporal files
         for file in os.scandir(f'{paths["tmp"]}{self.content["sanitized"]}'):
             os.remove(file.path)
@@ -550,7 +550,7 @@ class PenguinDownloader(BaseDownloader):
     ) -> list:
         # Merge segments
         command = FFmpegCommand(
-            f"{paths['tmp']}{self.content['sanitized']}{self.options['video_extension']}",
+            f"{paths['tmp']}{self.content['sanitized']}{get_extension(self.output)}",
             preinput_arguments=[
                 "-v",
                 "error",

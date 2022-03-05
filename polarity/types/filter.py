@@ -1,8 +1,7 @@
 import re
-
 from typing import List
 
-from polarity.types import str_to_type, stringified_types
+from polarity.types import Content, str_to_type, stringified_types
 
 
 class Filter:
@@ -28,9 +27,9 @@ class Filter:
     def properties(self):
         return self._properties
 
-    def check(self, object):
+    def check(self, content: Content):
         "Check if item passes the filter"
-        return self._check(object)
+        return self._check(content)
 
 
 class NumberFilter(Filter):
@@ -100,14 +99,15 @@ class NumberFilter(Filter):
                 list(range(int(match.group("start")), int(match.group("end")) + 1))
             )
 
-    def _check(self, obj):
+    def _check(self, content: Content):
         if self.properties["multi"]:
             return (
-                obj.season_number in self.__seasons
-                and obj.episode_number in self.__episodes
+                content.season_number in self.__seasons
+                and content.episode_number in self.__episodes
             )
         return (
-            obj.season_number in self.__seasons or obj.episode_number in self.__episodes
+            content.season_number in self.__seasons
+            or content.episode_number in self.__episodes
         )
 
 
@@ -128,8 +128,8 @@ class MatchFilter(Filter):
     def not_match(self):
         return self.__not_match
 
-    def _check(self, object):
-        match = re.search(self._filter, object.title)
+    def _check(self, content: Content):
+        match = re.search(self._filter, content.title)
         if self.__not_match:
             return not match
         return bool(match)
@@ -137,9 +137,8 @@ class MatchFilter(Filter):
 
 class TypeFilter(Filter):
     def __init__(self, filter: str) -> None:
-        raise NotImplementedError
         if filter.lower() not in stringified_types:
-            raise Exception
+            raise Exception(f"TypeFilter - invalid type: {filter}")
         self.__type = str_to_type(filter)
         super().__init__(filter)
 
@@ -147,14 +146,13 @@ class TypeFilter(Filter):
         return type(object) == self.__type
 
 
-def build_filter(params: str, filter: str) -> None:
+def build_filter(params: str, filter: str) -> Filter:
     """
     Create a filter based on passed parameters and filter string
 
     Examples of a parameter string
     - match  / Just the Filter type, no parameters
-    - match_regex  / `match` Filter type with `regex` parameter
-    - match_regex_full  / `match` Filter type with `regex` and `full` parameters
+    - match_absolute  / `match` Filter type with `absolute` parameter
     """
 
     types = {
@@ -162,8 +160,6 @@ def build_filter(params: str, filter: str) -> None:
         "match": {
             "obj": MatchFilter,
             "params": {
-                "regex": False,
-                "full": False,
                 "not_match": False,
                 "absolute": False,
             },
@@ -171,12 +167,11 @@ def build_filter(params: str, filter: str) -> None:
         "notmatch": {
             "obj": MatchFilter,
             "params": {
-                "regex": False,
-                "full": False,
                 "not_match": True,
                 "absolute": False,
             },
         },
+        "type": {"obj": TypeFilter, "params": {}},
     }
     unparsed = params.split("_")
     if len(unparsed) >= 1:
@@ -195,4 +190,4 @@ def build_filter(params: str, filter: str) -> None:
         **{**defaults, **parameters},
     )
 
-    return (_filter, filter_object)
+    return _filter
