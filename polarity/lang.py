@@ -141,7 +141,7 @@ internal_lang = {
         "threads_started": "start: %d download threads",
         "args": {
             "ffmpeg_codec": "Postprocessing codification settings",
-            "segment_downloaders": "number of threads per download",
+            "threads": "number of threads per download",
         },
         "except": {"download_fail": "failed to download segment %s: %s"},
         "protocols": {

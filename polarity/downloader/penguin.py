@@ -47,15 +47,15 @@ class PenguinDownloader(BaseDownloader):
 
     ARGUMENTS = [
         {
-            "args": ["--penguin-segment-downloaders"],
+            "args": ["--penguin-threads"],
             "attrib": {"help": lang["penguin"]["args"]["segment_downloaders"]},
-            "variable": "segment_downloaders",
+            "variable": "threads",
         }
     ]
 
     DEFAULTS = {
         "attempts": 10,
-        "segment_downloaders": 10,
+        "threads": 10,
         # Delete segments as these are merged to the final file
         # 'delete_merged_segments': True,
         "ffmpeg": {
@@ -375,9 +375,7 @@ class PenguinDownloader(BaseDownloader):
         ff_input.path = ff_input.path.replace(subtitle_pool_id, subtitle_pool_id + "_0")
         self.output_data["inputs"].append(ff_input)
 
-    def create_input(
-        self, pool: SegmentPool, stream: Stream, tracks: dict
-    ) -> FFmpegInput:
+    def create_input(self, pool: SegmentPool, stream: Stream) -> FFmpegInput:
         def set_metadata(parent: str, child: str, value: str):
             if parent not in ff_input.metadata:
                 ff_input.metadata[parent] = {}
