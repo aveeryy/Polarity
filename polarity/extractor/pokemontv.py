@@ -1,6 +1,5 @@
 # URL validation
 from datetime import datetime
-from pprint import pprint
 import re
 from typing import Dict, Tuple, Union, List
 from urllib.parse import urlparse
@@ -10,7 +9,6 @@ from polarity.config import lang
 from polarity.extractor import flags
 from polarity.extractor.base import (
     BaseExtractor,
-    ExtractorError,
     InvalidURLError,
 )
 from polarity.types import Episode, Movie, ProgressBar, Season, Series, Stream
@@ -24,7 +22,6 @@ from polarity.utils import (
     parse_content_id,
     request_json,
     request_webpage,
-    request_xml,
     vprint,
 )
 
@@ -46,7 +43,7 @@ class PokemonTVExtractor(BaseExtractor):
 
     # Extractor functionality flags
     # Check the polarity.extractor.flags module to see all the flags
-    FLAGS = {flags.EnableSearch}
+    FLAGS = {}
 
     LANG_CODES = {
         "da-dk": {"name": "Dansk", "lang": "dan"},
@@ -127,6 +124,13 @@ class PokemonTVExtractor(BaseExtractor):
         """
         info = self._get_channel(series_id)
 
+        vprint(
+            lang["extractor"]["get_media_info"]
+            % (lang["types"]["alt"]["series"], info["channel_name"], series_id),
+            "info",
+            "pokemontv",
+        )
+
         if return_raw_info:
             return info
 
@@ -167,9 +171,6 @@ class PokemonTVExtractor(BaseExtractor):
 
         content = self._parse_episode_info(info, channel_info)
 
-        if channel_info["media_type"] == "movie":
-            content = content.as_movie()
-
         return content
 
     def _parse_episode_info(self, episode_info: dict, channel_info: dict) -> Episode:
@@ -192,12 +193,26 @@ class PokemonTVExtractor(BaseExtractor):
         episode.streams = [
             Stream(
                 episode_info["stream_url"],
-                True,
-                name={},
-                language={},
+                preferred=True,
+                name={AUDIO: self.LANG_CODES[self.language]["name"]},
+                language={AUDIO: self.LANG_CODES[self.language]["lang"]},
                 id=f"{episode.id}[main]",
             )
         ]
+
+        if channel_info["media_type"] == "movie":
+            episode = episode.as_movie()
+
+        vprint(
+            lang["extractor"]["get_media_info"]
+            % (
+                lang["types"]["alt"][type(episode).__name__.lower()],
+                episode.title,
+                episode.id,
+            ),
+            "info",
+            "pokemontv",
+        )
 
         return episode
 
@@ -230,12 +245,6 @@ class PokemonTVExtractor(BaseExtractor):
             return contents[0]
         if contents and get_channel:
             return contents[0], channel
-
-    def _search(
-        self,
-        term: str,
-    ) -> List[SearchResult]:
-        pass
 
     def _extract(self) -> Series:
         url_type, identifiers = self.identify_url(self.url)
