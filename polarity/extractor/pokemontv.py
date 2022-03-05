@@ -67,11 +67,11 @@ class PokemonTVExtractor(BaseExtractor):
 
     def __post_init__(self) -> None:
         # get the region from the webpage
+        vprint("~TEMP~ getting info: region", "debug", "pokemontv")
         page = request_webpage(self.url).content.decode()
 
         self.region = re.search(r"region: \"(\w{2})\"", page).group(1)
         self.language = re.search(r"language: \"([\w-]{5})\"", page).group(1)
-
         vprint("~TEMP~ getting info: channels", "debug", "pokemontv")
         # get the channels information
         self.channels = request_json(f"{self.API_URL}/channels/{self.region}")[0]
@@ -256,6 +256,8 @@ class PokemonTVExtractor(BaseExtractor):
             self._print_filter_warning()
 
             for episode in self.get_episodes_from_series(identifiers[Series]):
+                if series._pokemontv_type == "movie":
+                    episode = episode.as_movie()
                 if link_to_season:
                     season.link_content(episode)
                     # add number to season
@@ -269,6 +271,9 @@ class PokemonTVExtractor(BaseExtractor):
                 self.check_content(episode)
         elif url_type is Episode:
             episode = self.get_episode_info(identifiers[Episode], identifiers[Series])
+
+            if series._pokemontv_type == "movie":
+                episode = episode.as_movie()
             if link_to_season:
                 season.link_content(episode)
                 # add number to season
