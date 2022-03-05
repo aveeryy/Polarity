@@ -1,3 +1,4 @@
+from datetime import datetime
 import re
 from typing import Union, Tuple, List, Dict
 from urllib.parse import urlparse
@@ -8,8 +9,6 @@ from polarity.extractor.base import (
     BaseExtractor,
     ExtractorError,
     InvalidURLError,
-    check_episode_wrapper,
-    check_season_wrapper,
 )
 from polarity.types import (
     Episode,
@@ -21,7 +20,7 @@ from polarity.types import (
     Series,
     Stream,
 )
-from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO
+from polarity.types.ffmpeg import AUDIO, VIDEO
 from polarity.utils import (
     is_content_id,
     order_dict,
@@ -205,12 +204,8 @@ class CrunchyrollExtractor(BaseExtractor):
     }
 
     def __post_init__(self) -> None:
-        self.proxy = {}
         self.get_bearer_token()
         self.get_cms_tokens()
-        # Since there are no individual movies in Crunchyroll, set
-        # information variable to a Series object
-        self.info = Series()
 
     @staticmethod
     def check_for_error(contents: dict, error_msg: str = None) -> bool:
@@ -290,7 +285,7 @@ class CrunchyrollExtractor(BaseExtractor):
             regexes = {
                 # Regex breakdown
                 # 1. (/[a-z-]{2,5}/|/) -> matches a language i.e: /es-es/ or /ru/
-                # 2. (?:\w+-(?P<id>\d+) -> matches a series short url, i.e series-272199
+                # 2. (?:series-(?P<id>\d+) -> matches a series short url, i.e series-272199
                 # 3. [^/]+) -> matches the series part of the url, i.e new-game
                 # 4. (?:/$|$) -> matches the end of the url
                 # 5. [\w-] -> matches the episode part of the url i.e episode-3...
@@ -329,7 +324,6 @@ class CrunchyrollExtractor(BaseExtractor):
             req = request_json(
                 url=info_api,
                 params={"session_id": self.get_session_id(), "series_id": series_id},
-                proxies=self.proxy,
             )
             if not self.check_for_error(req[0], "Failed to fetch. Content unavailable"):
                 series_guid = req[0]["data"]["etp_guid"]
@@ -340,7 +334,6 @@ class CrunchyrollExtractor(BaseExtractor):
                     "session_id": self.get_session_id(),
                     "collection_id": season_id,
                 },
-                proxies=self.proxy,
             )
             if not self.check_for_error(req[0], "Failed to fetch. Content unavailable"):
                 series_guid = req[0]["data"]["series_etp_guid"]
@@ -353,7 +346,6 @@ class CrunchyrollExtractor(BaseExtractor):
                     "fields": "media.etp_guid,media.collection_etp_guid,media.series_etp_guid",
                     "media_id": episode_id,
                 },
-                proxies=self.proxy,
             )
             if not self.check_for_error(req[0], "Failed to fetch. Content unavailable"):
                 series_guid = req[0]["data"]["series_etp_guid"]
@@ -378,7 +370,6 @@ class CrunchyrollExtractor(BaseExtractor):
                 "device_id": "46n8i3b963vch0.95917811",
                 "access_token": "giKq5eY27ny3cqz",
             },
-            proxies=self.proxy,
         )
         self.account_info["session_id"] = req[0]["data"]["session_id"]
         if save_to_cjar:
@@ -453,7 +444,6 @@ class CrunchyrollExtractor(BaseExtractor):
             },
             data={"grant_type": method},
             cookies=self.cjar,
-            proxies=self.proxy,
         )
         if "access_token" not in token_req[0]:
             vprint(lang["crunchyroll"]["bearer_fetch_fail"], "error", "crunchyroll")
@@ -477,7 +467,6 @@ class CrunchyrollExtractor(BaseExtractor):
         token_req = request_json(
             url=self.API_URL + "index/v2",
             headers={"Authorization": self.account_info["bearer"]},
-            proxies=self.proxy,
         )[0]
         if self.check_for_error(token_req):
             raise ExtractorError(self.extractor_lang["cms_fetch_fail"])
@@ -503,10 +492,20 @@ class CrunchyrollExtractor(BaseExtractor):
         }
 
     def get_series_info(
-        self, series_id: str, return_raw_info=False
+        self, series_id: str = None, return_raw_info=False
     ) -> Union[Series, dict]:
+        """
+        Returns the information from the requested series
+
+        :param series_id: The identifier of the series
+        :param return_raw_info: Returns unparsed information
+        :return: Series object if not return_raw_info else a dict
+        """
+
+        # check if we have a bearer token
         if self.account_info["bearer"] is None:
             self.get_cms_tokens()
+        # get the series information
         series_json = request_json(
             url=self.CMS_API_URL + "/series/" + series_id,
             headers={"Authorization": self.account_info["bearer"]},
@@ -527,7 +526,14 @@ class CrunchyrollExtractor(BaseExtractor):
             module_name="crunchyroll",
         )
 
-        self.info.set_metadata(
+        date = datetime.fromisoformat("1970-01-01")
+        if series_json["season_tags"]:
+            year = re.search(r"(\d+)", series_json["season_tags"][0]).group(0)
+            # since crunchyroll does not return the entire date, spoof as
+            # first day of that year
+            date = datetime.fromisoformat(f"{year}-01-01")
+
+        return Series(
             title=series_json["title"],
             id=series_id,
             synopsis=series_json["description"],
@@ -538,12 +544,8 @@ class CrunchyrollExtractor(BaseExtractor):
             ],
             episode_count=series_json["episode_count"],
             season_count=series_json["season_count"],
-            year=re.search(r"(\d+)", series_json["season_tags"][0]).group(0)
-            if series_json["season_tags"]
-            else 1970,
+            date=date,
         )
-
-        return self.info
 
     def get_seasons(self, series_id: str, return_raw_info=False) -> List[Season]:
 
@@ -583,25 +585,23 @@ class CrunchyrollExtractor(BaseExtractor):
             season_list.append(_season)
         return season_list
 
-    @check_season_wrapper
     def get_season_info(
-        self, season: Season = None, season_id: str = None, return_raw_info=False
+        self,
+        season_id: str = None,
+        return_raw_info=False,
     ) -> Union[Season, dict]:
         """
         Returns a full Season object from specified season identifier or from
         a partial Season object
 
         Only one season parameter is required
-        :param season: Partial Season object
         :param season_id: Season identifier
         :param return_raw_info: Returns the JSON directly, without parsing
         :return: Full Season object, or dict if return_raw_info
         """
-        _season = season if season is not None else Season()
-        _season_id = season.id if season is not None else season_id
 
         season_json = request_json(
-            self.CMS_API_URL + "/seasons/" + _season_id,
+            f"{self.CMS_API_URL}/seasons/{season_id}",
             headers={"Authorization": self.account_info["bearer"]},
             params={
                 "locale": self.options["crunchyroll"]["meta_language"],
@@ -615,24 +615,25 @@ class CrunchyrollExtractor(BaseExtractor):
 
         vprint(
             lang["extractor"]["get_media_info"]
-            % (lang["types"]["alt"]["season"], season_json["title"], _season_id),
+            % (lang["types"]["alt"]["season"], season_json["title"], season_id),
             module_name="crunchyroll",
         )
 
-        metadata = {
-            "title": season_json["title"],
-            "id": _season_id,
-            "number": season_json["season_number"],
-        }
+        season = Season(
+            title=season_json["title"],
+            id=season_id,
+            extractor=self.extractor_name,
+            number=season_json["season_number"],
+        )
 
-        _season.set_metadata(**metadata)
+        # check the season
+        self.check_content(season)
 
-        return _season
+        return season
 
     def get_episodes_from_season(
         self,
         season_id: str = None,
-        season: Season = None,
         return_raw_info=False,
         get_partial_episodes=False,
     ) -> Union[List[Episode], dict]:
@@ -642,20 +643,17 @@ class CrunchyrollExtractor(BaseExtractor):
 
         Only one season parameter is required
         :param season_id: Season's identifier
-        :param season: Season object
         :param return_raw_info: Returns the JSON directly without parsing
-        :param threaded: Run with multiple threads
         :return: Returns a Full Episode object (with streams) if
         return_raw_info is False, else returns unparsed JSON dict
         """
-        identifier = season_id if season_id is not None else season.id
-        if identifier is None:
+        if season_id is None:
             raise ExtractorError(lang["extractor"]["except"]["no_id"])
 
         unparsed_list = request_json(
-            self.CMS_API_URL + "/episodes",
+            f"{self.CMS_API_URL}/episodes",
             params={
-                "season_id": identifier,
+                "season_id": season_id,
                 "locale": self.options["crunchyroll"]["meta_language"],
                 "Signature": self.account_info["signature"],
                 "Policy": self.account_info["policy"],
@@ -665,11 +663,6 @@ class CrunchyrollExtractor(BaseExtractor):
         if return_raw_info:
             return unparsed_list
 
-        if hasattr(self, "season") or season is not None:
-            # Add episode count attribute to season
-            _season = season if season is not None else self.season
-            _season.episode_count = len(unparsed_list["items"])
-
         for episode in unparsed_list["items"]:
             # Create a partial episode object to check if passes filter check
             e = Episode(
@@ -677,17 +670,18 @@ class CrunchyrollExtractor(BaseExtractor):
                 id=episode["id"],
                 number=episode["episode_number"],
             )
-            e._season = season if season is not None else None
             if self.check_content(e) and not get_partial_episodes:
+                # Yields the episode with all the information,
+                # including streams, default behaviour
                 yield self._parse_episode_info(episode)
             elif self.check_content(e) and get_partial_episodes:
+                # Yields the episode with basic information
                 yield e
             if hasattr(self, "progress_bar"):
                 self.progress_bar.update()
 
-    @check_episode_wrapper
     def get_episode_info(
-        self, episode: Episode, episode_id: str, return_raw_info=False, get_streams=True
+        self, episode_id: str, return_raw_info=False, get_streams=True
     ) -> Union[Episode, dict]:
         """
         Get information from an episode using it's identifier or a partial
@@ -701,10 +695,8 @@ class CrunchyrollExtractor(BaseExtractor):
         :return: Full Episode object if not return_raw_info, else a dict
         """
 
-        _episode_id = episode.id if episode is not None else episode_id
-
         episode_info = request_json(
-            self.CMS_API_URL + "/episodes/" + _episode_id,
+            self.CMS_API_URL + "/episodes/" + episode_id,
             headers={"Authorization": self.account_info["bearer"]},
             params={
                 "locale": self.options["crunchyroll"]["meta_language"],
@@ -717,10 +709,8 @@ class CrunchyrollExtractor(BaseExtractor):
             return episode_info
 
         episode = self._parse_episode_info(episode_info, get_streams=get_streams)
-        if not self.check_content(episode):
-            if not hasattr(episode, "skip_download"):
-                # If episode has not a skip reason already, add one
-                episode.skip_download = lang["extractor"]["filter_check_fail"]
+        self.check_content(episode)
+
         return episode
 
     def _parse_episode_info(self, episode_info: dict, get_streams=True) -> Episode:
@@ -737,21 +727,21 @@ class CrunchyrollExtractor(BaseExtractor):
         episode = Episode(
             title=episode_info["title"],
             id=episode_info["id"],
+            extractor=self.extractor_name,
             synopsis=episode_info["description"],
             number=episode_info["episode_number"],
         )
         # If content does not have an episode number, assume it's a movie
         if episode.number is None:
-            episode = episode.convert_to_movie()
+            episode = episode.as_movie()
             if episode_info["season_tags"]:
-                episode.year = re.search(r"(\d+)", episode_info["season_tags"][0]).group(
-                    0
-                )
+                year = re.search(r"(\d+)", episode_info["season_tags"][0]).group(0)
+                episode.date = datetime.fromisoformat(f"{year}-01-01")
 
         episode._partial = False
 
         if get_streams and "playback" in episode_info:
-            episode.streams = self._get_streams(episode_info["playback"])
+            episode.streams = self._get_streams(episode_info["playback"], episode.id)
         elif get_streams and "playback" not in episode_info:
             episode.skip_download = lang["extractor"]["skip_dl_premium"]
 
@@ -760,7 +750,6 @@ class CrunchyrollExtractor(BaseExtractor):
     def _get_streams(
         self,
         playback_url: str = None,
-        episode: Episode = None,
         episode_id: str = None,
     ) -> List[Stream]:
         """
@@ -780,10 +769,9 @@ class CrunchyrollExtractor(BaseExtractor):
         # Set the streams page URL
         if playback_url is not None:
             playback = playback_url
-        elif episode is not None or episode_id is not None:
-            _id = episode.id if episode is not None else episode_id
+        elif episode_id is not None:
             # Get raw episode info JSON
-            inf = self.get_episode_info(episode_id=_id, return_raw_info=True)
+            inf = self.get_episode_info(episode_id, return_raw_info=True)
             if "playback" not in inf:
                 return streams
             playback = inf["playback"]
@@ -810,7 +798,7 @@ class CrunchyrollExtractor(BaseExtractor):
                 stream["hardsub_locale"] = "ja-JP"
             _stream = Stream(
                 url=stream["url"],
-                id="video",
+                id=f"{episode_id}[video]",
                 preferred=stream["hardsub_locale"] == is_preferred,
                 name={
                     VIDEO: self.LANG_CODES[stream["hardsub_locale"]]["name"],
@@ -827,6 +815,7 @@ class CrunchyrollExtractor(BaseExtractor):
         subtitles = [
             Stream(
                 url=s["url"],
+                id=f'{episode_id}[{s["locale"]}]',
                 name=self.LANG_CODES[s["locale"]]["name"],
                 language=self.LANG_CODES[s["locale"]]["lang"],
                 preferred="all" in self.options["crunchyroll"]["sub_language"]
@@ -893,11 +882,13 @@ class CrunchyrollExtractor(BaseExtractor):
 
         if url_type == Series:
             series_guid = url_ids[Series]
-            self.get_series_info(series_id=series_guid)
+            series = self.get_series_info(series_id=series_guid)
+            # link the series
+            self.info.link_content(series)
 
             self.progress_bar = ProgressBar(
-                desc=self.info.title,
-                total=self.info.episode_count,
+                desc=series.title,
+                total=series.episode_count,
                 leave=False,
                 head="extraction",
             )
@@ -920,24 +911,38 @@ class CrunchyrollExtractor(BaseExtractor):
                     )
                     continue
 
-                self.get_season_info(season=season)
-                self.info.link_season(season=season)
-                for episode in self.get_episodes_from_season(season=season):
-                    season.link_episode(episode=episode)
+                _season = self.get_season_info(season.id)
+                # link the season with the series
+                series.link_content(_season)
+                # avoid getting episode information from unwanted seasons
+                if not _season._unwanted:
+                    episodes = self.get_episodes_from_season(_season.id)
+                    # add episode count to season
+                    _season.episode_count = 0
+                    for episode in episodes:
+                        _season.link_content(episode)
+                        # increase season episode count
+                        _season.episode_count += 1
+                        # now check the content
+                        self.check_content(episode)
 
         elif url_type == Episode:
             # Get series and season info
-            self.get_series_info(series_id=url_ids[Series])
-            self.season = self.get_season_info(season_id=url_ids[Season])
-            self.info.link_season(season=self.season)
-            # Parse the raw episode info
-            # Reusing the info fetched from the get_identifier function
-            # since there's no point in doing it again
-            if hasattr(self, "__episode_info"):
-                episode = self._parse_episode_info(episode_info=self.__episode_info)
-            else:
-                episode = self.get_episode_info(episode_id=url_ids[Episode])
-            # Link the episode with the season
-            self.season.link_episode(episode=episode)
+            series = self.get_series_info(series_id=url_ids[Series])
+            self.info.link_content(series)
+            season = self.get_season_info(season_id=url_ids[Season])
+            if not season._unwanted:
+                series.link_content(season)
+                # Parse the raw episode info
+                # Reusing the info fetched from the get_identifier function
+                # since there's no point in doing it again
+                if hasattr(self, "__episode_info"):
+                    episode = self._parse_episode_info(episode_info=self.__episode_info)
+                else:
+                    episode = self.get_episode_info(episode_id=url_ids[Episode])
+                # Link the episode with the season
+                season.link_content(episode)
+                # check the episode
+                self.check_content(episode)
         # Since extraction has finished, remove the partial flag
         self.info._partial = False
