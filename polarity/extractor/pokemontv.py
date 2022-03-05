@@ -165,7 +165,12 @@ class PokemonTVExtractor(BaseExtractor):
         if return_raw_info:
             return info
 
-        return self._parse_episode_info(info, channel_info)
+        content = self._parse_episode_info(info, channel_info)
+
+        if channel_info["media_type"] == "movie":
+            content = content.as_movie()
+
+        return content
 
     def _parse_episode_info(self, episode_info: dict, channel_info: dict) -> Episode:
         episode = Episode(
@@ -256,8 +261,6 @@ class PokemonTVExtractor(BaseExtractor):
             self._print_filter_warning()
 
             for episode in self.get_episodes_from_series(identifiers[Series]):
-                if series._pokemontv_type == "movie":
-                    episode = episode.as_movie()
                 if link_to_season:
                     season.link_content(episode)
                     # add number to season
@@ -272,8 +275,6 @@ class PokemonTVExtractor(BaseExtractor):
         elif url_type is Episode:
             episode = self.get_episode_info(identifiers[Episode], identifiers[Series])
 
-            if series._pokemontv_type == "movie":
-                episode = episode.as_movie()
             if link_to_season:
                 season.link_content(episode)
                 # add number to season
