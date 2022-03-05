@@ -531,7 +531,10 @@ class Polarity:
                 vprint(lang["dl"]["no_redownload"] % item.short_name, level="warning")
                 continue
 
-            vprint(lang["dl"]["downloading_content"] % (item.short_name, item.title))
+            vprint(
+                lang["dl"]["downloading_content"]
+                % (lang["types"][type(item).__name__.lower()], item.title)
+            )
 
             # Set the downloader to Penguin
             # TODO: external downloader support
