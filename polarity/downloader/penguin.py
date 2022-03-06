@@ -263,10 +263,10 @@ class PenguinDownloader(BaseDownloader):
             level="debug",
         )
         for i in range(self.options["penguin"]["threads"]):
-            sdl_name = f"{threading.current_thread().name}/{i}"
-            sdl = Thread(target=self.segment_downloader, name=sdl_name, daemon=True)
-            self.threads.append(sdl)
-            sdl.start()
+            thread_name = f"{threading.current_thread().name}/{i}"
+            thread = Thread(target=self.segment_downloader, name=thread_name, daemon=True)
+            self.threads.append(thread)
+            thread.start()
 
         self.progress_bar = ProgressBar(
             head="download",
@@ -293,9 +293,8 @@ class PenguinDownloader(BaseDownloader):
                 self.resume_stats["downloaded_bytes"] - self._last_updated
             )
             self._last_updated = self.resume_stats["downloaded_bytes"]
-
             # Check if seg. downloaders have finished
-            if not [sdl for sdl in self.threads if sdl.is_alive()]:
+            if not [t for t in self.threads if t.is_alive()]:
                 self.progress_bar.close()
                 self.resume_stats["download_finished"] = True
                 break
@@ -321,61 +320,39 @@ class PenguinDownloader(BaseDownloader):
     # Pre-processing
 
     def generate_pool_id(self, pool_format: str) -> str:
+        """
+        Generates an unique pool identifier from the inputted string
+
+        :param pool_format: The pool format to generate the id for
+        :return: The generated identifier
+        """
         pool_id = f'{pool_format}{self.output_data["pool_count"][pool_format]}'
 
         self.output_data["pool_count"][pool_format] += 1
         return pool_id
 
-    def process_stream(self, stream: Stream) -> None:
-        if not stream.preferred:
+    def process_stream(self, stream: Stream) -> List[SegmentPool]:
+        """
+        Get segments from a stream
+
+        :param stream: A Stream object to parse, with it's parameter `wanted`
+        being True
+        :return: A list of SegmentPools, one for each track, sometimes video and
+        audio are together, those are considered `unified` tracks
+        """
+        if not stream.wanted:
             return
         vprint(lang["penguin"]["processing_stream"] % stream.id, "debug", "penguin")
-        for prot in ALL_PROTOCOLS:
-            if not get_extension(stream.url) in prot.SUPPORTED_EXTENSIONS:
+        for protocol in ALL_PROTOCOLS:
+            if not get_extension(stream.url) in protocol.SUPPORTED_EXTENSIONS:
                 continue
             vprint(
-                lang["penguin"]["stream_protocol"] % (prot.__name__, stream.id), "debug"
+                lang["penguin"]["stream_protocol"] % (protocol.__name__, stream.id),
+                "debug",
             )
-            processed = prot(stream=stream, options=self.options).extract()
-            for pool in processed["segment_pools"]:
-                self.output_data["total_segments"] += len(pool.segments)
-                pool.id = self.generate_pool_id(pool.format)
-                if prot == HTTPLiveStream:
-                    # Create a playlist from the segments
-                    self.create_m3u8_playlist(pool=pool)
-                elif prot == MPEGDASHStream and stream == self.streams[0]:
-                    # TODO: rework
-                    self.resume_stats["do_binary_concat"] = True
-                self.output_data["segment_pools"].append(pool)
-                self.output_data["inputs"].append(
-                    self.create_input(
-                        pool=pool, stream=stream, tracks=processed["tracks"]
-                    )
-                )
-            return
-        if not stream.extra_sub:
-            vprint(lang["penguin"]["incompatible_stream"], "error", "penguin")
-            return
-        # Process extra subtitle streams
-        subtitle_pool_id = self.generate_pool_id("subtitles")
-        subtitle_pool = SegmentPool([], "subtitles", subtitle_pool_id, None, None)
-        subtitle_segment = Segment(
-            url=stream.url,
-            number=0,
-            media_type="subtitles",
-            group=subtitle_pool_id,
-            key=None,
-            duration=None,
-            init=False,
-            byte_range=None,
-        )
-        subtitle_pool.segments = [subtitle_segment]
-        self.output_data["segment_pools"].append(subtitle_pool)
-        ff_input = self.create_input(
-            pool=subtitle_pool, stream=stream, tracks={SUBTITLES: 1}
-        )
-        ff_input.path = ff_input.path.replace(subtitle_pool_id, subtitle_pool_id + "_0")
-        self.output_data["inputs"].append(ff_input)
+            return protocol(stream=stream, options=self.options).extract()
+        # TODO: add FileProtocol support
+        return
 
     def create_input(self, pool: SegmentPool, stream: Stream) -> FFmpegInput:
         def set_metadata(parent: str, child: str, value: str):
@@ -436,11 +413,12 @@ class PenguinDownloader(BaseDownloader):
                 break
         return ff_input
 
-    def create_m3u8_playlist(self, pool: SegmentPool) -> None:
+    def create_m3u8_playlist(self, pool: SegmentPool) -> str:
         """
         Creates a m3u8 playlist from a SegmentPool's segments.
 
-
+        :param pool: The SegmentPool object to generate the playlist
+        :return: A m3u8 playlist
         """
 
         def download_key(segment: Segment) -> None:
@@ -482,10 +460,15 @@ class PenguinDownloader(BaseDownloader):
             )
         # Write end of file
         playlist += "#EXT-X-ENDLIST\n"
-        # Write playlist to file
-        mkfile(f"{self.temp_path}/{pool.id}.m3u8", playlist)
+
+        return playlist
 
     def calculate_final_size(self) -> float:
+        """
+        Calculates final output size
+
+        :return: Size in bytes
+        """
         try:
             return (
                 self.resume_stats["downloaded_bytes"]
@@ -504,10 +487,11 @@ class PenguinDownloader(BaseDownloader):
             (f"{s.group}_{s.number}{s.ext}", s.time) for p in pools for s in p.segments
         ]
 
-    def ffmpeg_watchdog(self) -> bool:
+    def ffmpeg_watchdog(self):
         """
-        Show FFmpeg merge progress and delete segment files as they
-        are merged to the final file
+        Watch FFmpeg merge progress
+
+        :return: Nothing
         """
 
         stats = {
@@ -545,9 +529,12 @@ class PenguinDownloader(BaseDownloader):
             last_update = int(stats["total_size"])
             sleep(0.5)
 
-    def generate_ffmpeg_command(
-        self,
-    ) -> list:
+    def generate_ffmpeg_command(self) -> list:
+        """
+        Generates a ffmpeg command from the output data's inputs
+
+        :return: The ffmpeg command as a list
+        """
         # Merge segments
         command = FFmpegCommand(
             f"{paths['tmp']}{self.content['sanitized']}{get_extension(self.output)}",
