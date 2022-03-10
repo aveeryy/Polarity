@@ -1,17 +1,15 @@
 from m3u8 import parse
-from requests.adapters import HTTPAdapter
 from urllib.parse import urljoin
-from urllib3.util.retry import Retry
 
 from polarity.config import lang
 from polarity.downloader.protocols.base import StreamProtocol
-from polarity.types.stream import Stream, Segment, SegmentPool, ContentKey, M3U8Pool
+from polarity.types.stream import Segment, SegmentPool, ContentKey, M3U8Pool
 from polarity.types.ffmpeg import VIDEO, AUDIO, SUBTITLES
 from polarity.utils import vprint, request_webpage
 
 
 class HTTPLiveStream(StreamProtocol):
-    SUPPORTED_EXTENSIONS = (".m3u", ".m3u8")
+    SUPPORTED_EXTENSIONS = r"\.m3u(?:8|)"
 
     def open_playlist(self):
         self.manifest_data = request_webpage(self.url).content
@@ -59,7 +57,6 @@ class HTTPLiveStream(StreamProtocol):
                 Segment(
                     url=urljoin(self.stream_url, s["uri"]),
                     number=self.parsed_stream["segments"].index(s),
-                    media_type=media_type,
                     key={
                         "video": ContentKey(s["key"]["uri"], None, s["key"]["method"])
                         if "key" in s
@@ -68,25 +65,14 @@ class HTTPLiveStream(StreamProtocol):
                         if "key" in s
                         else None,
                     },
-                    group=f"{media_type}{self.processed_tracks[media_type] - 1}",
-                    duration=s["duration"],
-                    init=False,
-                    byte_range=None,
                 )
                 for s in self.parsed_stream["segments"]
             ]
 
-            l = 0
-            for segment in segments:
-                segment.time = l
-                l += segment.duration
-
             seg_pool = SegmentPool(
                 segments,
-                media_type,
-                f"{media_type}{self.processed_tracks[media_type]}",
-                None,
-                M3U8Pool,
+                media_type=media_type,
+                pool_type=M3U8Pool,
             )
             return seg_pool
 
@@ -98,8 +84,6 @@ class HTTPLiveStream(StreamProtocol):
                     ),
                     number=-1,  # number -1 is reserved for the init segment
                     init=True,
-                    media_type=pool,
-                    duration=None,
                     key=None,
                     group=f"{pool}{self.processed_tracks[pool] - 1}",
                     byte_range=None,
@@ -148,20 +132,17 @@ class HTTPLiveStream(StreamProtocol):
                     subtitles = Segment(
                         url=urljoin(self.url, media["uri"]),
                         number=0,
-                        type="subtitles",
-                        group=f'subtitles{self.processed_tracks["subtitles"]}',
                     )
                     subtitle_pool = SegmentPool(
                         [subtitles],
-                        format="subtitles",
-                        id=f"subtitles{self.processed_tracks['subtitles']}",
+                        media_type="subtitles",
                         track_id=None,
                         pool_type=None,
                     )
 
                     self.segment_pools.append(subtitle_pool)
 
-    def extract(self):
+    def process(self):
 
         vprint(
             lang["penguin"]["protocols"]["getting_playlist"],
@@ -171,4 +152,4 @@ class HTTPLiveStream(StreamProtocol):
 
         self.open_playlist()
         self.get_stream_fragments(self._stream, only_subtitles=self.stream.extra_sub)
-        return {"segment_pools": self.segment_pools, "tracks": self.processed_tracks}
+        return self.segment_pools
