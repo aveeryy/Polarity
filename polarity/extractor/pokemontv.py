@@ -193,10 +193,10 @@ class PokemonTVExtractor(BaseExtractor):
         episode.streams = [
             Stream(
                 episode_info["stream_url"],
-                preferred=True,
                 name={AUDIO: self.LANG_CODES[self.language]["name"]},
                 language={AUDIO: self.LANG_CODES[self.language]["lang"]},
                 id=f"{episode.id}[main]",
+                wanted=True,
             )
         ]
 

@@ -799,7 +799,7 @@ class CrunchyrollExtractor(BaseExtractor):
             _stream = Stream(
                 url=stream["url"],
                 id=f"{episode_id}[video]",
-                preferred=stream["hardsub_locale"] == is_preferred,
+                wanted=stream["hardsub_locale"] == is_preferred,
                 name={
                     VIDEO: self.LANG_CODES[stream["hardsub_locale"]]["name"],
                     AUDIO: self.LANG_CODES[streams_json["audio_locale"]]["name"],
