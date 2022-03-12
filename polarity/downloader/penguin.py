@@ -140,7 +140,6 @@ class PenguinDownloader(BaseDownloader):
 
         if not can_resume:
             # We either can't resume or it's a new download
-            # Do stream processing
             for stream in self.streams:
                 for pool in self.process_stream(stream):
                     # get an identifier for the segment pool
@@ -154,6 +153,7 @@ class PenguinDownloader(BaseDownloader):
                     ffmpeg_input = self.create_input(pool, stream)
                     self.output_data["segment_pools"].append(pool)
                     self.output_data["inputs"].append(ffmpeg_input)
+                    self.output_data["total_segments"] += len(pool.segments)
 
             # Save pools to file
             self.save_output_data()
@@ -339,7 +339,7 @@ class PenguinDownloader(BaseDownloader):
         audio are together, those are considered `unified` tracks
         """
         if not stream.wanted:
-            return
+            return []
         vprint(lang["penguin"]["processing_stream"] % stream.id, "debug", "penguin")
         for protocol in ALL_PROTOCOLS:
             if not re.match(protocol.SUPPORTED_EXTENSIONS, get_extension(stream.url)):
@@ -474,7 +474,7 @@ class PenguinDownloader(BaseDownloader):
         try:
             return (
                 self.resume_stats["downloaded_bytes"]
-                / len([s for s in self.resume_stats["segments_downloaded"]])
+                / len(self.resume_stats["segments_downloaded"])
                 * self.output_data["total_segments"]
             )
         except ZeroDivisionError:
