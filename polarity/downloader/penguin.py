@@ -269,6 +269,7 @@ class PenguinDownloader(BaseDownloader):
             # Delete the segment list from the loaded data
             del pool["segments"]
             _pool = SegmentPool(segments=segments, **pool)
+            _pool.set_id(_pool.media_type)
             # Add pool to temporal list
             pools.append(_pool)
         for _input in output["inputs"]:
@@ -623,8 +624,7 @@ class PenguinDownloader(BaseDownloader):
                 if segment._id in self.resume_stats["segments_downloaded"]:
                     # segment has already been downloaded, skip
                     thread_vprint(
-                        message=lang["penguin"]["segment_skip"]
-                        % f"{segment.group}_{segment.number}",
+                        message=lang["penguin"]["segment_skip"] % segment._id,
                         module_name=thread_name,
                         level="verbose",
                         lock=self.thread_lock,
