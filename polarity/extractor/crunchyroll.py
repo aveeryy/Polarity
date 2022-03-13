@@ -818,7 +818,7 @@ class CrunchyrollExtractor(BaseExtractor):
                 id=f'{episode_id}[{s["locale"]}]',
                 name=self.LANG_CODES[s["locale"]]["name"],
                 language=self.LANG_CODES[s["locale"]]["lang"],
-                preferred="all" in self.options["crunchyroll"]["sub_language"]
+                wanted="all" in self.options["crunchyroll"]["sub_language"]
                 or s in self.options["crunchyroll"]["sub_language"],
             )
             for s in order_dict(
