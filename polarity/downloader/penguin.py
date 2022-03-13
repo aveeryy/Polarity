@@ -59,7 +59,7 @@ class PenguinDownloader(BaseDownloader):
 
     DEFAULTS = {
         "attempts": 10,
-        "threads": 10,
+        "threads": 5,
         # Add a metadata entry with the Polarity version
         "tag_output": False,
         # Delete segments as these are merged to the final file
