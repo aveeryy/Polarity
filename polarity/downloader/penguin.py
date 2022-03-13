@@ -429,7 +429,7 @@ class PenguinDownloader(BaseDownloader):
             key_contents = request_webpage(url=unquote(segment.key["video"].url))
 
             mkfile(
-                f"{self.temp_path}/{pool.id}_{key_num}.key",
+                f"{self.temp_path}/{pool._id}_{key_num}.key",
                 contents=key_contents.content,
                 writing_mode="wb",
             )
@@ -451,7 +451,7 @@ class PenguinDownloader(BaseDownloader):
             if segment.key != last_key and segment.key is not None:
                 if segment.key["video"] is not None:
                     last_key = segment.key
-                    key_path = f"{self.temp_path}{s}{pool.id}_{key_num}.key"
+                    key_path = f"{self.temp_path}{s}{pool._id}_{key_num}.key"
                     if sys.platform == "win32":
                         key_path = key_path.replace("\\", "\\\\")
                     playlist += f'#EXT-X-KEY:METHOD={segment.key["video"].method},URI="{key_path}"\n'  # noqa: E501
