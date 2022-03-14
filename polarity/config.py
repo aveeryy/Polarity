@@ -543,6 +543,8 @@ __defaults = {
         {series_title} S{season_number_0}E{number_0} - {title}.{ext}
         """.strip(
             "\n"  # strip newlines
+        ).replace(
+            " " * 8, ""  # remove indentation
         ),
         # Filename formatting for movies
         # Default format: Movie title (Year)
