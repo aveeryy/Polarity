@@ -15,11 +15,11 @@ from urllib.parse import unquote
 from polarity.config import lang, paths
 from polarity.downloader.base import BaseDownloader
 from polarity.downloader.protocols import ALL_PROTOCOLS
-from polarity.downloader.protocols.file import FileProtocol
 from polarity.types import Content, ProgressBar, Thread
 from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO, FFmpegCommand, FFmpegInput
 from polarity.types.stream import ContentKey, M3U8Pool, Segment, SegmentPool, Stream
 from polarity.utils import (
+    dict_merge,
     get_extension,
     mkfile,
     request_webpage,
@@ -110,13 +110,24 @@ class PenguinDownloader(BaseDownloader):
         self.resume_stats = {
             "downloaded_bytes": 0,
             "total_bytes": 0,
-            "segments_downloaded": [],
+            "downloaded_segments": [],
         }
+        # Convert values to integers
+        self.options["penguin"]["threads"] = int(self.options["penguin"]["threads"])
+        self.hooks = {"download_update": [self._download_progress_hook]}
+        if "hooks" in self.options:
+            dict_merge(
+                self.hooks,
+                self.options["hooks"],
+                overwrite=True,
+                modify=True,
+                extend_lists=True,
+            )
 
     def _start(self):
         super()._start()
         can_resume = False
-        self.options["penguin"]["threads"] = int(self.options["penguin"]["threads"])
+
         # Check if the download can be resumed from a previous session
         if os.path.exists(f"{self.temp_path}/pools.json"):
             # Load the output data
@@ -164,12 +175,6 @@ class PenguinDownloader(BaseDownloader):
             module_name="penguin",
             level="debug",
         )
-        # Create the download threads
-        for i in range(self.options["penguin"]["threads"]):
-            thread_name = f"{threading.current_thread().name}/{i}"
-            thread = Thread(target=self.segment_downloader, name=thread_name, daemon=True)
-            self.threads.append(thread)
-            thread.start()
 
         self.progress_bar = ProgressBar(
             head="download",
@@ -182,17 +187,15 @@ class PenguinDownloader(BaseDownloader):
         )
         self._last_updated = self.resume_stats["downloaded_bytes"]
 
+        # Create the download threads
+        for i in range(self.options["penguin"]["threads"]):
+            thread_name = f"{threading.current_thread().name}/{i}"
+            thread = Thread(target=self.segment_downloader, name=thread_name, daemon=True)
+            self.threads.append(thread)
+            thread.start()
+
         # Wait until threads stop
         while True:
-            # Update the total byte estimate
-            self.resume_stats["total_bytes"] = self.calculate_final_size()
-            self.save_resume_stats()
-            # Update progress bar
-            self.progress_bar.total = self.resume_stats["total_bytes"]
-            self.progress_bar.update(
-                self.resume_stats["downloaded_bytes"] - self._last_updated
-            )
-            self._last_updated = self.resume_stats["downloaded_bytes"]
             # Check if seg. downloaders have finished
             if not [t for t in self.threads if t.is_alive()]:
                 self.progress_bar.close()
@@ -300,18 +303,18 @@ class PenguinDownloader(BaseDownloader):
         stats = {
             "downloaded_bytes": 0,
             "total_bytes": 0,
-            "segments_downloaded": [],
+            "downloaded_segments": [],
         }
         for file in os.scandir(self.temp_path):
             if get_extension(file.name) in (".m3u8",):
                 continue
-            stats["segments_downloaded"].append(strip_extension(file.name))
+            stats["downloaded_segments"].append(strip_extension(file.name))
             stats["downloaded_bytes"] += file.stat().st_size
 
         # Calculate total bytes
         stats["total_bytes"] = (
             stats["downloaded_bytes"]
-            / len(stats["segments_downloaded"])
+            / len(stats["downloaded_segments"])
             * self.output_data["total_segments"]
         )
         return stats
@@ -329,6 +332,29 @@ class PenguinDownloader(BaseDownloader):
 
         self.output_data["pool_count"][pool_format] += 1
         return pool_id
+
+    def _download_progress_hook(self, content: dict) -> None:
+        """ """
+        if content["signal"] != "downloaded_segment":
+            return
+        self.resume_stats["downloaded_bytes"] += content["size"]
+        self.resume_stats["downloaded_segments"].append(content["segment"])
+        # Update the total byte estimate
+        size = self.calculate_final_size(
+            self.resume_stats["downloaded_bytes"],
+            len(self.resume_stats["downloaded_segments"]),
+            self.output_data["total_segments"],
+        )
+        self.resume_stats["total_bytes"] = size
+        # Notify hooks of updated download size
+        self._execute_hooks("download_update", {"signal": "updated_size", "size": size})
+        self.save_resume_stats()
+        # Update progress bar
+        self.progress_bar.total = size
+        self.progress_bar.update(
+            self.resume_stats["downloaded_bytes"] - self._last_updated
+        )
+        self._last_updated = self.resume_stats["downloaded_bytes"]
 
     def process_stream(self, stream: Stream) -> List[SegmentPool]:
         """
@@ -349,7 +375,16 @@ class PenguinDownloader(BaseDownloader):
                 lang["penguin"]["stream_protocol"] % (protocol.__name__, stream.id),
                 "debug",
             )
-            return protocol(stream=stream, options=self.options).process()
+            pools = protocol(stream=stream, options=self.options).process()
+            if stream.extra_audio:
+                media_type = "audio"
+            elif stream.extra_sub:
+                media_type = "subtitles"
+            else:
+                media_type = "unified"
+            for pool in pools:
+                pool.media_type = media_type
+            return pools
 
     def create_input(self, pool: SegmentPool, stream: Stream) -> FFmpegInput:
         def set_metadata(parent: str, child: str, value: str):
@@ -466,20 +501,20 @@ class PenguinDownloader(BaseDownloader):
 
         return playlist
 
-    def calculate_final_size(self) -> float:
+    @staticmethod
+    def calculate_final_size(
+        downloaded_bytes: float, downloaded_segments: int, total_segments: int
+    ) -> float:
         """
         Calculates final output size
 
-        :return: Size in bytes
+        :param downloaded_bytes:
+        :return: Estimation of end size in bytes (not the type)
         """
-        try:
-            return (
-                self.resume_stats["downloaded_bytes"]
-                / len(self.resume_stats["segments_downloaded"])
-                * self.output_data["total_segments"]
-            )
-        except ZeroDivisionError:
+        if downloaded_segments == 0:
+            # Avoid dividing by 0
             return 0
+        return downloaded_bytes / downloaded_segments * total_segments
 
     ###################
     # Post-processing #
@@ -621,7 +656,7 @@ class PenguinDownloader(BaseDownloader):
                     break
                 segment = pool.segments.pop(0)
                 segment_path = f"{self.temp_path}/{segment._filename}"
-                if segment._id in self.resume_stats["segments_downloaded"]:
+                if segment._id in self.resume_stats["downloaded_segments"]:
                     # segment has already been downloaded, skip
                     thread_vprint(
                         message=lang["penguin"]["segment_skip"] % segment._id,
@@ -638,7 +673,7 @@ class PenguinDownloader(BaseDownloader):
                     lock=self.thread_lock,
                 )
 
-                self.size = 0
+                size = 0
 
                 for i in range(self.options["penguin"]["attempts"]):
                     try:
@@ -663,8 +698,7 @@ class PenguinDownloader(BaseDownloader):
                         sleep(0.5)
                         continue
                     if "Content-Length" in segment_data.headers:
-                        self.size = int(segment_data.headers["Content-Length"])
-                        self.resume_stats["downloaded_bytes"] += self.size
+                        size = int(segment_data.headers["Content-Length"])
                     segment_contents = segment_data.content
 
                     if (
@@ -684,7 +718,16 @@ class PenguinDownloader(BaseDownloader):
                         lock=self.thread_lock,
                     )
                     segment._finished = True
-                    self.resume_stats["segments_downloaded"].append(segment._id)
+
+                    self._execute_hooks(
+                        "download_update",
+                        {
+                            "signal": "downloaded_segment",
+                            "content": self.content["extended"],
+                            "segment": segment._id,
+                            "size": size,
+                        },
+                    )
 
                     # handle signaling
                     # TODO: better testing of signal sending and checking
@@ -700,6 +743,7 @@ class PenguinDownloader(BaseDownloader):
                         # if signal is pause, halt execution
                         # until signal is cleared
                         if signal == PenguinSignals.PAUSE:
+
                             while self.get_signal()[0] == PenguinSignals.PAUSE:
                                 sleep(0.2)
 
