@@ -33,6 +33,7 @@ class BaseDownloader(Thread):
         self.temp_path = f'{paths["tmp"]}{self.content["sanitized"]}'
         self.success = False
         self._thread_id = _stack_id
+        self.hooks = self.options["hooks"] if "hooks" in self.options else {}
 
     def _start(self) -> None:
         path, _ = os.path.split(self.output)
@@ -41,3 +42,9 @@ class BaseDownloader(Thread):
 
     def run(self) -> None:
         self._start()
+
+    def _execute_hooks(self, hook_name, content: dict) -> None:
+        if hook_name not in self.hooks:
+            return
+        for hook in self.hooks[hook_name]:
+            hook(content)
