@@ -538,7 +538,7 @@ __defaults = {
         "generic_directory": f"{__download_path}".replace("\\", "/"),
         # Formatting for episodes
         "episode_format": """
-        {extractor}/{series_title} ({year}) [{series_id}]\
+        {base}{extractor}/{series_title} ({year}) [{series_id}]\
         Season {season_number} [{season_id}]/\
         {series_title} S{season_number_0}E{number_0} - {title}.{ext}
         """.strip(
@@ -548,9 +548,9 @@ __defaults = {
         ),
         # Filename formatting for movies
         # Default format: Movie title (Year)
-        "movie_format": "{extractor}/{title} ({year}).{ext}",
+        "movie_format": "{base}{extractor}/{title} ({year}).{ext}",
         # Filename formatting for generic content
-        "generic_format": "{extractor}/{title} [{id}].{ext}",
+        "generic_format": "{base}{extractor}/{title} [{id}].{ext}",
         # Desired video resolution, number must be height
         # If resolution is not available, gets the closest value
         "resolution": 4320,
