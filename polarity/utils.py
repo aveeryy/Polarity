@@ -13,7 +13,7 @@ from json.decoder import JSONDecodeError
 from shutil import which
 from sys import platform
 from time import sleep, time
-from typing import List, Tuple, Union
+from typing import Iterable, List, Tuple, Union
 from urllib.parse import urlparse
 from xml.parsers.expat import ExpatError
 
@@ -374,7 +374,9 @@ def strip_extension(url: str) -> str:
     return url.replace(get_extension(url), "")
 
 
-def dict_merge(dct: dict, merge_dct: dict, overwrite=False, modify=True) -> dict:
+def dict_merge(
+    dct: dict, merge_dct: dict, overwrite=False, modify=True, extend_lists=False
+) -> dict:
     """Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
     updating only top-level keys, dict_merge recurses down into dicts nested
     to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
@@ -383,6 +385,7 @@ def dict_merge(dct: dict, merge_dct: dict, overwrite=False, modify=True) -> dict
     :param merge_dct: dct merged into dct
     :param overwrite: replace existing keys
     :param modify: modify dct directly
+    :param extend_list: extend list objects instead of replacing them
     :return: dict
 
     Thanks angstwad!
@@ -396,7 +399,15 @@ def dict_merge(dct: dict, merge_dct: dict, overwrite=False, modify=True) -> dict
         if k in dct and type(dct[k]) is dict and type(merge_dct[k] is dict):
             dict_merge(dct[k], merge_dct[k], overwrite, True)
         elif k not in dct or overwrite and merge_dct[k] not in (False, None):
-            dct[k] = merge_dct[k]
+            if (
+                k in dct
+                and isinstance(dct[k], list)
+                and isinstance(merge_dct[k], Iterable)
+                and extend_lists
+            ):
+                dct[k].extend(merge_dct[k])
+            else:
+                dct[k] = merge_dct[k]
     return dct
 
 
