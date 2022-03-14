@@ -76,7 +76,7 @@ class HTTPLiveStream(StreamProtocol):
             )
             return seg_pool
 
-        def create_init_segment(pool: str) -> None:
+        def create_init_segment() -> None:
             self.segment_pool.segments.append(
                 Segment(
                     url=urljoin(
@@ -84,9 +84,6 @@ class HTTPLiveStream(StreamProtocol):
                     ),
                     number=-1,  # number -1 is reserved for the init segment
                     init=True,
-                    key=None,
-                    group=f"{pool}{self.processed_tracks[pool] - 1}",
-                    byte_range=None,
                 )
             )
 
