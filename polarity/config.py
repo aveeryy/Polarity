@@ -541,8 +541,8 @@ __defaults = {
         {base}{extractor}/{series_title} ({year}) [{series_id}]\
         Season {season_number} [{season_id}]/\
         {series_title} S{season_number_0}E{number_0} - {title}.{ext}
-        """.strip(
-            "\n"  # strip newlines
+        """.replace(
+            "\n", ""  # remove newlines
         ).replace(
             " " * 8, ""  # remove indentation
         ),
