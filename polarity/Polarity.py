@@ -108,7 +108,13 @@ class Polarity:
 
         if opts is not None:
             # Merge user's script options with processed options
-            dict_merge(options, opts, overwrite=True)
+            dict_merge(options, opts, overwrite=True, modify=True)
+
+        # for some fucking reason the whole "hooks" key dissapears
+        # from the options dictionary so here's (hopefully) a
+        # workaround for that
+        self.hooks = options["hooks"] if "hooks" in options else {}
+
         # Scripting only, override the session verbose level,
         # since verbose level is set before options merge.
         if _verbose_level is not None:
@@ -236,6 +242,7 @@ class Polarity:
                 ),
                 "metadata": [],
             }
+
             # If there are more desired extraction tasks than urls
             # set the number of extraction tasks to the number of urls
             if options["extractor"]["active_extractions"] > len(self.pool):
@@ -446,12 +453,10 @@ class Polarity:
                 indexed += 2
         return filter_list
 
-    def execute_hooks(self, name: str, content: dict) -> None:
-        if "hooks" not in options:
+    def _execute_hooks(self, name: str, content: dict) -> None:
+        if name not in self.hooks:
             return
-        if name not in options["hooks"]:
-            return
-        for hook in options["hooks"][name]:
+        for hook in self.hooks[name]:
             hook(content)
 
     def _extract_task(self, id: int) -> None:
@@ -482,7 +487,7 @@ class Polarity:
                 continue
 
             name, extractor = _extractor
-            self.execute_hooks(
+            self._execute_hooks(
                 "started_extraction", {"extractor": name, "name": item["url"]}
             )
             extractor_object = extractor(item["url"], item["filters"], _stack_id=id)
@@ -500,7 +505,7 @@ class Polarity:
                     content.output = file_path
                     self.download_pool.append(content)
 
-            self.execute_hooks(
+            self._execute_hooks(
                 "finished_extraction", {"extractor": name, "name": item["url"]}
             )
 
@@ -539,7 +544,7 @@ class Polarity:
             # Set the downloader to Penguin
             # TODO: external downloader support
             _downloader = PenguinDownloader
-            downloader = _downloader(item=item, _stack_id=id)
+            downloader = _downloader(item, _options={"hooks": self.hooks}, _stack_id=id)
             downloader.start()
 
             while downloader.is_alive():
