@@ -97,19 +97,19 @@ class HTTPLiveStream(StreamProtocol):
             if force_type is not None:
                 self.segment_pool = build_segment_pool(force_type)
                 if "segment_map" in self.parsed_stream:
-                    create_init_segment(pool=force_type)
+                    create_init_segment()
                 self.segment_pools.append(self.segment_pool)
                 return
 
             if "audio" not in stream["stream_info"]:
                 self.segment_pool = build_segment_pool("unified")
                 if "segment_map" in self.parsed_stream:
-                    create_init_segment(pool="unified")
+                    create_init_segment()
             else:
                 self.segment_pool = build_segment_pool("video")
             self.segment_pools.append(self.segment_pool)
             if "segment_map" in self.parsed_stream:
-                create_init_segment(pool="video")
+                create_init_segment()
 
         for media in self.parsed_data["media"]:
             if media["type"] == "AUDIO" and not only_subtitles:
