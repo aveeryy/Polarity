@@ -401,8 +401,8 @@ class PenguinDownloader(BaseDownloader):
                     value = value[pool._id]
                 else:
                     return
-                # check if value is now a list
-                if type(value) is list:
+                # check if value is now a list and has items
+                if type(value) is list and value:
                     value = value.pop(0)
 
             ff_input.metadata[parent][child] = value
