@@ -52,7 +52,7 @@ class PenguinDownloader(BaseDownloader):
         },
         {
             "args": ["--penguin-tag-output"],
-            "attrib": {},
+            "attrib": {"action": "store_true"},
             "variable": "tag_output",
         },
     ]
@@ -589,7 +589,7 @@ class PenguinDownloader(BaseDownloader):
 
         if self.options["penguin"]["tag_output"]:
             command.metadata_arguments.extend(
-                ["-metadata", f"encoding_tool=Polarity {__version__} with Penguin"]
+                ["-metadata", f"POLARITY_VERSION=Polarity {__version__} with Penguin"]
             )
 
         command.extend(self.output_data["inputs"])
