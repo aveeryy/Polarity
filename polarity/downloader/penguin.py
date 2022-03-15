@@ -376,27 +376,30 @@ class PenguinDownloader(BaseDownloader):
                 "debug",
             )
             pools = protocol(stream=stream, options=self.options).process()
-            if stream.extra_audio:
-                media_type = "audio"
-            elif stream.extra_sub:
-                media_type = "subtitles"
-            else:
-                media_type = "unified"
-            for pool in pools:
-                pool.media_type = media_type
+            if pools and pools[0].pool_type == "file":
+                # Since FileProtocol can't differenciate file types
+                # asign media type based on stream extra_* parameters
+                if stream.extra_audio:
+                    media_type = "audio"
+                elif stream.extra_sub:
+                    media_type = "subtitles"
+                else:
+                    media_type = "unified"
+                for pool in pools:
+                    pool.media_type = media_type
             return pools
 
     def create_input(self, pool: SegmentPool, stream: Stream) -> FFmpegInput:
-        def set_metadata(parent: str, child: str, value: str):
-            if parent not in ff_input.metadata:
-                ff_input.metadata[parent] = {}
+        def set_metadata(media_type: str, key: str, value: str):
+            if media_type not in ff_input.metadata:
+                ff_input.metadata[media_type] = {}
             if value is None or not value:
                 return
             elif type(value) is list:
                 value = value.pop(0)
             elif type(value) is dict:
-                if parent in value:
-                    value = value[parent]
+                if media_type in value:
+                    value = value[media_type]
                 elif pool._id in value:
                     value = value[pool._id]
                 else:
@@ -405,7 +408,7 @@ class PenguinDownloader(BaseDownloader):
                 if type(value) is list and value:
                     value = value.pop(0)
 
-            ff_input.metadata[parent][child] = value
+            ff_input.metadata[media_type][key] = value
 
         TRACK_COUNT = {
             "unified": {VIDEO: 1, AUDIO: 1},
