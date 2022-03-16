@@ -283,7 +283,7 @@ class PenguinDownloader(BaseDownloader):
             # Delete the segment list from the loaded data
             del pool["segments"]
             _pool = SegmentPool(segments=segments, **pool)
-            _pool.set_id(_pool.media_type)
+            _pool.set_id(self.generate_pool_id(_pool.media_type))
             # Add pool to temporal list
             pools.append(_pool)
         for _input in output["inputs"]:
