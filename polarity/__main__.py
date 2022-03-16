@@ -18,10 +18,13 @@ def main():
         selfupdate(mode="git")
     try:
         # Launches Polarity
-        Polarity(urls=urls).start()
+        polar = Polarity(urls=urls)
+        polar.start()
     except KeyboardInterrupt:
         # Exit the program
         vprint(lang["main"]["exit_msg"])
+        # Cleanup download locks
+        polar.cleanup()
         os._exit(0)
     except Exception:
         # Dump exception traceback to file if exception happens in main thread

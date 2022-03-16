@@ -65,7 +65,7 @@ class Polarity:
         _logging_level: str = None,
     ) -> None:
         """
-        Polarity object
+        Polarity class
 
 
         :param urls: urls/content identifiers if mode is download,
@@ -85,6 +85,9 @@ class Polarity:
         self.download_pool = []
         # List with extracted Series or Movie objects, for metadata tasks
         self.extracted_items = []
+        # List with active downloaders
+        self._downloaders = []
+        self._started = False
 
         # Print versions
         vprint(lang["polarity"]["using_version"] % __version__, level="debug")
@@ -122,15 +125,26 @@ class Polarity:
         if _logging_level is not None:
             change_verbose_level(_logging_level, False, True)
 
+    def cleanup(self):
+        """
+        Executed on a KeyboardInterrupt exception by the __main__ module
+
+        Avoids conflicts by removing locks from downloads
+        """
+        for downloader in self._downloaders:
+            vprint(f"~TEMP~ unlocking {downloader.name}'s download", "debug")
+            downloader._unlock()
+
     def delete_session_log(self) -> None:
+        """Delete the log created by this instance"""
         try:
             from polarity import log_filename
         except ImportError:
             return
-
+        # avoid "file in use" error on Windows
         for handler in logging.getLogger("polarity").handlers:
             handler.close()
-
+        # remove the log file
         if os.path.exists(log_filename):
             os.remove(log_filename)
 
@@ -545,10 +559,12 @@ class Polarity:
             # TODO: external downloader support
             _downloader = PenguinDownloader
             downloader = _downloader(item, _options={"hooks": self.hooks}, _stack_id=id)
+            self._downloaders.append(downloader)
             downloader.start()
-
+            # wait until downloader has finished
             while downloader.is_alive():
                 time.sleep(0.1)
+            del self._downloaders[self._downloaders.index(downloader)]
 
             if downloader.success:
                 vprint(

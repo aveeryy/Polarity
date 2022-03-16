@@ -3,7 +3,7 @@ from typing import Union
 
 from polarity.types import Episode, Movie
 from polarity.types.thread import Thread
-from polarity.utils import dict_merge, sanitize_path
+from polarity.utils import dict_merge, mkfile, sanitize_path
 
 
 class BaseDownloader(Thread):
@@ -41,10 +41,34 @@ class BaseDownloader(Thread):
         os.makedirs(self.temp_path, exist_ok=True)
 
     def run(self) -> None:
-        self._start()
+        try:
+            self._start()
+        except (KeyboardInterrupt, Exception):
+            # unlock the download to avoid rogue lock files
+            self._unlock()
+            raise
 
     def _execute_hooks(self, hook_name, content: dict) -> None:
+        """Executes specified hook's functions by the hook name"""
         if hook_name not in self.hooks:
             return
         for hook in self.hooks[hook_name]:
             hook(content)
+
+    def _lock(self):
+        """
+        Locks the current download to avoid multiple Polarity
+        instances colliding with each other
+        """
+        mkfile(f"{self.temp_path}/lock", "")
+
+    def _unlock(self):
+        """
+        Unlocks the current download to permit other instances
+        to download it
+        """
+        os.remove(f"{self.temp_path}/lock")
+
+    def _is_locked(self):
+        """Checks if current download is locked"""
+        return os.path.exists(f"{self.temp_path}/lock")

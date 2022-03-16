@@ -128,6 +128,14 @@ class PenguinDownloader(BaseDownloader):
         super()._start()
         can_resume = False
 
+        if self._is_locked():
+            vprint(
+                "~TEMP~ can not download: locked by another downloader",
+                "error",
+                "penguin",
+            )
+            return False
+
         # Check if the download can be resumed from a previous session
         if os.path.exists(f"{self.temp_path}/pools.json"):
             # Load the output data
@@ -168,6 +176,9 @@ class PenguinDownloader(BaseDownloader):
 
             # Save pools to file
             self.save_output_data()
+
+        # lock the download
+        self._lock()
 
         # Create segment downloaders
         vprint(
