@@ -222,7 +222,7 @@ class Polarity:
                     "reserved": False,
                     "extractor": get_compatible_extractor(url),
                 }
-                for url in self.urls
+                for url in set(self.urls)
             ]
 
             for item in self.pool:
