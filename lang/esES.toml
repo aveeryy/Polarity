@@ -62,7 +62,7 @@ search = "<término de búsqueda>"
 verbose = "<nivel>"
 
 [polarity]
-all_tasks_finished = "Todas las tareas han finalizado"
+all_tasks_finished = "Todas las tareas han finalizado en %s"
 available_languages = "Idiomas disponibles:"
 changed_index = "Cambiado índice a: %s"
 config_path = "Archivo de configuración: %s"

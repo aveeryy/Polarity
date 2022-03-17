@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -89,6 +90,8 @@ class Polarity:
         self._downloaders = []
         self._started = False
         self._finished_extractions = False
+        self._start_time = 0
+        self._end_time = 0
 
         # Print versions
         vprint(lang["polarity"]["using_version"] % __version__, level="debug")
@@ -156,6 +159,8 @@ class Polarity:
                 )
                 tasks.append(t)
             return tasks
+
+        self._start_time = time.time()
 
         # Pre-start functions
 
@@ -275,7 +280,12 @@ class Polarity:
                     if not [w for w in tasks["download"] if w.is_alive()]:
                         break
                 time.sleep(0.1)
-            vprint(lang["polarity"]["all_tasks_finished"])
+            self._end_time = time.time()
+            vprint(
+                lang["polarity"]["all_tasks_finished"]
+                % datetime.timedelta(seconds=self._end_time - self._start_time),
+                level="debug",
+            )
 
         elif options["mode"] == "search":
             if not self.urls:

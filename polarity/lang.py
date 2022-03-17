@@ -66,7 +66,7 @@ internal_lang = {
         },
     },
     "polarity": {
-        "all_tasks_finished": "finished",
+        "all_tasks_finished": "finished everything, took: %s",
         "available_languages": "available languages:",
         "changed_index": "changed index: %s",
         "config_path": "config path: %s",
