@@ -14,9 +14,10 @@ class DownloadLog:
         identifier = id.string if type(id) is ContentIdentifier else id
         self.__entries = self._load_log()
         # add the entry
-        self.__entries.append(identifier)
-        # save log to file
-        self._save_log()
+        if not self.in_log(id):
+            self.__entries.append(identifier)
+            # save log to file
+            self._save_log()
 
     def in_log(self, id: str) -> bool:
         """Returns True if content identifier is in download log"""
