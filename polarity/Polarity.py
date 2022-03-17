@@ -88,6 +88,7 @@ class Polarity:
         # List with active downloaders
         self._downloaders = []
         self._started = False
+        self._finished_extractions = False
 
         # Print versions
         vprint(lang["polarity"]["using_version"] % __version__, level="debug")
@@ -106,8 +107,6 @@ class Polarity:
                 lang["polarity"]["unsupported_python"] % platform.python_version(),
                 level="warning",
             )
-
-        self.status = {"pool": urls, "extraction": {"finished": False, "tasks": []}}
 
         if opts is not None:
             # Merge user's script options with processed options
@@ -270,9 +269,9 @@ class Polarity:
             # Wait until workers finish
             while True:
                 if not [w for w in tasks["extraction"] if w.is_alive()]:
-                    if not self.status["extraction"]["finished"]:
+                    if not self._finished_extractions:
                         vprint(lang["polarity"]["finished_extraction"])
-                    self.status["extraction"]["finished"] = True
+                    self._finished_extractions = True
                     if not [w for w in tasks["download"] if w.is_alive()]:
                         break
                 time.sleep(0.1)
@@ -525,7 +524,7 @@ class Polarity:
 
     def _download_task(self, id: int) -> None:
         while True:
-            if not self.download_pool and self.status["extraction"]["finished"]:
+            if not self.download_pool and self._finished_extractions:
                 break
             elif not self.download_pool:
                 time.sleep(1)
