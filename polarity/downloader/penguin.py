@@ -204,6 +204,14 @@ class PenguinDownloader(BaseDownloader):
                 break
             sleep(1)
 
+        self._execute_hooks(
+            "download_progress",
+            {
+                "signal": "segment_download_finished",
+                "final_size": self.resume_stats["total_bytes"],
+            },
+        )
+
         # Remux all the tracks together
         command = self.generate_ffmpeg_command()
         # Create a watchdog thread and start it
@@ -213,10 +221,14 @@ class PenguinDownloader(BaseDownloader):
         subprocess.run(command, check=True)
         while watchdog.is_alive():
             sleep(0.1)
+        self._execute_hooks("download_progress", {"signal": "remux_finished"})
         # Cleanup, close the progress bar, move the output file to it's final
         # destination and remove all temporal files and directories
         self.remux_bar.close()
         move(f"{self.temp_path}{get_extension(self.output)}", f"{self.output}")
+        self._execute_hooks(
+            "download_progress", {"signal": "download_finished", "output": self.output}
+        )
         # Remove temporal files
         for file in os.scandir(f'{paths["tmp"]}{self.content["sanitized"]}'):
             os.remove(file.path)
@@ -509,9 +521,8 @@ class PenguinDownloader(BaseDownloader):
         """
 
         stats = {
-            "total_size": 0,
-            "out_time": None,
-            "progress": "continue",
+            "total_size": 0,  # current remux size
+            "progress": "continue",  # current actoin
         }
 
         last_update = 0
@@ -531,14 +542,18 @@ class PenguinDownloader(BaseDownloader):
                 try:
                     # Read the last 15 lines
                     data = f.readlines()[-15:]
-                    for i in ("total_size", "out_time", "progress"):
+                    for i in ("total_size", "progress"):
                         pattern = re.compile(f"{i}=(.+)")
                         # Find all matches
                         matches = re.findall(pattern, "\n".join(data))
+                        # Get the most recent one
                         stats[i] = matches[-1].split(".")[0]
                 except IndexError:
                     sleep(0.2)
                     continue
+            self._execute_hooks(
+                "download_progress", {"signal": "remux_progress", **stats}
+            )
             self.remux_bar.update(int(stats["total_size"]) - last_update)
             last_update = int(stats["total_size"])
             sleep(0.5)
