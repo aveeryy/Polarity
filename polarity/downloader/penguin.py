@@ -334,29 +334,6 @@ class PenguinDownloader(BaseDownloader):
         self.output_data["pool_count"][pool_format] += 1
         return pool_id
 
-    def _download_progress_hook(self, content: dict) -> None:
-        """ """
-        if content["signal"] != "downloaded_segment":
-            return
-        self.resume_stats["downloaded_bytes"] += content["size"]
-        self.resume_stats["downloaded_segments"].append(content["segment"])
-        # Update the total byte estimate
-        size = self.calculate_final_size(
-            self.resume_stats["downloaded_bytes"],
-            len(self.resume_stats["downloaded_segments"]),
-            self.output_data["total_segments"],
-        )
-        self.resume_stats["total_bytes"] = size
-        # Notify hooks of updated download size
-        self._execute_hooks("download_update", {"signal": "updated_size", "size": size})
-        self.save_resume_stats()
-        # Update progress bar
-        self.progress_bar.total = size
-        self.progress_bar.update(
-            self.resume_stats["downloaded_bytes"] - self._last_updated
-        )
-        self._last_updated = self.resume_stats["downloaded_bytes"]
-
     def process_stream(self, stream: Stream) -> List[SegmentPool]:
         """
         Get segments from a stream
@@ -780,3 +757,26 @@ class PenguinDownloader(BaseDownloader):
         :param signal: Signal to set
         """
         self._SIGNAL[self._thread_id] = signal
+
+    def _download_progress_hook(self, content: dict) -> None:
+        """Updates the progress bar and estimated final size"""
+        if content["signal"] != "downloaded_segment":
+            return
+        self.resume_stats["downloaded_bytes"] += content["size"]
+        self.resume_stats["downloaded_segments"].append(content["segment"])
+        # Update the total byte estimate
+        size = self.calculate_final_size(
+            self.resume_stats["downloaded_bytes"],
+            len(self.resume_stats["downloaded_segments"]),
+            self.output_data["total_segments"],
+        )
+        self.resume_stats["total_bytes"] = size
+        # Notify hooks of updated download size
+        self._execute_hooks("download_update", {"signal": "updated_size", "size": size})
+        self.save_resume_stats()
+        # Update progress bar
+        self.progress_bar.total = size
+        self.progress_bar.update(
+            self.resume_stats["downloaded_bytes"] - self._last_updated
+        )
+        self._last_updated = self.resume_stats["downloaded_bytes"]
