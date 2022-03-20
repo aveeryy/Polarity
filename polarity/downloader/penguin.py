@@ -30,16 +30,6 @@ from polarity.utils import (
 from polarity.version import __version__
 
 
-class PenguinSignals:
-    """
-    Signals for communication between segment downloaders and/or
-    PenguinDownloader threads
-    """
-
-    PAUSE = 0
-    STOP = 1
-
-
 class PenguinDownloader(BaseDownloader):
 
     thread_lock = threading.Lock()
@@ -752,13 +742,12 @@ class PenguinDownloader(BaseDownloader):
                         #  take the first signal
                         signal = signals[0]
                         # if signal is stop, return
-                        if signal == PenguinSignals.STOP:
+                        if signal == "stop":
                             return
                         # if signal is pause, halt execution
                         # until signal is cleared
-                        if signal == PenguinSignals.PAUSE:
-
-                            while self.get_signal()[0] == PenguinSignals.PAUSE:
+                        if signal == "pause":
+                            while self.get_signal()[0] == "pause":
                                 sleep(0.2)
 
                     break
@@ -780,6 +769,14 @@ class PenguinDownloader(BaseDownloader):
         # Fix aposthrophes and encode the data back
         return data.replace("&apos;", "'").encode()
 
-    def check_signal(self) -> int:
+    def check_signal(self) -> str:
         """Check if a signal has been sent to this PenguinDownloader object"""
         return [x for x in ("all", self._thread_id) if x in self._SIGNAL]
+
+    def set_signal(self, signal: str) -> None:
+        """
+        Sets a signal for the current downloader
+
+        :param signal: Signal to set
+        """
+        self._SIGNAL[self._thread_id] = signal
