@@ -1,13 +1,23 @@
 from typing import List
 
 from polarity.downloader.protocols import StreamProtocol
-from polarity.utils import request_webpage
 from polarity.types.stream import Segment, SegmentPool
+from polarity.utils import request_webpage
 
 
 class FileProtocol(StreamProtocol):
     """
-    Generic protocol for non-playlist files
+    ### FileProtocol class
+
+    Supports non-playlist files. Tries to split files into segments
+    if web server accepts byte ranges, else downloads the whole
+    file in one go
+
+    Support type: `Full (internal)`
+
+    #### Resources
+    * [Accept-Ranges header (MDN)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Ranges)
+    * [Range header (MDN)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range)
     """
 
     SUPPORTED_EXTENSIONS = r".+"
@@ -60,6 +70,6 @@ class FileProtocol(StreamProtocol):
             # file in one go, will mess up the progress bar and download resuming
             # of this file, but probably won't matter if it's a small file, like
             # subtitles or small audio tracks
-            segments = [Segment(self.url, 1)]
+            segments = [Segment(self.url, 0)]
 
         return [SegmentPool(segments=segments, media_type="unified", pool_type="file")]
