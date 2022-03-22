@@ -230,7 +230,7 @@ class PenguinDownloader(BaseDownloader):
             "download_progress", {"signal": "download_finished", "output": self.output}
         )
         # Remove temporal files
-        for file in os.scandir(f'{paths["tmp"]}{self.content["sanitized"]}'):
+        for file in os.scandir(self.temp_path):
             os.remove(file.path)
         os.rmdir(f"{self.temp_path}")
 
@@ -566,7 +566,7 @@ class PenguinDownloader(BaseDownloader):
         """
         # Merge segments
         command = FFmpegCommand(
-            f"{paths['tmp']}{self.content['sanitized']}{get_extension(self.output)}",
+            f"{self.temp_path}{get_extension(self.output)}",
             preinput_arguments=[
                 "-v",
                 "error",

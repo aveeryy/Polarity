@@ -26,11 +26,10 @@ class BaseDownloader(Thread):
         self.content = {
             "name": item.short_name,
             "id": item.id,
-            "extended": f"{item.short_name} ({item.id})",
-            "sanitized": sanitize_path(f"{item.short_name} ({item.id})").strip("?#"),
+            "extended": item.content_id.replace("/", "-"),
         }
         self.output = item.output
-        self.temp_path = f'{paths["tmp"]}{self.content["sanitized"]}'
+        self.temp_path = f'{paths["tmp"]}{self.content["extended"]}'
         self.success = False
         self._thread_id = _stack_id
         self.hooks = self.options["hooks"] if "hooks" in self.options else {}
