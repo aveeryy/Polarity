@@ -194,12 +194,12 @@ internal_lang = {
         },
     },
     "types": {
-        "series": "the series",
-        "season": "the season",
-        "episode": "the episode",
-        "movie": "the movie",
-        "content": "the content",
-        "contentcontainer": "the content container",
+        "series": "series",
+        "season": "season",
+        "episode": "episode",
+        "movie": "movie",
+        "content": "content",
+        "contentcontainer": "content container",
         "alt": {
             "series": "series",
             "season": "season",
