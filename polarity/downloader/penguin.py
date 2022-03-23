@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 import threading
+import zipfile
 from copy import deepcopy
 from dataclasses import asdict
 from random import choice
@@ -85,7 +86,8 @@ class PenguinDownloader(BaseDownloader):
 
         self.threads = []
 
-        self.output_data = {
+        self.download_data = {
+            "content_identifier": "",
             "inputs": [],
             "segment_pools": [],
             "pool_count": {
@@ -94,14 +96,10 @@ class PenguinDownloader(BaseDownloader):
                 "subtitles": 0,
                 "unified": 0,
             },
-            "total_segments": 0,
-            "binary_concat": False,
-        }
-
-        self.resume_stats = {
             "downloaded_bytes": 0,
             "total_bytes": 0,
             "downloaded_segments": [],
+            "total_segments": 0,
             "remux_done": False,
         }
         # Convert values to integers
@@ -128,26 +126,29 @@ class PenguinDownloader(BaseDownloader):
             )
             return False
 
+        # lock the download
+        self._lock()
+
         # Check if the download can be resumed from a previous session
-        if os.path.exists(f"{self.temp_path}/pools.json"):
+        if os.path.exists(f"{self.temp_path}/data.json"):
             # Load the output data
-            output_data = self.load_output_data()
-            if output_data is None:
-                # Output data has failed to load, delete the file and do the
+            download_data = self.load_download_data()
+            if download_data is None:
+                # Download data has failed to load, delete the file and do the
                 # pre-processing again
                 vprint(lang["penguin"]["output_file_broken"], "error", "penguin")
                 # Remove the file
-                os.remove(f"{self.temp_path}/pools.json")
-            elif type(output_data) is dict:
+                os.remove(f"{self.temp_path}/data.json")
+                dict_merge(
+                    self.download_data, self._recreate_resume_stats(), overwrite=True
+                )
+            elif type(download_data) is dict:
                 vprint(
                     lang["penguin"]["resuming"] % self.content["name"],
                     module_name="penguin",
                 )
-                self.output_data = output_data
+                self.download_data = download_data
                 can_resume = True
-                # Load the download stats
-                if os.path.exists(f"{self.temp_path}/stats.json"):
-                    self.resume_stats = self.load_resume_stats()
 
         if not can_resume:
             # We either can't resume or it's a new download
@@ -162,15 +163,14 @@ class PenguinDownloader(BaseDownloader):
                         mkfile(f"{self.temp_path}/{pool._id}.m3u8", playlist)
                     # Create a ffmpeg input from the pool and stream
                     ffmpeg_input = self.create_input(pool, stream)
-                    self.output_data["segment_pools"].append(pool)
-                    self.output_data["inputs"].append(ffmpeg_input)
-                    self.output_data["total_segments"] += len(pool.segments)
+                    self.download_data["segment_pools"].append(pool)
+                    self.download_data["inputs"].append(ffmpeg_input)
+                    self.download_data["total_segments"] += len(pool.segments)
 
             # Save pools to file
-            self.save_output_data()
+            self.save_download_data()
 
-        # lock the download
-        self._lock()
+        self._segment_pools = deepcopy(self.download_data["segment_pools"])
 
         # Create segment downloaders
         vprint(
@@ -183,12 +183,12 @@ class PenguinDownloader(BaseDownloader):
             head="download",
             desc=self.content["name"],
             total=0,
-            initial=self.resume_stats["downloaded_bytes"],
+            initial=self.download_data["downloaded_bytes"],
             unit="ib",
             unit_scale=True,
+            unit_divisor=1024,
             leave=False,
         )
-        self._last_updated = self.resume_stats["downloaded_bytes"]
 
         # Create the download threads
         for i in range(self.options["penguin"]["threads"]):
@@ -202,7 +202,7 @@ class PenguinDownloader(BaseDownloader):
             # Check if seg. downloaders have finished
             if not [t for t in self.threads if t.is_alive()]:
                 self.progress_bar.close()
-                self.resume_stats["download_finished"] = True
+                self.download_data["download_finished"] = True
                 break
             sleep(1)
 
@@ -210,11 +210,11 @@ class PenguinDownloader(BaseDownloader):
             "download_progress",
             {
                 "signal": "segment_download_finished",
-                "final_size": self.resume_stats["total_bytes"],
+                "final_size": self.download_data["total_bytes"],
             },
         )
 
-        if not self.resume_stats["remux_done"]:
+        if not self.download_data["remux_done"]:
             remux_path = f"{self.temp_path}{get_extension(self.output)}"
             # Remux all the tracks together
             command = self.generate_ffmpeg_command()
@@ -233,8 +233,20 @@ class PenguinDownloader(BaseDownloader):
             try:
                 subprocess.run(command, env=environ, check=True)
             except subprocess.CalledProcessError as ex:
-                # TODO: improve error message
-                vprint(f"~TEMP~ remux failed: {ex}", "exception", "penguin")
+                vprint(
+                    lang["penguin"]["ffmpeg_remux_failed"]
+                    % f"{self.temp_path}/debug_info.zip",
+                    "exception",
+                    "penguin",
+                )
+
+                # Create a zip file with the files necessary for debugging
+                debug_zip = zipfile.ZipFile(f"{self.temp_path}/debug_info.zip", "w")
+                for file in ("data.json", "ffmpeg.log"):
+                    debug_zip.write(f"{self.temp_path}/{file}", file)
+                debug_zip.close()
+
+                # create a traceback
                 self._execute_hooks(
                     "download_error", {"signal": "remux_failed", "exception": ex}
                 )
@@ -242,15 +254,14 @@ class PenguinDownloader(BaseDownloader):
                 # if it does exist, since it can be incomplete or/and broken
                 if os.path.exists(remux_path):
                     os.remove(remux_path)
-                self.resume_stats["remux_done"] = False
-                self.save_resume_stats()
-                # Re-raise exception
-                raise
+                self.download_data["remux_done"] = False
+                self.save_download_data()
+                return False
 
             while watchdog.is_alive():
                 sleep(0.1)
-            self.resume_stats["remux_done"] = True
-            self.save_resume_stats()
+            self.download_data["remux_done"] = True
+            self.save_download_data()
             self._execute_hooks("download_progress", {"signal": "remux_finished"})
             # Cleanup, close the progress bar, move the output file to it's final
             # destination and remove all temporal files and directories
@@ -275,16 +286,17 @@ class PenguinDownloader(BaseDownloader):
         # TODO: probably would be better to replace this with a return
         self.success = True
 
-    def save_output_data(self) -> None:
+    def save_download_data(self) -> None:
+        """Saves the download resume information"""
         # Clone the output data dictionary
-        data = deepcopy(self.output_data)
+        data = deepcopy(self.download_data)
         # Convert segment pools to dictionaries
         data["segment_pools"] = [asdict(p) for p in data["segment_pools"]]
         data["inputs"] = [asdict(p) for p in data["inputs"]]
-        mkfile(f"{self.temp_path}/pools.json", json.dumps(data, indent=4), overwrite=True)
+        mkfile(f"{self.temp_path}/data.json", json.dumps(data, indent=4), overwrite=True)
 
-    def load_output_data(self) -> dict:
-        with open(f"{self.temp_path}/pools.json", "r") as f:
+    def load_download_data(self) -> dict:
+        with open(f"{self.temp_path}/data.json", "r") as f:
             # Load the output data from the file
             try:
                 output = json.load(f)
@@ -294,7 +306,6 @@ class PenguinDownloader(BaseDownloader):
         inputs = []
         for pool in output["segment_pools"]:
             segments = []
-
             for segment in pool["segments"]:
                 # Convert to Segment objects
                 # Create the content key from the dictionary data
@@ -334,31 +345,20 @@ class PenguinDownloader(BaseDownloader):
         output["inputs"] = inputs
         return output
 
-    def save_resume_stats(self) -> None:
-        mkfile(
-            f"{self.temp_path}/stats.json",
-            json.dumps(self.resume_stats, indent=4),
-            overwrite=True,
-        )
-
-    def load_resume_stats(self) -> dict:
-        path = f"{self.temp_path}/stats.json"
-        with open(path, "rb") as f:
-            try:
-                return json.load(f)
-            except json.decoder.JSONDecodeError:
-                vprint(lang["penguin"]["resume_file_broken"], "error", "penguin")
-                return self._recreate_resume_stats()
-
     def _recreate_resume_stats(self) -> dict:
-        vprint(lang["penguin"]["resume_file_recreation"], module_name="penguin")
+        """
+        Recreate the download stadistics part of the download data file,
+        this allows continuing downloads if the download data file (data.json)
+        gets corrupted
+        """
         stats = {
             "downloaded_bytes": 0,
             "total_bytes": 0,
             "downloaded_segments": [],
         }
         for file in os.scandir(self.temp_path):
-            if get_extension(file.name) in (".m3u8",):
+            if get_extension(file.name) in (".m3u8", ".json", ".log", ".zip", ""):
+                # Avoid adding remux playlists, logs or other files to the byte count
                 continue
             stats["downloaded_segments"].append(strip_extension(file.name))
             stats["downloaded_bytes"] += file.stat().st_size
@@ -367,7 +367,7 @@ class PenguinDownloader(BaseDownloader):
         stats["total_bytes"] = (
             stats["downloaded_bytes"]
             / len(stats["downloaded_segments"])
-            * self.output_data["total_segments"]
+            * self.download_data["total_segments"]
         )
         return stats
 
@@ -380,9 +380,9 @@ class PenguinDownloader(BaseDownloader):
         :param pool_format: The pool format to generate the id for
         :return: The generated identifier
         """
-        pool_id = f'{pool_format}{self.output_data["pool_count"][pool_format]}'
+        pool_id = f'{pool_format}{self.download_data["pool_count"][pool_format]}'
 
-        self.output_data["pool_count"][pool_format] += 1
+        self.download_data["pool_count"][pool_format] += 1
         return pool_id
 
     def process_stream(self, stream: Stream) -> List[SegmentPool]:
@@ -571,7 +571,7 @@ class PenguinDownloader(BaseDownloader):
             unit="iB",
             unit_scale=True,
             leave=False,
-            total=self.resume_stats["downloaded_bytes"],
+            total=self.download_data["downloaded_bytes"],
         )
         # Wait until file is created
         while not os.path.exists(f"{self.temp_path}/remux.log"):
@@ -624,7 +624,7 @@ class PenguinDownloader(BaseDownloader):
                 ["-metadata", f"POLARITY_VERSION=Polarity {__version__} with Penguin"]
             )
 
-        command.extend(self.output_data["inputs"])
+        command.extend(self.download_data["inputs"])
 
         return command.build()
 
@@ -641,10 +641,10 @@ class PenguinDownloader(BaseDownloader):
 
         def get_pool() -> SegmentPool:
             def get_unfinished_pools() -> List[SegmentPool]:
-                return [p for p in self.output_data["segment_pools"] if not p._finished]
+                return [p for p in self._segment_pools if not p._finished]
 
             def get_unreserved_pools() -> List[SegmentPool]:
-                return [p for p in self.output_data["segment_pools"] if not p._reserved]
+                return [p for p in self._segment_pools if not p._reserved]
 
             unfinished = get_unfinished_pools()
             pools = get_unreserved_pools()
@@ -691,7 +691,7 @@ class PenguinDownloader(BaseDownloader):
                     break
                 segment = pool.segments.pop(0)
                 segment_path = f"{self.temp_path}/{segment._filename}"
-                if segment._id in self.resume_stats["downloaded_segments"]:
+                if segment._id in self.download_data["downloaded_segments"]:
                     # segment has already been downloaded, skip
                     thread_vprint(
                         message=lang["penguin"]["segment_skip"] % segment._id,
@@ -816,21 +816,25 @@ class PenguinDownloader(BaseDownloader):
         """Updates the progress bar and estimated final size"""
         if content["signal"] != "downloaded_segment":
             return
-        self.resume_stats["downloaded_bytes"] += content["size"]
-        self.resume_stats["downloaded_segments"].append(content["segment"])
+        self.download_data["downloaded_bytes"] += content["size"]
+        self.download_data["downloaded_segments"].append(content["segment"])
         # Update the total byte estimate
         size = self.calculate_final_size(
-            self.resume_stats["downloaded_bytes"],
-            len(self.resume_stats["downloaded_segments"]),
-            self.output_data["total_segments"],
+            self.download_data["downloaded_bytes"],
+            len(self.download_data["downloaded_segments"]),
+            self.download_data["total_segments"],
         )
-        self.resume_stats["total_bytes"] = size
+        self.download_data["total_bytes"] = size
         # Notify hooks of updated download size
-        self._execute_hooks("download_update", {"signal": "updated_size", "size": size})
-        self.save_resume_stats()
+        self._execute_hooks(
+            "download_update",
+            {
+                "signal": "updated_size",
+                "downloaded": self.download_data["downloaded_bytes"],
+                "size": size,
+            },
+        )
+        self.save_download_data()
         # Update progress bar
         self.progress_bar.total = size
-        self.progress_bar.update(
-            self.resume_stats["downloaded_bytes"] - self._last_updated
-        )
-        self._last_updated = self.resume_stats["downloaded_bytes"]
+        self.progress_bar.update(content["size"])
