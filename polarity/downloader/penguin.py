@@ -101,6 +101,7 @@ class PenguinDownloader(BaseDownloader):
             "downloaded_bytes": 0,
             "total_bytes": 0,
             "downloaded_segments": [],
+            "remux_done": False,
         }
         # Convert values to integers
         self.options["penguin"]["threads"] = int(self.options["penguin"]["threads"])
@@ -212,28 +213,47 @@ class PenguinDownloader(BaseDownloader):
             },
         )
 
-        # Remux all the tracks together
-        command = self.generate_ffmpeg_command()
-        # Create a watchdog thread and start it
-        watchdog = Thread("__FFmpeg_Watchdog", target=self.ffmpeg_watchdog)
-        watchdog.start()
-        # Run ffmpeg and wait until watchdog has returned
-        subprocess.run(command, check=True)
-        while watchdog.is_alive():
-            sleep(0.1)
-        self._execute_hooks("download_progress", {"signal": "remux_finished"})
-        # Cleanup, close the progress bar, move the output file to it's final
-        # destination and remove all temporal files and directories
-        self.remux_bar.close()
+        if not self.resume_stats["remux_done"]:
+            remux_path = f"{paths['tmp']}{self.content['sanitized']}"
+            # Remux all the tracks together
+            command = self.generate_ffmpeg_command()
+            # Create a watchdog thread and start it
+            watchdog = Thread("__FFmpeg_Watchdog", target=self.ffmpeg_watchdog)
+            watchdog.start()
+            # Run ffmpeg and wait until watchdog has returned
+            try:
+                subprocess.run(command, check=True)
+            except subprocess.CalledProcessError as ex:
+                # TODO: improve error message
+                vprint(f"~TEMP~ remux failed: {ex}", "exception", "penguin")
+                self._execute_hooks(
+                    "download_error", {"signal": "remux_failed", "exception": ex}
+                )
+                # Since remux failed, remove the file created by ffmpeg
+                # if it does exist, since it can be incomplete or/and broken
+                if os.path.exists(remux_path):
+                    os.remove(remux_path)
+                # Re-raise exception
+                raise
+
+            while watchdog.is_alive():
+                sleep(0.1)
+            self.resume_stats["remux_done"] = True
+            self.save_resume_stats()
+            self._execute_hooks("download_progress", {"signal": "remux_finished"})
+            # Cleanup, close the progress bar, move the output file to it's final
+            # destination and remove all temporal files and directories
+            self.remux_bar.close()
+        # Move file to final output path
         move(f"{self.temp_path}{get_extension(self.output)}", f"{self.output}")
         self._execute_hooks(
             "download_progress", {"signal": "download_finished", "output": self.output}
         )
-        # Remove temporal files
+        # Final cleanup, remove temporal files and directory
         for file in os.scandir(self.temp_path):
             os.remove(file.path)
         os.rmdir(f"{self.temp_path}")
-
+        # TODO: probably would be better to replace this with a return
         self.success = True
 
     def save_output_data(self) -> None:
