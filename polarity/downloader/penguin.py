@@ -52,6 +52,7 @@ class PenguinDownloader(BaseDownloader):
         "threads": 5,
         # Add a metadata entry with the Polarity version
         "tag_output": False,
+        "keep_logs": False,
         # Delete segments as these are merged to the final file
         # 'delete_merged_segments': True,
         "ffmpeg": {
@@ -214,15 +215,23 @@ class PenguinDownloader(BaseDownloader):
         )
 
         if not self.resume_stats["remux_done"]:
-            remux_path = f"{paths['tmp']}{self.content['sanitized']}"
+            remux_path = f"{self.temp_path}{get_extension(self.output)}"
             # Remux all the tracks together
             command = self.generate_ffmpeg_command()
+            # Copy the environment and add a FFREPORT variable to it
+            environ = os.environ.copy()
+            log_path = os.path.join(self.temp_path, "ffmpeg.log")
+            if sys.platform == "win32":
+                # I truly fucking hate windows
+                log_path = log_path.replace("\\", "/\\")
+                log_path = log_path.replace(":", "\\:")
+            environ["FFREPORT"] = f"file={log_path}"
             # Create a watchdog thread and start it
             watchdog = Thread("__FFmpeg_Watchdog", target=self.ffmpeg_watchdog)
             watchdog.start()
             # Run ffmpeg and wait until watchdog has returned
             try:
-                subprocess.run(command, check=True)
+                subprocess.run(command, env=environ, check=True)
             except subprocess.CalledProcessError as ex:
                 # TODO: improve error message
                 vprint(f"~TEMP~ remux failed: {ex}", "exception", "penguin")
@@ -233,6 +242,8 @@ class PenguinDownloader(BaseDownloader):
                 # if it does exist, since it can be incomplete or/and broken
                 if os.path.exists(remux_path):
                     os.remove(remux_path)
+                self.resume_stats["remux_done"] = False
+                self.save_resume_stats()
                 # Re-raise exception
                 raise
 
@@ -244,14 +255,19 @@ class PenguinDownloader(BaseDownloader):
             # Cleanup, close the progress bar, move the output file to it's final
             # destination and remove all temporal files and directories
             self.remux_bar.close()
-        # Create output file path
-        path, _ = os.path.split(self.output)
-        os.makedirs(path, exist_ok=True)
-        # Move file to final output path
-        move(f"{self.temp_path}{get_extension(self.output)}", f"{self.output}")
+            # Create output file path
+            path, _ = os.path.split(self.output)
+            os.makedirs(path, exist_ok=True)
+            # Move file to final output path
+            move(f"{self.temp_path}{get_extension(self.output)}", f"{self.output}")
         self._execute_hooks(
             "download_progress", {"signal": "download_finished", "output": self.output}
         )
+        if self.options["penguin"]["keep_logs"]:
+            for log in ("ffmpeg.log", "remux.log"):
+                move_to = self.output.replace(get_extension(self.output), f"_{log}")
+                if os.path.exists(f"{self.temp_path}/{log}"):
+                    move(f"{self.temp_path}/{log}", move_to)
         # Final cleanup, remove temporal files and directory
         for file in os.scandir(self.temp_path):
             os.remove(file.path)
@@ -558,10 +574,10 @@ class PenguinDownloader(BaseDownloader):
             total=self.resume_stats["downloaded_bytes"],
         )
         # Wait until file is created
-        while not os.path.exists(f"{self.temp_path}/ffmpeg.txt"):
+        while not os.path.exists(f"{self.temp_path}/remux.log"):
             sleep(0.5)
         while stats["progress"] == "continue":
-            with open(f"{self.temp_path}/ffmpeg.txt", "r") as f:
+            with open(f"{self.temp_path}/remux.log", "r") as f:
                 try:
                     # Read the last 15 lines
                     data = f.readlines()[-15:]
@@ -599,7 +615,7 @@ class PenguinDownloader(BaseDownloader):
             ],
             metadata_arguments=[
                 "-progress",
-                f"{self.temp_path}/ffmpeg.txt",
+                f"{self.temp_path}/remux.log",
             ],
         )
 
