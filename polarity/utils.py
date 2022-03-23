@@ -103,10 +103,10 @@ def vprint(
     ##### Example usage
     >>> from polarity.utils import vprint
     >>> vprint(
-        message='Hello world!',
-        level=1,
-        module_name='demo',
-        error_level='debug')
+        message="Hello world!",
+        level="debug",
+        module_name="demo"
+        )
     [demo/debug] Hello world!  # Output
     >>>
     """
@@ -211,10 +211,9 @@ def thread_vprint(*args, lock, **kwargs) -> None:
     >>> my_lock = Lock()  # Create a global lock object
         # On a Thread
     >>> thread_vprint(
-        message=f'Hello world from {threading.current_thread.get_name()}!',
-        level=1,
-        module_name='demo',
-        error_level='debug',
+        message=f"Hello world from {threading.current_thread.get_name()}!",
+        module_name="demo",
+        error_level="debug",
         lock=my_lock)
     # Output assuming three different threads
     [demo/debug] Hello world from Thread-0!
