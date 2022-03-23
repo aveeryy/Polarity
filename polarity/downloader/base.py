@@ -35,8 +35,6 @@ class BaseDownloader(Thread):
         self.hooks = self.options["hooks"] if "hooks" in self.options else {}
 
     def _start(self) -> None:
-        path, _ = os.path.split(self.output)
-        os.makedirs(path, exist_ok=True)
         os.makedirs(self.temp_path, exist_ok=True)
 
     def run(self) -> None:

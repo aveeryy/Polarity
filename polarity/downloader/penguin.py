@@ -244,6 +244,9 @@ class PenguinDownloader(BaseDownloader):
             # Cleanup, close the progress bar, move the output file to it's final
             # destination and remove all temporal files and directories
             self.remux_bar.close()
+        # Create output file path
+        path, _ = os.path.split(self.output)
+        os.makedirs(path, exist_ok=True)
         # Move file to final output path
         move(f"{self.temp_path}{get_extension(self.output)}", f"{self.output}")
         self._execute_hooks(
