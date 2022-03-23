@@ -122,6 +122,7 @@ internal_lang = {
         "debug_already_downloaded": "skipping segment: %s",
         "debug_time_download": "segment download took: %s",
         "debug_time_remux": "remux took: %s",
+        "ffmpeg_remux_failed": "ffmpeg process crashed, aborting, please create a GitHub issue with the following file attached: %s",
         "incompatible_stream": "incompatible stream: %s",
         "key_download": "downloading: key of segment %s",
         # Output file
