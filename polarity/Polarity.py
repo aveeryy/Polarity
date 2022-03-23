@@ -561,7 +561,7 @@ class Polarity:
 
             vprint(
                 lang["dl"]["downloading_content"]
-                % (lang["types"][type(item).__name__.lower()], item.title)
+                % (lang["types"][type(item).__name__.lower()], item.short_name)
             )
 
             # Set the downloader to Penguin
