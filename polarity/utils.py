@@ -13,11 +13,10 @@ from json.decoder import JSONDecodeError
 from shutil import which
 from sys import platform
 from time import sleep, time
-from typing import Iterable, List, Tuple, Union
+from typing import Dict, Iterable, List, Tuple, Union
 from urllib.parse import urlparse
 from xml.parsers.expat import ExpatError
 
-import cloudscraper
 import requests
 import xmltodict
 from requests.adapters import HTTPAdapter
@@ -25,23 +24,21 @@ from requests.models import Response
 from tqdm import tqdm
 from urllib3.util.retry import Retry
 
-browser = {"browser": "firefox", "platform": "windows", "mobile": False}
 retry_config = Retry(
     total=5, backoff_factor=0.5, status_forcelist=[502, 504, 504, 403, 404]
 )
-# create the cloudscraper's scraper
-# equivalent to requests' session
-scraper = cloudscraper.create_scraper(browser=browser, cipherSuite="HIGH:!DH:!aNULL")
+# create the requests session
+session = requests.Session()
 # mount adapters
-scraper.mount("http://", HTTPAdapter(max_retries=retry_config))
-scraper.mount("https://", HTTPAdapter(max_retries=retry_config))
+session.mount("http://", HTTPAdapter(max_retries=retry_config))
+session.mount("https://", HTTPAdapter(max_retries=retry_config))
 # https://stackoverflow.com/questions/38015537
 requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += "HIGH:!DH:!aNULL"
 
-dump_requests = False
-vprint_locked = False
-vprint_failed_to_print = False
-write_lock = False
+dump_requests = False  # Not implemented
+vprint_locked = False  # Avoids printing if True
+vprint_failed_to_print = False  # If False and vprint raises an Exception, print a msg
+write_lock = False  # Avoid writing using mkfile if True
 
 ##########################
 #  Printing and logging  #
@@ -136,7 +133,7 @@ def vprint(
         locked_by_me = True
 
     try:
-        from polarity.config import options, VALID_VERBOSE_LEVELS, ConfigError, lang
+        from polarity.config import VALID_VERBOSE_LEVELS, ConfigError, lang, options
 
     except ImportError as ex:
         # warn the user using poor man's vprint
@@ -489,23 +486,23 @@ def toggle_request_dumping() -> bool:
 
 def request_webpage(url: str, method: str = "get", **kwargs) -> Response:
     """
-    Make a HTTP request using cloudscraper
+    Make a HTTP request using the requests module
     `url` url to make the request to
     `method` http request method
-    `kwargs` extra requests arguments, for more info check the `requests wiki`
+    `kwargs` extra requests arguments, for more info check the [requests documentation](https://docs.python-requests.org/en/latest/user/quickstart/)
     """
     from polarity.config import lang
 
-    vprint(lang["polarity"]["requesting"] % url, "verbose", "cloudscraper")
+    vprint(lang["polarity"]["requesting"] % url, "verbose")
     # check if method is valid
-    if not hasattr(scraper, method.lower()):
+    if not hasattr(session, method.lower()):
         raise Exception(lang["polarity"]["except"]["invalid_http_method"] % method)
-    request = getattr(scraper, method.lower())(url, **kwargs)
+    request = getattr(session, method.lower())(url, **kwargs)
 
     return request
 
 
-def request_json(url: str, method: str = "get", **kwargs):
+def request_json(url: str, method: str = "get", **kwargs) -> Tuple[Dict, Response]:
     """
     Same as request_webpage, but returns a tuple with the json
     as a dict and the response object
@@ -519,7 +516,7 @@ def request_json(url: str, method: str = "get", **kwargs):
         return ({}, response)
 
 
-def request_xml(url: str, method: str = "get", **kwargs):
+def request_xml(url: str, method: str = "get", **kwargs) -> Tuple[Dict, Response]:
     """
     Same as request_webpage, but returns a tuple with the xml
     as a dict and the response object
