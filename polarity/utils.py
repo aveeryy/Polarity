@@ -241,7 +241,7 @@ def set_console_title(string) -> None:
 
 
 def running_on_android() -> bool:
-    "Returns True if running on an Android system"
+    """Returns True if running on an Android system"""
     return "ANDROID_ROOT" in os.environ
 
 
@@ -405,6 +405,27 @@ def dict_merge(
             else:
                 dct[k] = merge_dct[k]
     return dct
+
+
+def dict_diff(dct: dict, compare_to: dict) -> bool:
+    """
+    Recursively checks if `compare_to` dict's keys differ from `dct`'s ones
+
+    :param dct: Main dict
+    :param compare_to: dict to compare the keys
+    :return: True if dicts' keys are different, else False
+    """
+    for k, v in [(k, v) for (k, v) in compare_to.items() if type(v) == dict]:
+        # compare sub-dicts
+        if (
+            # value is a dict and one of it's keys does not exist
+            # in the `dct` equivalent
+            k in dct
+            and type(dct[k]) is dict
+            and dict_diff(v, dct[k])
+        ):
+            return True
+    return (dct.keys() == compare_to.keys()) is False
 
 
 def filename_datetime() -> str:
