@@ -6,6 +6,7 @@ from polarity.config import ConfigError, lang
 from polarity.extractor.base import (
     BaseExtractor,
     ExtractorError,
+    InvalidURLError,
     requires_login,
 )
 from polarity.extractor import flags
@@ -190,6 +191,7 @@ class AtresplayerExtractor(BaseExtractor):
                 regular = r"/[^/]+" + regular
             if re.match(regular, url_path) is not None:
                 return utype
+        raise InvalidURLError
 
     def get_series_info(
         self, series_id: str = None, return_raw_info=False
