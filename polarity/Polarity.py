@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -65,7 +66,7 @@ class Polarity:
         _logging_level: str = None,
     ) -> None:
         """
-        Polarity object
+        Polarity class
 
 
         :param urls: urls/content identifiers if mode is download,
@@ -85,6 +86,12 @@ class Polarity:
         self.download_pool = []
         # List with extracted Series or Movie objects, for metadata tasks
         self.extracted_items = []
+        # List with active downloaders
+        self._downloaders = []
+        self._started = False
+        self._finished_extractions = False
+        self._start_time = 0
+        self._end_time = 0
 
         # Print versions
         vprint(lang["polarity"]["using_version"] % __version__, level="debug")
@@ -104,11 +111,15 @@ class Polarity:
                 level="warning",
             )
 
-        self.status = {"pool": urls, "extraction": {"finished": False, "tasks": []}}
-
         if opts is not None:
             # Merge user's script options with processed options
-            dict_merge(options, opts, overwrite=True)
+            dict_merge(options, opts, overwrite=True, modify=True)
+
+        # for some fucking reason the whole "hooks" key dissapears
+        # from the options dictionary so here's (hopefully) a
+        # workaround for that
+        self.hooks = options["hooks"] if "hooks" in options else {}
+
         # Scripting only, override the session verbose level,
         # since verbose level is set before options merge.
         if _verbose_level is not None:
@@ -116,15 +127,26 @@ class Polarity:
         if _logging_level is not None:
             change_verbose_level(_logging_level, False, True)
 
+    def cleanup(self):
+        """
+        Executed on a KeyboardInterrupt exception by the __main__ module
+
+        Avoids conflicts by removing locks from downloads
+        """
+        for downloader in self._downloaders:
+            vprint(f"~TEMP~ unlocking {downloader.name}'s download", "debug")
+            downloader._unlock()
+
     def delete_session_log(self) -> None:
+        """Delete the log created by this instance"""
         try:
             from polarity import log_filename
         except ImportError:
             return
-
+        # avoid "file in use" error on Windows
         for handler in logging.getLogger("polarity").handlers:
             handler.close()
-
+        # remove the log file
         if os.path.exists(log_filename):
             os.remove(log_filename)
 
@@ -137,6 +159,8 @@ class Polarity:
                 )
                 tasks.append(t)
             return tasks
+
+        self._start_time = time.time()
 
         # Pre-start functions
 
@@ -203,7 +227,7 @@ class Polarity:
                     "reserved": False,
                     "extractor": get_compatible_extractor(url),
                 }
-                for url in self.urls
+                for url in set(self.urls)
             ]
 
             for item in self.pool:
@@ -236,6 +260,7 @@ class Polarity:
                 ),
                 "metadata": [],
             }
+
             # If there are more desired extraction tasks than urls
             # set the number of extraction tasks to the number of urls
             if options["extractor"]["active_extractions"] > len(self.pool):
@@ -249,13 +274,18 @@ class Polarity:
             # Wait until workers finish
             while True:
                 if not [w for w in tasks["extraction"] if w.is_alive()]:
-                    if not self.status["extraction"]["finished"]:
+                    if not self._finished_extractions:
                         vprint(lang["polarity"]["finished_extraction"])
-                    self.status["extraction"]["finished"] = True
+                    self._finished_extractions = True
                     if not [w for w in tasks["download"] if w.is_alive()]:
                         break
                 time.sleep(0.1)
-            vprint(lang["polarity"]["all_tasks_finished"])
+            self._end_time = time.time()
+            vprint(
+                lang["polarity"]["all_tasks_finished"]
+                % datetime.timedelta(seconds=self._end_time - self._start_time),
+                level="debug",
+            )
 
         elif options["mode"] == "search":
             if not self.urls:
@@ -321,7 +351,19 @@ class Polarity:
         max_per_extractor: int = -1,
         max_per_type: int = -1,
     ) -> Dict[MediaType, List[SearchResult]]:
-        """Search for content in compatible extractors"""
+        """
+        Search for content in compatible extractors
+        
+        :param string: search term
+        :param absolute_max: maximum number of results
+        :param max_per_extractor: maximum number of results per extractor
+        :param max_per_type: maximum number of results per content type\
+        (episode, movie, etc)
+        :return: a dict with the content type (MediaType) as a key and\
+        a list of SearchResult instances as the value
+
+        To not set a maximum limit on the results, set the parameter's value to -1
+        """
 
         def can_add_to_list(media_type) -> bool:
             """Returns True if item can be added to results list"""
@@ -334,8 +376,10 @@ class Polarity:
                 (len(results[media_type]), max_per_type, False),
             )
             for cond in conditions:
+                # check if the limit has been surpassed
                 if cond[0] >= cond[1] and cond[1] > 0:
                     if cond[2] and cond[0] < 0:
+                        # condition value is set to -1, ignore
                         continue
                     return False
             return True
@@ -446,12 +490,10 @@ class Polarity:
                 indexed += 2
         return filter_list
 
-    def execute_hooks(self, name: str, content: dict) -> None:
-        if "hooks" not in options:
+    def _execute_hooks(self, name: str, content: dict) -> None:
+        if name not in self.hooks:
             return
-        if name not in options["hooks"]:
-            return
-        for hook in options["hooks"][name]:
+        for hook in self.hooks[name]:
             hook(content)
 
     def _extract_task(self, id: int) -> None:
@@ -482,7 +524,7 @@ class Polarity:
                 continue
 
             name, extractor = _extractor
-            self.execute_hooks(
+            self._execute_hooks(
                 "started_extraction", {"extractor": name, "name": item["url"]}
             )
             extractor_object = extractor(item["url"], item["filters"], _stack_id=id)
@@ -500,13 +542,13 @@ class Polarity:
                     content.output = file_path
                     self.download_pool.append(content)
 
-            self.execute_hooks(
+            self._execute_hooks(
                 "finished_extraction", {"extractor": name, "name": item["url"]}
             )
 
     def _download_task(self, id: int) -> None:
         while True:
-            if not self.download_pool and self.status["extraction"]["finished"]:
+            if not self.download_pool and self._finished_extractions:
                 break
             elif not self.download_pool:
                 time.sleep(1)
@@ -533,17 +575,19 @@ class Polarity:
 
             vprint(
                 lang["dl"]["downloading_content"]
-                % (lang["types"][type(item).__name__.lower()], item.title)
+                % (lang["types"][type(item).__name__.lower()], item.short_name)
             )
 
             # Set the downloader to Penguin
             # TODO: external downloader support
             _downloader = PenguinDownloader
-            downloader = _downloader(item=item, _stack_id=id)
+            downloader = _downloader(item, _options={"hooks": self.hooks}, _stack_id=id)
+            self._downloaders.append(downloader)
             downloader.start()
-
+            # wait until downloader has finished
             while downloader.is_alive():
                 time.sleep(0.1)
+            del self._downloaders[self._downloaders.index(downloader)]
 
             if downloader.success:
                 vprint(
@@ -555,8 +599,7 @@ class Polarity:
                     lang["dl"]["download_successful"]
                     % (lang["types"][item.__class__.__name__.lower()], item.short_name),
                     id=item.short_name,
-                    # TODO: rework when music support is finished
-                    action=f"'termux-share \"{item.output}{options['download']['video_extension']}\"'",
+                    action=f"'termux-share \"{item.output}\"'",
                 )
                 # Download finished, add identifier to download log
                 self.__download_log.add(item.content_id)

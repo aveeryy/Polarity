@@ -60,6 +60,10 @@ class Content(MediaType, metaclass=MetaMediaType):
     def content_id(self) -> str:
         return f"{self.extractor.lower()}/{self.__class__.__name__.lower()}-{self.id}"
 
+    @property
+    def short_name(self) -> str:
+        return f"{self.title} ({self.id})"
+
     def set_unwanted(self):
         self.skip_download = lang["extractor"]["filter_check_fail"]
         self._unwanted = True

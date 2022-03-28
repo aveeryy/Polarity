@@ -6,6 +6,7 @@ from polarity.config import ConfigError, lang
 from polarity.extractor.base import (
     BaseExtractor,
     ExtractorError,
+    InvalidURLError,
     requires_login,
 )
 from polarity.extractor import flags
@@ -190,6 +191,7 @@ class AtresplayerExtractor(BaseExtractor):
                 regular = r"/[^/]+" + regular
             if re.match(regular, url_path) is not None:
                 return utype
+        raise InvalidURLError
 
     def get_series_info(
         self, series_id: str = None, return_raw_info=False
@@ -418,8 +420,7 @@ class AtresplayerExtractor(BaseExtractor):
                             name={AUDIO: ["Español", "English"], SUBTITLES: "Español"},
                             language={AUDIO: ["es", "en"], SUBTITLES: "spa"},
                             id=f"{episode_id}[main/{stream_type[1]}]",
-                            content_type=VIDEO,
-                            preferred=False,
+                            wanted=False,
                             key=None,
                         )
                         streams.append(_stream)
@@ -442,7 +443,7 @@ class AtresplayerExtractor(BaseExtractor):
                 raise ConfigError(lang["atresplayer"]["except"]["invalid_codec"])
 
             # set the preferred stream
-            [s for s in streams if preferred in s.id][0].preferred = True
+            [s for s in streams if preferred in s.id][0].wanted = True
 
         return streams
 

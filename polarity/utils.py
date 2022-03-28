@@ -13,11 +13,10 @@ from json.decoder import JSONDecodeError
 from shutil import which
 from sys import platform
 from time import sleep, time
-from typing import List, Tuple, Union
+from typing import Dict, Iterable, List, Tuple, Union
 from urllib.parse import urlparse
 from xml.parsers.expat import ExpatError
 
-import cloudscraper
 import requests
 import xmltodict
 from requests.adapters import HTTPAdapter
@@ -25,23 +24,21 @@ from requests.models import Response
 from tqdm import tqdm
 from urllib3.util.retry import Retry
 
-browser = {"browser": "firefox", "platform": "windows", "mobile": False}
 retry_config = Retry(
     total=5, backoff_factor=0.5, status_forcelist=[502, 504, 504, 403, 404]
 )
-# create the cloudscraper's scraper
-# equivalent to requests' session
-scraper = cloudscraper.create_scraper(browser=browser, cipherSuite="HIGH:!DH:!aNULL")
+# create the requests session
+session = requests.Session()
 # mount adapters
-scraper.mount("http://", HTTPAdapter(max_retries=retry_config))
-scraper.mount("https://", HTTPAdapter(max_retries=retry_config))
+session.mount("http://", HTTPAdapter(max_retries=retry_config))
+session.mount("https://", HTTPAdapter(max_retries=retry_config))
 # https://stackoverflow.com/questions/38015537
 requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += "HIGH:!DH:!aNULL"
 
-dump_requests = False
-vprint_locked = False
-vprint_failed_to_print = False
-write_lock = False
+dump_requests = False  # Not implemented
+vprint_locked = False  # Avoids printing if True
+vprint_failed_to_print = False  # If False and vprint raises an Exception, print a msg
+write_lock = False  # Avoid writing using mkfile if True
 
 ##########################
 #  Printing and logging  #
@@ -106,28 +103,30 @@ def vprint(
     ##### Example usage
     >>> from polarity.utils import vprint
     >>> vprint(
-        message='Hello world!',
-        level=1,
-        module_name='demo',
-        error_level='debug')
+        message="Hello world!",
+        level="debug",
+        module_name="demo"
+        )
     [demo/debug] Hello world!  # Output
     >>>
     """
 
     global vprint_failed_to_print, vprint_locked
 
-    def build_head() -> str:
-        string = f"{FormattedText.bold}{table[level][1]}[{module_name}"
+    def build_head(clean=False) -> str:
+        string = f"[{module_name}"
         if level != "info":
             string += f"/{level if level != 'verbose' else 'debug'}"
-        string += f"]{FormattedText.reset}"
-
+        string += "]"
+        if not clean:
+            return f"{FormattedText.bold}{table[level][1]}{string}{FormattedText.reset}"
         return string
 
     def get_loggers() -> list:
-        main_logger = logging.getLogger("polarity")
+        _logger = logging.getLogger("polarity")
         _level = level if level != "verbose" else "debug"
-        return [getattr(logger, _level) for logger in [main_logger, *extra_loggers]]
+        main_logger = (_logger, _level)
+        return [main_logger, *extra_loggers]
 
     locked_by_me = False
 
@@ -136,7 +135,7 @@ def vprint(
         locked_by_me = True
 
     try:
-        from polarity.config import options, VALID_VERBOSE_LEVELS, ConfigError, lang
+        from polarity.config import VALID_VERBOSE_LEVELS, ConfigError, lang, options
 
     except ImportError as ex:
         # warn the user using poor man's vprint
@@ -196,10 +195,13 @@ def vprint(
     # Redact emails when logging
     message = redact_emails(message)
 
-    for logger in get_loggers():
+    for logger, logger_level in get_loggers():
         # Log message if level is equal or smaller
-        if table[level][0] <= table[options["verbose_logs"]][0]:
-            logger(f"[{module_name}] {message}")
+        if table[level][0] <= table[logger_level][0]:
+            logger_func = getattr(
+                logger, logger_level if logger_level != "verbose" else "debug"
+            )
+            logger_func(f"{build_head(True)} {message}")
 
 
 def thread_vprint(*args, lock, **kwargs) -> None:
@@ -214,10 +216,9 @@ def thread_vprint(*args, lock, **kwargs) -> None:
     >>> my_lock = Lock()  # Create a global lock object
         # On a Thread
     >>> thread_vprint(
-        message=f'Hello world from {threading.current_thread.get_name()}!',
-        level=1,
-        module_name='demo',
-        error_level='debug',
+        message=f"Hello world from {threading.current_thread.get_name()}!",
+        module_name="demo",
+        error_level="debug",
         lock=my_lock)
     # Output assuming three different threads
     [demo/debug] Hello world from Thread-0!
@@ -245,7 +246,7 @@ def set_console_title(string) -> None:
 
 
 def running_on_android() -> bool:
-    "Returns True if running on an Android system"
+    """Returns True if running on an Android system"""
     return "ANDROID_ROOT" in os.environ
 
 
@@ -374,7 +375,9 @@ def strip_extension(url: str) -> str:
     return url.replace(get_extension(url), "")
 
 
-def dict_merge(dct: dict, merge_dct: dict, overwrite=False, modify=True) -> dict:
+def dict_merge(
+    dct: dict, merge_dct: dict, overwrite=False, modify=True, extend_lists=False
+) -> dict:
     """Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
     updating only top-level keys, dict_merge recurses down into dicts nested
     to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
@@ -383,6 +386,7 @@ def dict_merge(dct: dict, merge_dct: dict, overwrite=False, modify=True) -> dict
     :param merge_dct: dct merged into dct
     :param overwrite: replace existing keys
     :param modify: modify dct directly
+    :param extend_list: extend list objects instead of replacing them
     :return: dict
 
     Thanks angstwad!
@@ -396,8 +400,37 @@ def dict_merge(dct: dict, merge_dct: dict, overwrite=False, modify=True) -> dict
         if k in dct and type(dct[k]) is dict and type(merge_dct[k] is dict):
             dict_merge(dct[k], merge_dct[k], overwrite, True)
         elif k not in dct or overwrite and merge_dct[k] not in (False, None):
-            dct[k] = merge_dct[k]
+            if (
+                k in dct
+                and isinstance(dct[k], list)
+                and isinstance(merge_dct[k], Iterable)
+                and extend_lists
+            ):
+                dct[k].extend(merge_dct[k])
+            else:
+                dct[k] = merge_dct[k]
     return dct
+
+
+def dict_diff(dct: dict, compare_to: dict) -> bool:
+    """
+    Recursively checks if `compare_to` dict's keys differ from `dct`'s ones
+
+    :param dct: Main dict
+    :param compare_to: dict to compare the keys
+    :return: True if dicts' keys are different, else False
+    """
+    for k, v in [(k, v) for (k, v) in compare_to.items() if type(v) == dict]:
+        # compare sub-dicts
+        if (
+            # value is a dict and one of it's keys does not exist
+            # in the `dct` equivalent
+            k in dct
+            and type(dct[k]) is dict
+            and dict_diff(v, dct[k])
+        ):
+            return True
+    return (dct.keys() == compare_to.keys()) is False
 
 
 def filename_datetime() -> str:
@@ -425,7 +458,7 @@ class ContentIdentifier:
         return f"{self.extractor}/{self.content_type}-{self.id}"
 
 
-content_id_regex = r"(?P<extractor>[\w]+)/(?:(?P<type>[\w]+|)-|)(?P<id>[\S]+)"
+content_id_regex = r"(?P<extractor>[\w]+)/(?:(?P<type>[\w]+|)-)(?P<id>[\S]+)"
 
 
 def is_content_id(text: str) -> bool:
@@ -478,23 +511,23 @@ def toggle_request_dumping() -> bool:
 
 def request_webpage(url: str, method: str = "get", **kwargs) -> Response:
     """
-    Make a HTTP request using cloudscraper
+    Make a HTTP request using the requests module
     `url` url to make the request to
     `method` http request method
-    `kwargs` extra requests arguments, for more info check the `requests wiki`
+    `kwargs` extra requests arguments, for more info check the [requests documentation](https://docs.python-requests.org/en/latest/user/quickstart/)
     """
     from polarity.config import lang
 
-    vprint(lang["polarity"]["requesting"] % url, "verbose", "cloudscraper")
+    vprint(lang["polarity"]["requesting"] % url, "verbose")
     # check if method is valid
-    if not hasattr(scraper, method.lower()):
+    if not hasattr(session, method.lower()):
         raise Exception(lang["polarity"]["except"]["invalid_http_method"] % method)
-    request = getattr(scraper, method.lower())(url, **kwargs)
+    request = getattr(session, method.lower())(url, **kwargs)
 
     return request
 
 
-def request_json(url: str, method: str = "get", **kwargs):
+def request_json(url: str, method: str = "get", **kwargs) -> Tuple[Dict, Response]:
     """
     Same as request_webpage, but returns a tuple with the json
     as a dict and the response object
@@ -508,7 +541,7 @@ def request_json(url: str, method: str = "get", **kwargs):
         return ({}, response)
 
 
-def request_xml(url: str, method: str = "get", **kwargs):
+def request_xml(url: str, method: str = "get", **kwargs) -> Tuple[Dict, Response]:
     """
     Same as request_webpage, but returns a tuple with the xml
     as a dict and the response object

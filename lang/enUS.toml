@@ -48,7 +48,7 @@ search = "<search term>"
 verbose = "<level>"
 
 [polarity]
-all_tasks_finished = "All tasks have finished"
+all_tasks_finished = "All tasks have finished in %s"
 available_languages = "Available languages:"
 language_format = "%s (%s) by %s"
 no_urls = "Error: no URLs inputted."

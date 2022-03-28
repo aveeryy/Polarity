@@ -66,7 +66,7 @@ internal_lang = {
         },
     },
     "polarity": {
-        "all_tasks_finished": "finished",
+        "all_tasks_finished": "finished everything, took: %s",
         "available_languages": "available languages:",
         "changed_index": "changed index: %s",
         "config_path": "config path: %s",
@@ -122,6 +122,7 @@ internal_lang = {
         "debug_already_downloaded": "skipping segment: %s",
         "debug_time_download": "segment download took: %s",
         "debug_time_remux": "remux took: %s",
+        "ffmpeg_remux_failed": "ffmpeg process crashed, aborting, please create a GitHub issue with the following file attached: %s",
         "incompatible_stream": "incompatible stream: %s",
         "key_download": "downloading: key of segment %s",
         # Output file
@@ -141,7 +142,7 @@ internal_lang = {
         "threads_started": "start: %d download threads",
         "args": {
             "ffmpeg_codec": "Postprocessing codification settings",
-            "segment_downloaders": "number of threads per download",
+            "threads": "number of threads per download",
         },
         "except": {"download_fail": "failed to download segment %s: %s"},
         "protocols": {
@@ -194,12 +195,12 @@ internal_lang = {
         },
     },
     "types": {
-        "series": "the series",
-        "season": "the season",
-        "episode": "the episode",
-        "movie": "the movie",
-        "content": "the content",
-        "contentcontainer": "the content container",
+        "series": "series",
+        "season": "season",
+        "episode": "episode",
+        "movie": "movie",
+        "content": "content",
+        "contentcontainer": "content container",
         "alt": {
             "series": "series",
             "season": "season",

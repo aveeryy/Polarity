@@ -36,49 +36,60 @@ class Stream(MediaType, metaclass=MetaMediaType):
     """
 
     url: str
-    preferred: bool
     name: dict
     language: dict
+    wanted: bool
     id: str = None
     key: Dict[str, ContentKey] = None
-    content_type: str = None
-    extra_audio: bool = field(default=False, init=False)
-    extra_sub: bool = field(default=False, init=False)
+    media_type: str = None
+    extra_audio: bool = field(default=False)
+    extra_sub: bool = field(default=False)
     _parent = None
 
 
 @dataclass
 class Segment(MediaType, metaclass=MetaMediaType):
+    # The stream URL
     url: str
+    # The stream number, if it's an initialization segment, it must be -1
     number: int
-    media_type: type
-    key: ContentKey
-    group: str
-    duration: float
-    init: bool
-    time: float = float("9" * 15)
+    # Decryption key of the segment
+    key: ContentKey = None
+    # Duration of the segment
+    duration: float = None
+    # Specify if the segment is
+    init: bool = False
     byte_range: str = None
     _finished = False
-    _id: str = field(init=False)
+    _pool: str = field(init=True, default=None)
+    _id: str = field(init=True, default=None)
     _ext: str = field(init=False)
     _filename: str = field(init=False)
 
-    def __post_init__(self):
-        self._id = f"{self.group}_{self.number}"
+    def link(self, pool: str):
+        self._pool = pool
+        self._id = f"{self._pool}_{self.number}"
         self._ext = get_extension(self.url)
         self._filename = f"{self._id}{self._ext}"
 
 
 @dataclass
 class SegmentPool(MediaType, metaclass=MetaMediaType):
+    # The segment list
     segments: List[Segment]
-    format: str
-    id: str
-    track_id: str
+    # Type of media, if unknown leave as unified
+    media_type: str
+    # Specifies the type of the pool
     pool_type: str = None
+    _id: str = field(init=True, default=None)
     _finished = False
     _reserved = False
     _reserved_by = None
+
+    def set_id(self, id: str):
+        self._id = id
+        for segment in self.segments:
+            segment.link(self._id)
 
     def get_ext_from_segment(self, segment=0) -> str:
         if not self.segments:

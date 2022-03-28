@@ -254,6 +254,7 @@ def parse_arguments(get_parser=False) -> dict:
         "--log-verbose",
         choices=VALID_VERBOSE_LEVELS,
         help=lang_help["verbose_log"],
+        dest="verbose_logs",
     )
     general.add_argument(
         "-m",
@@ -538,17 +539,19 @@ __defaults = {
         "generic_directory": f"{__download_path}".replace("\\", "/"),
         # Formatting for episodes
         "episode_format": """
-        {extractor}/{series_title} ({year}) [{series_id}]\
+        {base}{extractor}/{series_title} [{series_id}]/\
         Season {season_number} [{season_id}]/\
         {series_title} S{season_number_0}E{number_0} - {title}.{ext}
-        """.strip(
-            "\n"  # strip newlines
+        """.replace(
+            "\n", ""  # remove newlines
+        ).replace(
+            " " * 8, ""  # remove indentation
         ),
         # Filename formatting for movies
         # Default format: Movie title (Year)
-        "movie_format": "{extractor}/{title} ({year}).{ext}",
+        "movie_format": "{base}{extractor}/{title} ({year}).{ext}",
         # Filename formatting for generic content
-        "generic_format": "{extractor}/{title} [{id}].{ext}",
+        "generic_format": "{base}{extractor}/{title} [{id}].{ext}",
         # Desired video resolution, number must be height
         # If resolution is not available, gets the closest value
         "resolution": 4320,
@@ -664,17 +667,17 @@ elif "verbose" in config:
 
 # Set logging verbosity level
 if "--log-verbose" in sys.argv:
-    options["verbose_logs"] = get_argument_value("--log-verbose")
+    options["verbose_logs"] = get_argument_value(("--log-verbose"))
 elif "verbose_logs" in config:
     options["verbose_logs"] = config["verbose_logs"]
 
+__external_mode = any(e in sys.argv[0] for e in ("shtab", "pytest", "vscode"))
 # vprint statements must be under this line
-if "shtab" not in sys.argv[0]:
+if not __external_mode:
     vprint(lang["polarity"]["config_path"] % paths["cfg"], "debug")
 
 
 # Part 3: Load options from the rest of command line arguments
-
 # Parse arguments
 # Avoid argument parsing if running shtab to avoid argument collision
-urls, options = parse_arguments() if "shtab" not in sys.argv[0] else (None, None)
+urls, options = parse_arguments() if not __external_mode else ([], {})
