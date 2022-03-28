@@ -113,18 +113,20 @@ def vprint(
 
     global vprint_failed_to_print, vprint_locked
 
-    def build_head() -> str:
-        string = f"{FormattedText.bold}{table[level][1]}[{module_name}"
+    def build_head(clean=False) -> str:
+        string = f"[{module_name}"
         if level != "info":
             string += f"/{level if level != 'verbose' else 'debug'}"
-        string += f"]{FormattedText.reset}"
-
+        string += "]"
+        if not clean:
+            return f"{FormattedText.bold}{table[level][1]}{string}{FormattedText.reset}"
         return string
 
     def get_loggers() -> list:
-        main_logger = logging.getLogger("polarity")
+        _logger = logging.getLogger("polarity")
         _level = level if level != "verbose" else "debug"
-        return [getattr(logger, _level) for logger in [main_logger, *extra_loggers]]
+        main_logger = (_logger, _level)
+        return [main_logger, *extra_loggers]
 
     locked_by_me = False
 
@@ -193,10 +195,13 @@ def vprint(
     # Redact emails when logging
     message = redact_emails(message)
 
-    for logger in get_loggers():
+    for logger, logger_level in get_loggers():
         # Log message if level is equal or smaller
-        if table[level][0] <= table[options["verbose_logs"]][0]:
-            logger(f"[{module_name}] {message}")
+        if table[level][0] <= table[logger_level][0]:
+            logger_func = getattr(
+                logger, logger_level if logger_level != "verbose" else "debug"
+            )
+            logger_func(f"{build_head(True)} {message}")
 
 
 def thread_vprint(*args, lock, **kwargs) -> None:
@@ -453,7 +458,7 @@ class ContentIdentifier:
         return f"{self.extractor}/{self.content_type}-{self.id}"
 
 
-content_id_regex = r"(?P<extractor>[\w]+)/(?:(?P<type>[\w]+|)-|)(?P<id>[\S]+)"
+content_id_regex = r"(?P<extractor>[\w]+)/(?:(?P<type>[\w]+|)-)(?P<id>[\S]+)"
 
 
 def is_content_id(text: str) -> bool:
