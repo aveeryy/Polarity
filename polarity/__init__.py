@@ -8,6 +8,8 @@ __log_capture = io.StringIO()
 # create a temporal handler to capture config vprint statements
 __handler = logging.StreamHandler(__log_capture)
 __handler.setLevel(10)
+__formatter = logging.Formatter("%(asctime)s -> %(message)s")
+__handler.setFormatter(__formatter)
 logging.getLogger(__name__).addHandler(__handler)
 
 from polarity.config import paths  # noqa
@@ -29,11 +31,10 @@ if not [x for x in AVOID_RUNNING if x in sys.argv]:
     log_handler = logging.FileHandler(log_filename, mode="a")
     # set handler debug level to maximum
     log_handler.setLevel(10)
+    log_handler.setFormatter(__formatter)
     logging.getLogger(__name__).addHandler(log_handler)
 
 # cleanup the temporary handler stuff
 __log_capture.close()
 del __log_capture
 del __handler
-
-from .Polarity import Polarity  # noqa
