@@ -1,4 +1,6 @@
+import logging
 import os
+from io import StringIO
 from typing import Union
 
 from polarity.types import Episode, Movie
@@ -36,6 +38,12 @@ class BaseDownloader(Thread):
 
     def _start(self) -> None:
         os.makedirs(self.temp_path, exist_ok=True)
+        self._logger = logging.Logger(self.content["extended"], logging.DEBUG)
+        self._handler = logging.FileHandler(f"{self.temp_path}/download.log")
+        self._log_format = logging.Formatter("%(asctime)s -> %(message)s")
+        self._handler.setFormatter(self._log_format)
+        self._logger.addHandler(self._handler)
+        self.logger = (self._logger, "verbose")
 
     def run(self) -> None:
         try:

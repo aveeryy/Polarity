@@ -13,7 +13,7 @@ from time import sleep
 from typing import List
 from urllib.parse import unquote
 
-from polarity.config import lang, paths
+from polarity.config import lang
 from polarity.downloader.base import BaseDownloader
 from polarity.downloader.protocols import ALL_PROTOCOLS
 from polarity.types import Content, ProgressBar, Thread
@@ -123,6 +123,7 @@ class PenguinDownloader(BaseDownloader):
                 "~TEMP~ can not download: locked by another downloader",
                 "error",
                 "penguin",
+                extra_loggers=[self.logger],
             )
             return False
 
@@ -136,7 +137,12 @@ class PenguinDownloader(BaseDownloader):
             if download_data is None:
                 # Download data has failed to load, delete the file and do the
                 # pre-processing again
-                vprint(lang["penguin"]["output_file_broken"], "error", "penguin")
+                vprint(
+                    lang["penguin"]["output_file_broken"],
+                    "error",
+                    "penguin",
+                    extra_loggers=[self.logger],
+                )
                 # Remove the file
                 os.remove(f"{self.temp_path}/data.json")
                 dict_merge(
@@ -146,6 +152,7 @@ class PenguinDownloader(BaseDownloader):
                 vprint(
                     lang["penguin"]["resuming"] % self.content["name"],
                     module_name="penguin",
+                    extra_loggers=[self.logger],
                 )
                 self.download_data = download_data
                 can_resume = True
@@ -177,6 +184,7 @@ class PenguinDownloader(BaseDownloader):
             lang["penguin"]["threads_started"] % (self.options["penguin"]["threads"]),
             module_name="penguin",
             level="debug",
+            extra_loggers=[self.logger],
         )
 
         self.progress_bar = ProgressBar(
@@ -238,6 +246,7 @@ class PenguinDownloader(BaseDownloader):
                     % f"{self.temp_path}/debug_info.zip",
                     "exception",
                     "penguin",
+                    extra_loggers=[self.logger],
                 )
 
                 # Create a zip file with the files necessary for debugging
@@ -275,7 +284,7 @@ class PenguinDownloader(BaseDownloader):
             "download_progress", {"signal": "download_finished", "output": self.output}
         )
         if self.options["penguin"]["keep_logs"]:
-            for log in ("ffmpeg.log", "remux.log"):
+            for log in ("download.log", "ffmpeg.log", "remux.log"):
                 move_to = self.output.replace(get_extension(self.output), f"_{log}")
                 if os.path.exists(f"{self.temp_path}/{log}"):
                     move(f"{self.temp_path}/{log}", move_to)
@@ -396,13 +405,19 @@ class PenguinDownloader(BaseDownloader):
         """
         if not stream.wanted:
             return []
-        vprint(lang["penguin"]["processing_stream"] % stream.id, "debug", "penguin")
+        vprint(
+            lang["penguin"]["processing_stream"] % stream.id,
+            "debug",
+            "penguin",
+            extra_loggers=[self.logger],
+        )
         for protocol in ALL_PROTOCOLS:
             if not re.match(protocol.SUPPORTED_EXTENSIONS, get_extension(stream.url)):
                 continue
             vprint(
                 lang["penguin"]["stream_protocol"] % (protocol.__name__, stream.id),
                 "debug",
+                extra_loggers=[self.logger],
             )
             pools = protocol(stream=stream, options=self.options).process()
             if pools and pools[0].pool_type == "file":
@@ -492,7 +507,11 @@ class PenguinDownloader(BaseDownloader):
         """
 
         def download_key(segment: Segment) -> None:
-            vprint(lang["penguin"]["key_download"] % segment._id, "debug")
+            vprint(
+                lang["penguin"]["key_download"] % segment._id,
+                "debug",
+                extra_loggers=[self.logger],
+            )
             key_contents = request_webpage(url=unquote(segment.key["video"].url))
 
             mkfile(
@@ -656,6 +675,7 @@ class PenguinDownloader(BaseDownloader):
                     lang["penguin"]["assisting"] % (pool._reserved_by, pool._id),
                     level="verbose",
                     module_name=thread_name,
+                    extra_loggers=[self.logger],
                     lock=self.thread_lock,
                 )
                 return pool
@@ -669,6 +689,7 @@ class PenguinDownloader(BaseDownloader):
             message=lang["penguin"]["thread_started"] % thread_name,
             module_name="penguin",
             level="debug",
+            extra_loggers=[self.logger],
             lock=self.thread_lock,
         )
 
@@ -683,6 +704,7 @@ class PenguinDownloader(BaseDownloader):
                 lang["penguin"]["current_pool"] % pool._id,
                 level="verbose",
                 module_name=thread_name,
+                extra_loggers=[self.logger],
                 lock=self.thread_lock,
             )
             while True:
@@ -697,6 +719,7 @@ class PenguinDownloader(BaseDownloader):
                         message=lang["penguin"]["segment_skip"] % segment._id,
                         module_name=thread_name,
                         level="verbose",
+                        extra_loggers=[self.logger],
                         lock=self.thread_lock,
                     )
                     continue
@@ -705,6 +728,7 @@ class PenguinDownloader(BaseDownloader):
                     message=lang["penguin"]["segment_start"] % segment._id,
                     module_name=thread_name,
                     level="verbose",
+                    extra_loggers=[self.logger],
                     lock=self.thread_lock,
                 )
 
@@ -728,6 +752,7 @@ class PenguinDownloader(BaseDownloader):
                             % (segment._id, ex),
                             module_name=thread_name,
                             level="exception",
+                            extra_loggers=[self.logger],
                             lock=self.thread_lock,
                         )
                         sleep(0.5)
@@ -750,6 +775,7 @@ class PenguinDownloader(BaseDownloader):
                         lang["penguin"]["segment_downloaded"] % segment._id,
                         level="verbose",
                         module_name=thread_name,
+                        extra_loggers=[self.logger],
                         lock=self.thread_lock,
                     )
                     segment._finished = True
