@@ -254,6 +254,7 @@ def parse_arguments(get_parser=False) -> dict:
         "--log-verbose",
         choices=VALID_VERBOSE_LEVELS,
         help=lang_help["verbose_log"],
+        dest="verbose_logs",
     )
     general.add_argument(
         "-m",
@@ -666,7 +667,7 @@ elif "verbose" in config:
 
 # Set logging verbosity level
 if "--log-verbose" in sys.argv:
-    options["verbose_logs"] = get_argument_value("--log-verbose")
+    options["verbose_logs"] = get_argument_value(("--log-verbose"))
 elif "verbose_logs" in config:
     options["verbose_logs"] = config["verbose_logs"]
 

@@ -351,7 +351,19 @@ class Polarity:
         max_per_extractor: int = -1,
         max_per_type: int = -1,
     ) -> Dict[MediaType, List[SearchResult]]:
-        """Search for content in compatible extractors"""
+        """
+        Search for content in compatible extractors
+        
+        :param string: search term
+        :param absolute_max: maximum number of results
+        :param max_per_extractor: maximum number of results per extractor
+        :param max_per_type: maximum number of results per content type\
+        (episode, movie, etc)
+        :return: a dict with the content type (MediaType) as a key and\
+        a list of SearchResult instances as the value
+
+        To not set a maximum limit on the results, set the parameter's value to -1
+        """
 
         def can_add_to_list(media_type) -> bool:
             """Returns True if item can be added to results list"""
@@ -364,8 +376,10 @@ class Polarity:
                 (len(results[media_type]), max_per_type, False),
             )
             for cond in conditions:
+                # check if the limit has been surpassed
                 if cond[0] >= cond[1] and cond[1] > 0:
                     if cond[2] and cond[0] < 0:
+                        # condition value is set to -1, ignore
                         continue
                     return False
             return True
