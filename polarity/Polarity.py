@@ -527,7 +527,7 @@ class Polarity:
             self._execute_hooks(
                 "started_extraction", {"extractor": name, "name": item["url"]}
             )
-            extractor_object = extractor(item["url"], item["filters"], _stack_id=id)
+            extractor_object = extractor(item["url"], item["filters"], _thread_id=id)
             extracted_info = extractor_object.extract()
             self.extracted_items.append(extracted_info)
 
@@ -659,7 +659,7 @@ class Polarity:
                 fields,
                 {
                     "extractor": content.extractor,
-                    "title": content.title,
+                    "title": content.title.replace("/", "-"),
                     "id": content.id,
                     "year": content.date.year,
                     "ext": "mkv",
@@ -671,7 +671,7 @@ class Polarity:
                 dict_merge(
                     fields,
                     {
-                        "series_title": content._series.title,
+                        "series_title": content._series.title.replace("/", "-"),
                         "series_id": content._series.id,
                         "series_year": content._series.date.year,
                     },
@@ -682,7 +682,7 @@ class Polarity:
                     dict_merge(
                         fields,
                         {
-                            "season_title": content._season.title,
+                            "season_title": content._season.title.replace("/", "-"),
                             "season_id": content._season.id,
                             "season_number": content._season.number,
                             "season_number_0": normalize_number(content._season.number),
@@ -699,7 +699,7 @@ class Polarity:
                 fields,
                 {
                     "extractor": content.extractor,
-                    "title": content.title,
+                    "title": content.title.replace("/", "-"),
                     "id": content.id,
                     "year": content.date.year,
                     "ext": "mkv",
