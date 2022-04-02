@@ -242,4 +242,13 @@ internal_lang = {
         "get_channel_info": "getting info: channels",
         "get_region_info": "getting info: region",
     },
+    "limelight": {
+        "available_formats": "available formats: %s",
+        "set_wanted_format": "set stream with format %s as wanted",
+        "args": {"format": "preferred stream format"},
+        "except": {
+            "invalid_id": "invalid format identifier: %s",
+            "unsupported_rtmp": "rtmp streams are unsupported",
+        },
+    },
 }

@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from polarity.config import ConfigError, lang
 from polarity.extractor.base import (
-    BaseExtractor,
+    ContentExtractor,
     ExtractorError,
     InvalidURLError,
     requires_login,
@@ -29,7 +29,7 @@ from polarity.utils import (
 )
 
 
-class AtresplayerExtractor(BaseExtractor):
+class AtresplayerExtractor(ContentExtractor):
     """
     ## Atresplayer Extractor
     `www.atresplayer.com`

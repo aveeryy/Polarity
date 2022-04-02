@@ -8,9 +8,10 @@ from urllib.parse import urlparse
 from polarity.config import lang
 from polarity.extractor import flags
 from polarity.extractor.base import (
-    BaseExtractor,
+    ContentExtractor,
     InvalidURLError,
 )
+from polarity.extractor.limelight import LimelightExtractor
 from polarity.types import Episode, Movie, ProgressBar, Season, Series, Stream
 from polarity.types.base import MediaType
 from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO
@@ -26,7 +27,7 @@ from polarity.utils import (
 )
 
 
-class PokemonTVExtractor(BaseExtractor):
+class PokemonTVExtractor(ContentExtractor, LimelightExtractor):
     """ """
 
     # Hostname(s) of extractor's webpage
@@ -66,7 +67,6 @@ class PokemonTVExtractor(BaseExtractor):
         # get the region from the webpage
         vprint(lang["pokemontv"]["get_region_info"], "debug", "pokemontv")
         page = request_webpage(self.url).content.decode()
-
         self.region = re.search(r"region: \"(\w{2})\"", page).group(1)
         self.language = re.search(r"language: \"([\w-]{5})\"", page).group(1)
         vprint(lang["pokemontv"]["get_channel_info"], "debug", "pokemontv")
@@ -183,23 +183,6 @@ class PokemonTVExtractor(BaseExtractor):
             # TODO: add images
         )
 
-        if episode_info["episode"]:
-            episode.number = int(episode_info["episode"])
-        elif not episode_info["episode"]:
-            # since all episodes are ordered, get the episode number
-            # adding 1 to the list index
-            episode.number = channel_info["media"].index(episode_info) + 1
-
-        episode.streams = [
-            Stream(
-                episode_info["stream_url"],
-                name={AUDIO: self.LANG_CODES[self.language]["name"]},
-                language={AUDIO: self.LANG_CODES[self.language]["lang"]},
-                id=f"{episode.id}[main]",
-                wanted=True,
-            )
-        ]
-
         if channel_info["media_type"] == "movie":
             episode = episode.as_movie()
 
@@ -213,6 +196,20 @@ class PokemonTVExtractor(BaseExtractor):
             "info",
             "pokemontv",
         )
+
+        if episode_info["episode"]:
+            episode.number = int(episode_info["episode"])
+        elif not episode_info["episode"]:
+            # since all episodes are ordered, get the episode number
+            # adding 1 to the list index
+            episode.number = channel_info["media"].index(episode_info) + 1
+
+        episode.streams = self.get_streams(episode.id)
+        for stream in episode.streams:
+            if stream.extra_sub:
+                continue
+            stream.name = {AUDIO: self.LANG_CODES[self.language]["name"]}
+            stream.language = {AUDIO: self.LANG_CODES[self.language]["lang"]}
 
         return episode
 
