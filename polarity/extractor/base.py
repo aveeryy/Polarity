@@ -11,59 +11,66 @@ from polarity.extractor import flags
 from polarity.types import Episode, Movie, SearchResult, Season, Series, Thread
 from polarity.types.content import Content, ContentContainer
 from polarity.types.filter import MatchFilter, NumberFilter, TypeFilter
-from polarity.utils import dict_merge, mkfile
-from polarity.utils import vprint
+from polarity.utils import dict_merge, mkfile, vprint
 
 
 class BaseExtractor:
+    def __init__(self, url: str, _options: dict = {}, _thread_id: int = 0) -> None:
+
+        from polarity.config import options
+
+        self.url = url
+        self.options = _options
+        self._thread_id = _thread_id
+        self.extractor_name = self.__class__.__name__.replace("Extractor", "")
+        self.hooks = options.pop("hooks", {})
+
+        if _options is None:
+            _options = {self.extractor_name: {}}
+
+        if self.extractor_name.lower() not in ("base", "content", "stream"):
+            self.options = dict_merge(
+                options["extractor"], _options, overwrite=True, modify=False
+            )
+            if self.extractor_name.lower() not in options["extractor"]:
+                options["extractor"][self.extractor_name.lower()] = self.DEFAULTS
+            self._opts = options["extractor"][self.extractor_name.lower()]
+
+
+class ContentExtractor(BaseExtractor):
     def __init__(
         self,
         url: str = "",
         filter_list: list = None,
         _options: dict = None,
-        _stack_id: int = 0,
+        _thread_id: int = 0,
     ) -> None:
 
-        from polarity.config import options
+        super().__init__(url, _options, _thread_id)
 
-        self.url = url
-        self.extractor_name = self.__class__.__name__.replace("Extractor", "")
         self.unparsed_filters = filter_list
         # Dictionary containing what seasons and episodes to extract
         self._seasons = {}
-        # List containing subextractors
-        self._workers = []
-        self._stack_id = _stack_id
-
         self.info = ContentContainer("initial", "__polarity_initial")
 
-        if _options is None:
-            _options = {self.extractor_name: {}}
-
-        self.hooks = options.pop("hooks", {})
-
-        if self.extractor_name.lower() != "base":
-            self.options = dict_merge(
-                options["extractor"], options, overwrite=True, modify=False
-            )
-            if self.extractor_name.lower() not in options["extractor"]:
-                options["extractor"][self.extractor_name.lower()] = self.DEFAULTS
-            self.__opts = options["extractor"][self.extractor_name.lower()]
-
+        if self.extractor_name != "content":
             # Do extractor validation
             self._validate_extractor()
             if not self._valid_extractor:
                 return
 
             if flags.AccountCapabilities in self.FLAGS:
-                # Account Capabilities is enabled, use the extractor's cookiejar
-                cjar_path = f"{paths['account']}{self.extractor_name.lower()}.cjar"
+                if self.options.get("save_login_info", True):
+                    # Account Capabilities is enabled, use the extractor's cookiejar
+                    cjar_path = f"{paths['account']}{self.extractor_name.lower()}.cjar"
 
-                if not os.path.exists(cjar_path):
-                    # Create the cookiejar
-                    mkfile(cjar_path, "#LWP-Cookies-2.0\n")
+                    if not os.path.exists(cjar_path):
+                        # Create the cookiejar
+                        mkfile(cjar_path, "#LWP-Cookies-2.0\n")
 
-                self.cjar = LWPCookieJar(cjar_path)
+                    self.cjar = LWPCookieJar(cjar_path)
+                else:
+                    self.cjar = LWPCookieJar()
                 # Load the cookiejar
                 self.cjar.load(ignore_discard=True, ignore_expires=True)
 
@@ -103,7 +110,7 @@ class BaseExtractor:
                 hook_main_content = True
             sleep(0.5)
         # remove handler from the logger
-        logging.getLogger(f"extractor-{self._stack_id}").handlers = []
+        logging.getLogger(f"extractor-{self._thread_id}").handlers = []
         self.info._extracted = True
 
     def __execute_hooks(self, hook: str, contents: dict) -> None:
@@ -113,11 +120,12 @@ class BaseExtractor:
             hook_function(contents)
 
     def extract(self) -> Union[Series, Movie]:
-        if flags.ExtractionLoginRequired in self.FLAGS and not self.is_logged_in():
-            # Check if username and password has been passed in options
-            username = self.__opts["username"] if "username" in self.__opts else None
-            password = self.__opts["password"] if "password" in self.__opts else None
-            self.login(username, password)
+        if (
+            "username" in self._opts
+            and "password" in self._opts
+            and flags.AccountCapabilities in self.FLAGS
+        ):
+            self.login(self._opts["username"], self._opts["password"])
 
         self.extraction = True
         # Return if no URL is inputted
@@ -125,10 +133,10 @@ class BaseExtractor:
             raise ExtractorError(lang["extractor"]["except"]["no_url"])
         # Create a thread to execute the extraction function in the background
         self._extractor = Thread(
-            "__Extraction_Executor", self._stack_id, target=self._extract, daemon=True
+            "__Extraction_Executor", self._thread_id, target=self._extract, daemon=True
         )
         _watchdog_thread = Thread(
-            "__Extraction_Watchdog", self._stack_id, target=self._watchdog, daemon=True
+            "__Extraction_Watchdog", self._thread_id, target=self._watchdog, daemon=True
         )
         # start the threads
         self._extractor.start()
@@ -448,7 +456,23 @@ class BaseExtractor:
             level="warning",
         )
 
-    # *--- End of BaseExtraction methods ---*#
+
+class StreamExtractor(BaseExtractor):
+    """
+    StreamExtractor class
+
+    Subclasses of StreamExtractor need to be inherited along
+    the ContentExtractor class
+
+    Example:
+
+    >>> from polarity.extractor.base import ContentExtractor
+    >>> from polarity.extractor.limelight import LimelightExtractor
+    >>> class MyExtractor(ContentExtractor, LimelightExtractor):
+    >>>     ...
+    """
+
+    pass
 
 
 def requires_login(func) -> bool:
