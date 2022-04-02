@@ -15,7 +15,7 @@ from polarity.utils import dict_merge, mkfile, vprint
 
 
 class BaseExtractor:
-    def __init__(self, url: str, _options: dict = {}, _thread_id: int = 0) -> None:
+    def __init__(self, url: str, _options: dict = None, _thread_id: int = 0) -> None:
 
         from polarity.config import options
 
