@@ -14,11 +14,8 @@ class LimelightExtractor(StreamExtractor):
     """
 
     HOST = r"limelight:(\w{32})"
-    DEFAULTS = {"prefer_mobile": False, "preferred_format": "http_best"}
+    DEFAULTS = {"preferred_format": "http"}
     LIMELIGHT_API_URL = "https://production-ps.lvp.llnw.net/r/PlaylistService/media"
-
-    def __post_init__(self):
-        self.id = re.match(self.HOST, self.url).group(1)
 
     @staticmethod
     def _rtmp_to_https(url: str) -> str:
@@ -61,6 +58,7 @@ class LimelightExtractor(StreamExtractor):
                 parsed_stream._limelight_protocol = (
                     "rtmp" if "rtmp" in stream["url"] else "http"
                 )
+                parsed_stream._limelight_id = f"rtmp_{int(stream['videoBitRate'])}"
                 streams.append(parsed_stream)
 
                 if parsed_stream._limelight_protocol == "rtmp":
@@ -75,6 +73,7 @@ class LimelightExtractor(StreamExtractor):
 
                     converted_stream._limelight_bitrate = int(stream["videoBitRate"])
                     converted_stream._limelight_protocol = "http"
+                    converted_stream._limelight_id = f"http_{int(stream['videoBitRate'])}"
                     streams.append(converted_stream)
 
         return streams
@@ -92,6 +91,7 @@ class LimelightExtractor(StreamExtractor):
                     id=f"{media['mediaId']}[{stream['targetMediaPlatform']}]",
                 )
                 parsed_stream._limelight_protocol = stream["targetMediaPlatform"]
+                parsed_stream._limelight_id = stream["targetMediaPlatform"]
                 streams.append(parsed_stream)
         return streams
 
@@ -121,7 +121,11 @@ class LimelightExtractor(StreamExtractor):
         return json, response
 
     def get_streams(self, id: str = None) -> List[Stream]:
-        identifier = self.id if hasattr(self, "id") else id
+        if "limelight:" in self.url:
+            # running in standalone, set the identifier
+            identifier = re.match(self.HOST, self.url).group(1)
+        else:
+            identifier = id
         if identifier is None:
             raise ExtractorError("an identifier is required")
         streams = []  # List of parsed streams
@@ -140,14 +144,34 @@ class LimelightExtractor(StreamExtractor):
                 # parameter, only if the request is successful
                 streams.extend(_METHODS[i](json))
 
-        _streams = [
-            (s, s._limelight_bitrate)
-            for s in streams
-            if hasattr(s, "_limelight_protocol") and s._limelight_protocol == "http"
-        ]
-
-        # TODO: add support to set wanted stream to alternative formats
-        max_stream = max(_streams, key=lambda x: x[1])
-        max_stream[0].wanted = True
+        # set the preferred format
+        formats = [(s, s._limelight_id) for s in streams if not s.extra_sub]
+        vprint(
+            lang["limelight"]["available_formats"] % [s[1] for s in formats],
+            level="debug",
+            module_name="limelight",
+        )
+        # alias for readibility
+        preferred = self.options["limelight"]["preferred_format"]
+        if "rtmp" in preferred:
+            raise NotImplementedError(lang["limelight"]["except"]["unsupported_rtmp"])
+        if "http" in preferred and preferred != "HttpLiveStreaming":
+            bitrate = 999999
+            if "_" in preferred:
+                bitrate = int(re.match(r"http_(\d+)", preferred).group(1))
+            stream = min(
+                [s for s in formats if s[0]._limelight_protocol == "http"],
+                key=lambda s: abs(s[0]._limelight_bitrate - bitrate),
+            )
+        else:
+            stream = [s for s in formats if s[1] == preferred]
+            if not stream:
+                raise ExtractorError(
+                    lang["limelight"]["except"]["invalid_id"] % preferred
+                )
+            stream = stream[0]
+        stream, _format = stream
+        stream.wanted = True
+        vprint(lang["limelight"]["set_wanted_format"] % _format, "debug", "limelight")
 
         return streams
