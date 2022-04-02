@@ -226,6 +226,11 @@ class PenguinDownloader(BaseDownloader):
             remux_path = f"{self.temp_path}{get_extension(self.output)}"
             # Remux all the tracks together
             command = self.generate_ffmpeg_command()
+            # Merge segments
+            for pool in self.download_data["segment_pools"]:
+                if pool.pool_type != "file":
+                    continue
+                self.merge_segments(pool)
             # Copy the environment and add a FFREPORT variable to it
             environ = os.environ.copy()
             log_path = os.path.join(self.temp_path, "ffmpeg.log")
@@ -294,6 +299,17 @@ class PenguinDownloader(BaseDownloader):
         os.rmdir(f"{self.temp_path}")
         # TODO: probably would be better to replace this with a return
         self.success = True
+
+    def merge_segments(self, pool: SegmentPool):
+        merge_to = f"{self.temp_path}/{pool._id}{pool.get_ext_from_segment()}"
+        with open(merge_to, "ab") as final:
+            for segment in pool.segments:
+                segment_path = f"{self.temp_path}/{segment._filename}"
+                if not os.path.exists(segment_path):
+                    continue
+                with open(segment_path, "rb") as part:
+                    final.write(part.read())
+                os.remove(segment_path)
 
     def save_download_data(self) -> None:
         """Saves the download resume information"""
@@ -464,12 +480,12 @@ class PenguinDownloader(BaseDownloader):
         pool_extension = (
             pool.pool_type if pool.pool_type is not None else pool.get_ext_from_segment()
         )
-        segment_extension = pool.get_ext_from_segment(0)
+        segment_extension = pool.get_ext_from_segment()
         if pool_extension in (".m3u", ".m3u8"):
             path = f"{self.temp_path}/{pool._id}{pool_extension}"
         # TODO: improve this
         elif pool.pool_type == "file":
-            path = f"concat:{'|'.join([self.temp_path + '/' + i._filename for i in pool.segments])}"
+            path = f"{self.temp_path}/{pool._id}{segment_extension}"
         else:
             path = f"{self.temp_path}/{pool._id}_0{pool_extension}"
 
