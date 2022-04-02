@@ -581,7 +581,7 @@ class Polarity:
             # Set the downloader to Penguin
             # TODO: external downloader support
             _downloader = PenguinDownloader
-            downloader = _downloader(item, _options={"hooks": self.hooks}, _stack_id=id)
+            downloader = _downloader(item, _options={"hooks": self.hooks}, _thread_id=id)
             self._downloaders.append(downloader)
             downloader.start()
             # wait until downloader has finished
