@@ -25,7 +25,7 @@
 |:-:|:-:|:-:|:-:|
 | Atresplayer | ✔️ | ✔️ | ✔️ 
 | Crunchyroll  | ✔️ | ✔️ | ✔️️
-| Pokémon TV  | - | 🍝 | -
+| Pokémon TV  | - | ✔️ | -
 
 > "🍝": in progress
 

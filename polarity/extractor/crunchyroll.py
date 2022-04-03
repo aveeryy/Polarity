@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from polarity.config import lang
 from polarity.extractor import flags
 from polarity.extractor.base import (
-    BaseExtractor,
+    ContentExtractor,
     ExtractorError,
     InvalidURLError,
 )
@@ -31,7 +31,7 @@ from polarity.utils import (
 )
 
 
-class CrunchyrollExtractor(BaseExtractor):
+class CrunchyrollExtractor(ContentExtractor):
 
     HOST = r"(?:http(?:s://|://|)|)(?:www\.|beta\.|)crunchyroll\.com"
 
@@ -449,7 +449,7 @@ class CrunchyrollExtractor(BaseExtractor):
             vprint(lang["crunchyroll"]["bearer_fetch_fail"], "error", "crunchyroll")
             if method == "etp_rt_cookie":
                 vprint(lang["extractor"]["login_extractor"], "warning" "crunchyroll")
-                # TODO: BaseExtractor method
+                # TODO: ContentExtractor method
                 self.cjar.clear()
                 # Save the cookie jar
                 self.cjar.save()
