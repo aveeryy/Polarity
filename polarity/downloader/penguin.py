@@ -43,8 +43,19 @@ class PenguinDownloader(BaseDownloader):
         },
         {
             "args": ["--penguin-tag-output"],
-            "attrib": {"action": "store_true"},
+            "attrib": {
+                "help": lang["penguin"]["args"]["tag_output"],
+                "action": "store_true",
+            },
             "variable": "tag_output",
+        },
+        {
+            "args": ["--penguin-keep_logs"],
+            "attrib": {
+                "help": lang["penguin"]["args"]["keep_logs"],
+                "action": "store_true",
+            },
+            "variable": "keep_logs",
         },
     ]
 
@@ -104,7 +115,7 @@ class PenguinDownloader(BaseDownloader):
         }
         # Convert values to integers
         self.options["penguin"]["threads"] = int(self.options["penguin"]["threads"])
-        self.hooks = {"download_update": [self._download_progress_hook]}
+        self.hooks = {"download_progress": [self._download_progress_hook]}
         if "hooks" in self.options:
             dict_merge(
                 self.hooks,
@@ -113,6 +124,7 @@ class PenguinDownloader(BaseDownloader):
                 modify=True,
                 extend_lists=True,
             )
+        print(self.hooks)
 
     def _start(self):
         super()._start()
@@ -197,6 +209,8 @@ class PenguinDownloader(BaseDownloader):
             unit_divisor=1024,
             leave=False,
         )
+
+        self._execute_hooks("download_progress", {"signal": "download_started"})
 
         # Create the download threads
         for i in range(self.options["penguin"]["threads"]):
@@ -301,6 +315,7 @@ class PenguinDownloader(BaseDownloader):
         self.success = True
 
     def merge_segments(self, pool: SegmentPool):
+        # TODO: get total size of pool and add a progress bar
         merge_to = f"{self.temp_path}/{pool._id}{pool.get_ext_from_segment()}"
         with open(merge_to, "ab") as final:
             for segment in pool.segments:
@@ -797,7 +812,7 @@ class PenguinDownloader(BaseDownloader):
                     segment._finished = True
 
                     self._execute_hooks(
-                        "download_update",
+                        "download_progress",
                         {
                             "signal": "downloaded_segment",
                             "content": self.content["extended"],
@@ -869,7 +884,7 @@ class PenguinDownloader(BaseDownloader):
         self.download_data["total_bytes"] = size
         # Notify hooks of updated download size
         self._execute_hooks(
-            "download_update",
+            "download_progress",
             {
                 "signal": "updated_size",
                 "downloaded": self.download_data["downloaded_bytes"],
