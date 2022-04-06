@@ -90,7 +90,7 @@ internal_lang = {
         "unknown_channel": "unknown channel",
         "unsupported_python": "unsupported python version (%s), update to python 3.7 or higher",
         "update_available": "version %s available",
-        "usage": "polarity [OPTIONS] <url(s)>",
+        "usage": "polarity [OPTIONS] URL [URL...]",
         "use_help": "use --help to display all options",
         "use": "usage: ",
         "using_version": "Polarity %s",
