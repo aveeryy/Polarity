@@ -131,7 +131,7 @@ class PenguinDownloader(BaseDownloader):
 
         if self._is_locked():
             vprint(
-                "~TEMP~ can not download: locked by another downloader",
+                lang["penguin"]["download_locked"] % self.content["name"],
                 "error",
                 "penguin",
                 extra_loggers=[self.logger],

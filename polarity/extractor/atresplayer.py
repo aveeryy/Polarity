@@ -257,7 +257,7 @@ class AtresplayerExtractor(ContentExtractor):
 
         if return_raw_info:
             if is_single_season:
-                vprint("~TEMP~ content does not have seasons", "warning")
+                vprint(lang["atresplayer"]["no_seasons"], "error", "atresplayer")
                 return
             return self._series_json["seasons"]
 

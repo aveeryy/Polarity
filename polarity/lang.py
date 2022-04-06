@@ -9,7 +9,7 @@ internal_lang = {
     "name": "Polarity Internal language",
     "code": "internal",
     "author": "aveeryy",
-    "main": {"exit_msg": "exiting..."},
+    "main": {"exit_msg": "exiting...", "unlocking": "unlocking %s's download"},
     # Argument string group
     "args": {
         "added_arg": 'added: arg "%s" from %s',
@@ -115,6 +115,7 @@ internal_lang = {
         "current_pool": "current pool: %s",
         "doing_binary_concat": "binary concat: track %s of %s",
         "doing_decryption": 'decrypting: track %s of %s with key "%s"',
+        "download_locked": 'can\'t download "%s", locked by another downloader',
         "debug_already_downloaded": "skipping segment: %s",
         "debug_time_download": "segment download took: %s",
         "debug_time_remux": "remux took: %s",
@@ -216,6 +217,7 @@ internal_lang = {
     },
     "atresplayer": {
         "no_content_in_season": "no episodes in %s (%s)",
+        "no_seasons": "content does not have seasons",
         "except": {"invalid_codec": "invalid codec"},
         "args": {"codec": "codec preferance"},
     },

@@ -134,7 +134,7 @@ class Polarity:
         Avoids conflicts by removing locks from downloads
         """
         for downloader in self._downloaders:
-            vprint(f"~TEMP~ unlocking {downloader.name}'s download", "debug")
+            vprint(lang["main"]["unlocking"] % downloader.name, "debug")
             downloader._unlock()
 
     def delete_session_log(self) -> None:
