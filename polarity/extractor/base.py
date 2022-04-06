@@ -53,7 +53,7 @@ class ContentExtractor(BaseExtractor):
         self._seasons = {}
         self.info = ContentContainer("initial", "__polarity_initial")
 
-        if self.extractor_name != "content":
+        if self.extractor_name.lower() not in ("base", "content"):
             # Do extractor validation
             self._validate_extractor()
             if not self._valid_extractor:
@@ -413,13 +413,14 @@ class ContentExtractor(BaseExtractor):
     def _parse_filters(self) -> None:
         """Parses number filters with _parse_number_filters, adds the rest to a list"""
         number_filters = [f for f in self.unparsed_filters if type(f) is NumberFilter]
-        self._parse_number_filters(number_filters)
+        self._seasons = self._parse_number_filters(number_filters)
         self.filters = [
             f for f in self.unparsed_filters if type(f) in (MatchFilter, TypeFilter)
         ]
 
     def _parse_number_filters(self, filters: list) -> dict:
         _dict = {}
+        _final = {}
         for _filter in filters:
             if _filter.seasons and _filter.episodes:
                 # S01E01-like string
@@ -432,20 +433,20 @@ class ContentExtractor(BaseExtractor):
                 _dict = {"ALL": [k for k in _filter.episodes]}
             # self._seasons = {**self._seasons, **_dict}
             for k, v in _dict.items():
-                if k not in self._seasons:
+                if k not in _final:
                     # Season 1 not in self.__seasons:
                     # add values (v) to self._seasons[1]
-                    self._seasons[k] = v
-                elif k in self._seasons and self._seasons[k] == "ALL":
+                    _final[k] = v
+                elif k in _final and _final[k] == "ALL":
                     # Season 1 in self.__seasons, self._seasons[1] value is ALL
                     # skip, since all episodes from season 1 are already set to
                     # extraction
                     continue
-                elif k in self._seasons and self._seasons[k] != "ALL" and v != "ALL":
-                    self._seasons[k].extend(v)
-                elif k in self._seasons and self._seasons[k] != "ALL" and v == "ALL":
-                    self._seasons[k] = "ALL"
-        return _dict
+                elif k in _final and _final[k] != "ALL" and v != "ALL":
+                    _final[k].extend(v)
+                elif k in _final and _final[k] != "ALL" and v == "ALL":
+                    _final[k] = "ALL"
+        return _final
 
     def _print_filter_warning(self) -> None:
         if not self._using_filters:
