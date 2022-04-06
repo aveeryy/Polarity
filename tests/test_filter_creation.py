@@ -1,7 +1,7 @@
 import pytest
 
 from polarity.Polarity import Polarity
-from polarity.extractor import BaseExtractor
+from polarity.extractor import ContentExtractor
 
 
 @pytest.mark.parametrize(
@@ -18,5 +18,4 @@ from polarity.extractor import BaseExtractor
 )
 def test_number_filter_num_assignation(filters: str, expected: dict):
     filters = Polarity(None, {}).process_filters(filters=filters, link=False)
-    print(filters)
-    assert BaseExtractor(None, filters)._seasons == expected
+    assert ContentExtractor(None, filters)._seasons == expected

@@ -43,8 +43,19 @@ class PenguinDownloader(BaseDownloader):
         },
         {
             "args": ["--penguin-tag-output"],
-            "attrib": {"action": "store_true"},
+            "attrib": {
+                "help": lang["penguin"]["args"]["tag_output"],
+                "action": "store_true",
+            },
             "variable": "tag_output",
+        },
+        {
+            "args": ["--penguin-keep_logs"],
+            "attrib": {
+                "help": lang["penguin"]["args"]["keep_logs"],
+                "action": "store_true",
+            },
+            "variable": "keep_logs",
         },
     ]
 
@@ -81,8 +92,8 @@ class PenguinDownloader(BaseDownloader):
 
     _SIGNAL = {}
 
-    def __init__(self, item: Content, _options=None, _stack_id: int = 0) -> None:
-        super().__init__(item, _stack_id=_stack_id, _options=_options)
+    def __init__(self, item: Content, _options=None, _thread_id: int = 0) -> None:
+        super().__init__(item, _options, _thread_id)
 
         self.threads = []
 
@@ -104,7 +115,7 @@ class PenguinDownloader(BaseDownloader):
         }
         # Convert values to integers
         self.options["penguin"]["threads"] = int(self.options["penguin"]["threads"])
-        self.hooks = {"download_update": [self._download_progress_hook]}
+        self.hooks = {"download_progress": [self._download_progress_hook]}
         if "hooks" in self.options:
             dict_merge(
                 self.hooks,
@@ -190,13 +201,15 @@ class PenguinDownloader(BaseDownloader):
         self.progress_bar = ProgressBar(
             head="download",
             desc=self.content["name"],
-            total=0,
             initial=self.download_data["downloaded_bytes"],
-            unit="ib",
+            total=0,
+            unit="iB",
             unit_scale=True,
             unit_divisor=1024,
             leave=False,
         )
+
+        self._execute_hooks("download_progress", {"signal": "download_started"})
 
         # Create the download threads
         for i in range(self.options["penguin"]["threads"]):
@@ -222,10 +235,16 @@ class PenguinDownloader(BaseDownloader):
             },
         )
 
+        self.temp_files = os.scandir(self.temp_path)
         if not self.download_data["remux_done"]:
             remux_path = f"{self.temp_path}{get_extension(self.output)}"
             # Remux all the tracks together
             command = self.generate_ffmpeg_command()
+            # Merge segments
+            for pool in self.download_data["segment_pools"]:
+                if pool.pool_type != "file":
+                    continue
+                self.merge_segments(pool)
             # Copy the environment and add a FFREPORT variable to it
             environ = os.environ.copy()
             log_path = os.path.join(self.temp_path, "ffmpeg.log")
@@ -277,7 +296,8 @@ class PenguinDownloader(BaseDownloader):
             self.remux_bar.close()
             # Create output file path
             path, _ = os.path.split(self.output)
-            os.makedirs(path, exist_ok=True)
+            if path:
+                os.makedirs(path, exist_ok=True)
             # Move file to final output path
             move(f"{self.temp_path}{get_extension(self.output)}", f"{self.output}")
         self._execute_hooks(
@@ -294,6 +314,31 @@ class PenguinDownloader(BaseDownloader):
         os.rmdir(f"{self.temp_path}")
         # TODO: probably would be better to replace this with a return
         self.success = True
+
+    def merge_segments(self, pool: SegmentPool):
+        files = {f.name: f for f in self.temp_files if f"{pool._id}_" in f.name}
+        total_size = sum([f.stat().st_size for f in files.values()])
+        progress_bar = ProgressBar(
+            desc=f"{self.content['name']}: {pool._id}",
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+            total=total_size,
+            head="merge",
+            leave=False,
+        )
+        merge_to = f"{self.temp_path}/{pool._id}{pool.get_ext_from_segment()}"
+        with open(merge_to, "ab") as final:
+            for segment in pool.segments:
+                segment_path = f"{self.temp_path}/{segment._filename}"
+                if not os.path.exists(segment_path):
+                    continue
+                with open(segment_path, "rb") as part:
+                    final.write(part.read())
+                # update the progress bar
+                progress_bar.update(files[segment._filename].stat().st_size)
+                os.remove(segment_path)
+        progress_bar.close()
 
     def save_download_data(self) -> None:
         """Saves the download resume information"""
@@ -464,12 +509,12 @@ class PenguinDownloader(BaseDownloader):
         pool_extension = (
             pool.pool_type if pool.pool_type is not None else pool.get_ext_from_segment()
         )
-        segment_extension = pool.get_ext_from_segment(0)
+        segment_extension = pool.get_ext_from_segment()
         if pool_extension in (".m3u", ".m3u8"):
             path = f"{self.temp_path}/{pool._id}{pool_extension}"
         # TODO: improve this
         elif pool.pool_type == "file":
-            path = f"concat:{'|'.join([self.temp_path + '/' + i._filename for i in pool.segments])}"
+            path = f"{self.temp_path}/{pool._id}{segment_extension}"
         else:
             path = f"{self.temp_path}/{pool._id}_0{pool_extension}"
 
@@ -781,7 +826,7 @@ class PenguinDownloader(BaseDownloader):
                     segment._finished = True
 
                     self._execute_hooks(
-                        "download_update",
+                        "download_progress",
                         {
                             "signal": "downloaded_segment",
                             "content": self.content["extended"],
@@ -853,7 +898,7 @@ class PenguinDownloader(BaseDownloader):
         self.download_data["total_bytes"] = size
         # Notify hooks of updated download size
         self._execute_hooks(
-            "download_update",
+            "download_progress",
             {
                 "signal": "updated_size",
                 "downloaded": self.download_data["downloaded_bytes"],

@@ -101,10 +101,6 @@ internal_lang = {
             "verbose_log_error": "invalid verbose log level: %s",
         },
     },
-    "singularity": {
-        "extracting_keys": "extracting: keys",
-        "using_version": "Singularity %s",
-    },
     "dl": {
         "cannot_download_content": '%s "%s" can\'t be downloaded: %s',
         "content_id": "content id",
@@ -141,7 +137,8 @@ internal_lang = {
         "thread_started": 'start: downloader "%s"',
         "threads_started": "start: %d download threads",
         "args": {
-            "ffmpeg_codec": "Postprocessing codification settings",
+            "keep_logs": "keep download logs along the final file",
+            "tag_output": "add the polarity version to the final file",
             "threads": "number of threads per download",
         },
         "except": {"download_fail": "failed to download segment %s: %s"},
@@ -231,11 +228,10 @@ internal_lang = {
         "unwanted_season": 'skip: season "%s", unwanted dub',
         "using_method": 'login method "%s"',
         "args": {
-            "subs": "subt languages",
+            "subs": "subtitle languages",
             "dubs": "dub languages",
             "meta": "metadata language",
-            "hard": "get a hardsubbed version",
-            "region": "change content region",
+            "hard": "fetch a hardsubbed version",
         },
     },
     "pokemontv": {
