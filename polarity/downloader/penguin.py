@@ -92,8 +92,8 @@ class PenguinDownloader(BaseDownloader):
 
     _SIGNAL = {}
 
-    def __init__(self, item: Content, _options=None, _stack_id: int = 0) -> None:
-        super().__init__(item, _stack_id=_stack_id, _options=_options)
+    def __init__(self, item: Content, _options=None, _thread_id: int = 0) -> None:
+        super().__init__(item, _options, _thread_id)
 
         self.threads = []
 
@@ -124,7 +124,6 @@ class PenguinDownloader(BaseDownloader):
                 modify=True,
                 extend_lists=True,
             )
-        print(self.hooks)
 
     def _start(self):
         super()._start()
@@ -202,9 +201,9 @@ class PenguinDownloader(BaseDownloader):
         self.progress_bar = ProgressBar(
             head="download",
             desc=self.content["name"],
-            total=0,
             initial=self.download_data["downloaded_bytes"],
-            unit="ib",
+            total=0,
+            unit="iB",
             unit_scale=True,
             unit_divisor=1024,
             leave=False,
@@ -236,6 +235,7 @@ class PenguinDownloader(BaseDownloader):
             },
         )
 
+        self.temp_files = os.scandir(self.temp_path)
         if not self.download_data["remux_done"]:
             remux_path = f"{self.temp_path}{get_extension(self.output)}"
             # Remux all the tracks together
@@ -316,7 +316,17 @@ class PenguinDownloader(BaseDownloader):
         self.success = True
 
     def merge_segments(self, pool: SegmentPool):
-        # TODO: get total size of pool and add a progress bar
+        files = {f.name: f for f in self.temp_files if f"{pool._id}_" in f.name}
+        total_size = sum([f.stat().st_size for f in files.values()])
+        progress_bar = ProgressBar(
+            desc=f"{self.content['name']}: {pool._id}",
+            unit="iB",
+            unit_scale=True,
+            unit_divisor=1024,
+            total=total_size,
+            head="merge",
+            leave=False,
+        )
         merge_to = f"{self.temp_path}/{pool._id}{pool.get_ext_from_segment()}"
         with open(merge_to, "ab") as final:
             for segment in pool.segments:
@@ -325,7 +335,10 @@ class PenguinDownloader(BaseDownloader):
                     continue
                 with open(segment_path, "rb") as part:
                     final.write(part.read())
+                # update the progress bar
+                progress_bar.update(files[segment._filename].stat().st_size)
                 os.remove(segment_path)
+        progress_bar.close()
 
     def save_download_data(self) -> None:
         """Saves the download resume information"""
