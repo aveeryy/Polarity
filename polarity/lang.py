@@ -86,7 +86,7 @@ internal_lang = {
         "requesting": "requesting %s",
         "search_no_results": "no results from search %s",
         "search_term": "term: ",
-        "search_usage": "polarity --mode search [OPTIONS] <search parameters>",
+        "search_usage": "polarity --mode search [OPTIONS] SEARCH_TERM",
         "unknown_channel": "unknown channel",
         "unsupported_python": "unsupported python version (%s), update to python 3.7 or higher",
         "update_available": "version %s available",
