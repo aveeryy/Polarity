@@ -238,12 +238,6 @@ def parse_arguments(get_parser=False) -> dict:
         action="store_true",
         help=lang_help["installed_languages"],
     )
-    general.add_argument(
-        "--install-languages", nargs="*", help=lang_help["install_languages"]
-    )
-    general.add_argument(
-        "--update-languages", action="store_true", help=lang_help["update_languages"]
-    )
     general.add_argument("--update", action="store_true", help=lang_help["update"])
     general.add_argument(
         "--update-git", action="store_true", help=lang_help["update_git"]
@@ -264,9 +258,6 @@ def parse_arguments(get_parser=False) -> dict:
     general.add_argument(
         "--download-log-file", help=lang_help["log_file"]
     ).complete = types[".log"]
-    general.add_argument(
-        "--language-directory", help=lang_help["language_dir"]
-    ).complete = shtab.DIRECTORY
     general.add_argument(
         "--log-directory", help=lang_help["log_dir"]
     ).complete = shtab.DIRECTORY
@@ -470,7 +461,6 @@ paths = {
         "cfg": "config.toml",
         "dl_log": "download.log",
         "dump": "Dumps/",
-        "lang": "Languages/",
         "log": "Logs/",
         # "sync_list": "sync.json",
         "tmp": "Temp/",
@@ -492,8 +482,6 @@ __defaults = {
     # Check for updates on start-up
     # This does not automatically update Polarity
     "check_for_updates": False,
-    # Automatically update language files
-    "auto_update_languages": False,
     # Download options
     "download": {
         # Maximum active downloads
@@ -559,7 +547,6 @@ __path_arguments = {
     "--binaries-directory": "bin",
     "--config-file": "cfg",
     "--download-log-file": "dl_log",
-    "--language-directory": "lang",
     "--log-directory": "log",
     "--temp-directory": "tmp",
 }
