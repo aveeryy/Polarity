@@ -5,7 +5,7 @@ from typing import Dict, Tuple, Union, List
 from urllib.parse import urlparse
 
 # Base functionality
-from polarity.config import lang
+from polarity.lang import lang
 from polarity.extractor import flags
 from polarity.extractor.base import (
     ContentExtractor,

@@ -27,7 +27,7 @@ def check_for_updates() -> Tuple[bool, str]:
 def selfupdate(mode: str = "git", version: str = None, branch: str = "main"):
     """Update Polarity to the latest release / git commit using pip"""
 
-    from polarity.config import lang
+    from polarity.lang import lang
 
     if sys.argv[0].endswith(".py"):
         # Update python package

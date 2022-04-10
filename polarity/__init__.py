@@ -1,6 +1,8 @@
 import io
 import logging
 import sys
+from polarity.config import paths  # noqa
+from polarity.utils import filename_datetime  # noqa
 
 logging.Logger(__name__)
 logging.getLogger(__name__).setLevel(10)
@@ -12,8 +14,6 @@ __formatter = logging.Formatter("%(asctime)s -> %(message)s")
 __handler.setFormatter(__formatter)
 logging.getLogger(__name__).addHandler(__handler)
 
-from polarity.config import paths  # noqa
-from polarity.utils import filename_datetime  # noqa
 
 AVOID_RUNNING = ["pytest", "black"]
 

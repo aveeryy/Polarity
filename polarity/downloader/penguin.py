@@ -13,7 +13,7 @@ from time import sleep
 from typing import List
 from urllib.parse import unquote
 
-from polarity.config import lang
+from polarity.lang import lang
 from polarity.downloader.base import BaseDownloader
 from polarity.downloader.protocols import ALL_PROTOCOLS
 from polarity.types import Content, ProgressBar, Thread

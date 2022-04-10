@@ -2,7 +2,7 @@ import re
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
-from polarity.config import ConfigError, lang
+from polarity.config import ConfigError
 from polarity.extractor.base import (
     ContentExtractor,
     ExtractorError,
@@ -10,6 +10,7 @@ from polarity.extractor.base import (
     requires_login,
 )
 from polarity.extractor import flags
+from polarity.lang import lang
 from polarity.types import (
     Episode,
     Movie,

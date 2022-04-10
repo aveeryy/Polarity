@@ -110,7 +110,6 @@ def vprint(
     [demo/debug] Hello world!  # Output
     >>>
     """
-
     global vprint_failed_to_print, vprint_locked
 
     def build_head(clean=False) -> str:
@@ -135,7 +134,8 @@ def vprint(
         locked_by_me = True
 
     try:
-        from polarity.config import VALID_VERBOSE_LEVELS, ConfigError, lang, options
+        from polarity.config import VALID_VERBOSE_LEVELS, ConfigError, options
+        from polarity.lang import lang
 
     except ImportError as ex:
         # warn the user using poor man's vprint
@@ -429,6 +429,9 @@ def dict_diff(dct: dict, compare_to: dict) -> bool:
             and type(dct[k]) is dict
             and dict_diff(v, dct[k])
         ):
+            for key in compare_to.keys():
+                if key not in dct.keys():
+                    print(key)
             return True
     return (dct.keys() == compare_to.keys()) is False
 
@@ -485,7 +488,7 @@ def parse_content_id(id: str) -> ContentIdentifier:
         '320430'
     """
 
-    from polarity.config import lang
+    from polarity.lang import lang
     from polarity.types import str_to_type
 
     if not is_content_id(id):
@@ -516,7 +519,7 @@ def request_webpage(url: str, method: str = "get", **kwargs) -> Response:
     `method` http request method
     `kwargs` extra requests arguments, for more info check the [requests documentation](https://docs.python-requests.org/en/latest/user/quickstart/)
     """
-    from polarity.config import lang
+    from polarity.lang import lang
 
     vprint(lang["polarity"]["requesting"] % url, "verbose")
     # check if method is valid
@@ -691,6 +694,11 @@ def calculate_time_left(processed: int, total: int, time_start: float) -> float:
         return 0.0
 
 
+def get_installation_path() -> str:
+    """Get the path where Polarity is installed"""
+    return os.path.dirname(__file__)
+
+
 def mkfile(
     path: str,
     contents: str,
@@ -714,7 +722,7 @@ def mkfile(
         with open(path, writing_mode, *args, **kwargs) as fp:
             fp.write(contents)
     except OSError as ex:
-        from polarity.config import lang
+        from polarity.lang import lang
 
         if ex.errno == errno.ENOSPC:
             vprint(

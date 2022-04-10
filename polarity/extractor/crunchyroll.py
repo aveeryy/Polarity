@@ -1,15 +1,11 @@
-from datetime import datetime
 import re
-from typing import Union, Tuple, List, Dict
+from datetime import datetime
+from typing import Dict, List, Tuple, Union
 from urllib.parse import urlparse
 
-from polarity.config import lang
+from polarity.lang import lang
 from polarity.extractor import flags
-from polarity.extractor.base import (
-    ContentExtractor,
-    ExtractorError,
-    InvalidURLError,
-)
+from polarity.extractor.base import ContentExtractor, ExtractorError, InvalidURLError
 from polarity.types import (
     Episode,
     MediaType,

@@ -4,7 +4,8 @@ import traceback
 
 from platform import system, version, python_version
 
-from polarity.config import lang, paths, urls
+from polarity.config import paths, urls
+from polarity.lang import lang
 from polarity.Polarity import Polarity
 from polarity.utils import vprint, filename_datetime
 from polarity.update import selfupdate

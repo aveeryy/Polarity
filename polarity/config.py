@@ -8,7 +8,7 @@ import shtab
 import tomli
 import tomli_w
 
-from polarity.lang import internal_lang
+from polarity.lang import change_language, lang
 from polarity.utils import (
     dict_merge,
     get_argument_value,
@@ -72,36 +72,6 @@ def merge_external_config(obj: object, name: str, config_path: dict) -> None:
         config_path[name.lower()] = obj.DEFAULTS
     elif name.lower() in config_path:
         dict_merge(config_path[name.lower()], obj.DEFAULTS)
-
-
-def change_language(language_code: str) -> dict:
-    global lang_code
-    __lang_path = f"{paths['lang']}{language_code}.toml"
-    if language_code is None:
-        dict_merge(lang, internal_lang)
-    elif language_code == "internal":
-        return internal_lang
-    elif not os.path.exists(__lang_path):
-        vprint("language file not found", level="error")
-        dict_merge(lang, internal_lang, True)
-    elif os.path.exists(__lang_path):
-        lang_code = language_code
-        with open(__lang_path, "r") as fp:
-            # FIXME: language does not load?, don't actually know why
-
-            # Change language to internal without modifying the variable
-            # Doing this to avoid more languages than the internal one
-            # and the currently loaded overlapping
-            dict_merge(lang, internal_lang, True)
-            # Now, change
-            dict_merge(lang, tomli.loads(fp.read()), True)
-            # Merge internal language with loaded one, avoids errors due
-            # missing strings
-    return lang
-
-
-def get_installed_languages() -> List[str]:
-    return [strip_extension(f.name) for f in os.scandir(paths["lang"])]
 
 
 def change_verbose_level(new_level: str, change_print=True, change_log=False):
@@ -580,11 +550,7 @@ __defaults = {
 }
 
 # Predefine configuration variables
-lang = {}
 options = {"verbose": "info", "verbose_logs": "debug"}
-
-lang = internal_lang
-
 
 # Part 2: Load options from configuration file (and some arguments)
 
@@ -642,7 +608,7 @@ elif config["language"] not in ("", "internal", "integrated"):
 else:
     lang_code = None
 # Update the language
-lang = change_language(language_code=lang_code)
+change_language(lang_code)
 # Set usage string
 USAGE = lang["polarity"]["usage"]
 # Set verbosity levels based from arguments and execution mode

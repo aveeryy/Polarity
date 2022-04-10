@@ -6,7 +6,8 @@ from http.cookiejar import CookieJar, LWPCookieJar
 from time import sleep
 from typing import List, Union
 
-from polarity.config import lang, paths
+from polarity.config import paths
+from polarity.lang import lang
 from polarity.extractor import flags
 from polarity.types import Episode, Movie, SearchResult, Season, Series, Thread
 from polarity.types.content import Content, ContentContainer

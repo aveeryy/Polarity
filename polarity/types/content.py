@@ -3,7 +3,7 @@ from datetime import datetime
 from time import sleep
 from typing import List
 
-from polarity.config import lang
+from polarity.lang import lang
 
 from polarity.types.base import MediaType, MetaMediaType
 from polarity.types.people import Person
