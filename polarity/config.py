@@ -20,7 +20,6 @@ from polarity.utils import (
 )
 from polarity.version import __version__
 
-
 # Part 0: Functions
 
 VALID_VERBOSE_LEVELS = [
@@ -329,12 +328,9 @@ def parse_arguments(get_parser=False) -> dict:
     download.add_argument(
         "-R", "--redownload", action="store_true", help=lang_help["redownload"]
     )
-    download.add_argument("--series-directory", help=lang_help["download_dir_series"])
-    download.add_argument("--movies-directory", help=lang_help["download_dir_movies"])
     download.add_argument("--episode-format", help=lang_help["format_episode"])
     download.add_argument("--movie-format", help=lang_help["format_movie"])
-    # TODO: add general format / directory arguments and lang strings
-
+    download.add_argument("--generic-format", help=lang_help["format_generic"])
     # Gets all extractors with an ARGUMENTS object and converts their arguments to
     # argparse equivalents.
     for downloader in DOWNLOADERS.items():
@@ -342,6 +338,7 @@ def parse_arguments(get_parser=False) -> dict:
             continue
         downloader_name = downloader[0]
         parse_external_args(downloader[1].ARGUMENTS, opts["download"], downloader_name)
+
     debug = parser.add_argument_group(title=lang_group["debug"])
     debug.add_argument("--dump", choices=["options"], nargs="+", help=lang_help["dump"])
     debug.add_argument(
@@ -623,9 +620,8 @@ if paths["cfg"] and not os.path.exists(paths["cfg"]):
 # Load configuration from file
 config = load_config(paths["cfg"])
 
-# Import DOWNLOADER and EXTRACTOR list here to avoid import loops
-from polarity.downloader import DOWNLOADERS  # noqa: E402
-from polarity.extractor import EXTRACTORS  # noqa: E402
+from polarity.downloader import DOWNLOADERS
+from polarity.extractor import EXTRACTORS
 
 # Load new configuration entries
 dict_merge(config, __defaults)
