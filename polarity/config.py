@@ -238,12 +238,6 @@ def parse_arguments(get_parser=False) -> dict:
         action="store_true",
         help=lang_help["installed_languages"],
     )
-    general.add_argument(
-        "--install-languages", nargs="*", help=lang_help["install_languages"]
-    )
-    general.add_argument(
-        "--update-languages", action="store_true", help=lang_help["update_languages"]
-    )
     general.add_argument("--update", action="store_true", help=lang_help["update"])
     general.add_argument(
         "--update-git", action="store_true", help=lang_help["update_git"]
@@ -492,8 +486,6 @@ __defaults = {
     # Check for updates on start-up
     # This does not automatically update Polarity
     "check_for_updates": False,
-    # Automatically update language files
-    "auto_update_languages": False,
     # Download options
     "download": {
         # Maximum active downloads
