@@ -1,10 +1,6 @@
-# Polarity language file
-# THIS FILE MUST BE MODIFIED MANUALLY, USE VSCODE, VIM, EMACS OR SIMILARS
-# Language rules: https://github.com/Aveeryy/Polarity/wiki/Language-rules
-
 name = "English (United States)"
 code = "enUS"
-author = "Aveeryy"
+author = "aveeryy"
 
 [main]
 exit_msg = "Exiting..."
