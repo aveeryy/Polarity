@@ -51,36 +51,6 @@ def selfupdate(mode: str = "git", version: str = None, branch: str = "main"):
         raise NotImplementedError(lang["update"]["except"]["unsupported_native"])
 
 
-def language_install(language_list: list):
-    """Install specified language files"""
-    LANGUAGE_URL = "https://raw.githubusercontent.com/aveeryy/Polarity/main/lang/%s.toml"
-
-    failed = 0
-
-    from polarity.config import paths
-
-    for lang in language_list:
-
-        response = request_webpage(url=LANGUAGE_URL % lang)
-        if response.status_code == 404:
-            vprint(f'Language "{lang}" not found in server', 4, "update", "warning")
-            failed += 1
-            continue
-        vprint(f"Installing language {lang}", "debug", "update")
-        with open(paths["lang"] + f"{lang}.toml", "wb") as f:
-            f.write(response.content)
-        vprint(f"Language {lang} written to file", "debug", "update")
-    if failed:
-        vprint("Language installer finished with warnings", "warning" "update")
-    else:
-        vprint("All languages installed successfully", module_name="update")
-    # After install reload the language strings
-    from polarity.config import change_language, lang_code
-
-    if lang_code not in ("internal", ""):
-        change_language(lang_code)
-
-
 def windows_setup() -> None:
     "Perform installation of dependencies on Windows systems"
 
