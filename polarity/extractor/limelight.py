@@ -114,6 +114,7 @@ class LimelightExtractor(StreamExtractor):
                 wanted=True,
                 id=f"subt_{stream['languageCode']}",
             )
+            parsed_stream.extra_sub = True
             streams.append(parsed_stream)
         return streams
 
