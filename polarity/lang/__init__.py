@@ -54,6 +54,6 @@ def get_name_and_author(code: str) -> dict:
 
 installed_languages = {
     strip_extension(f.name): {"path": f.path, **get_name_and_author(f.name)}
-    for f in os.scandir(f"{get_installation_path()}/lang")
-    if ".toml" in f.name and f.name != "languages.toml"
+    for f in sorted(os.scandir(f"{get_installation_path()}/lang"), key=lambda x: x.name)
+    if ".toml" in f.name
 }
