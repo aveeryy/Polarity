@@ -336,7 +336,8 @@ class PenguinDownloader(BaseDownloader):
                 with open(segment_path, "rb") as part:
                     final.write(part.read())
                 # update the progress bar
-                progress_bar.update(files[segment._filename].stat().st_size)
+                if segment._filename in files:
+                    progress_bar.update(files[segment._filename].stat().st_size)
                 os.remove(segment_path)
         progress_bar.close()
 
