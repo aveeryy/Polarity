@@ -2,24 +2,21 @@ import argparse
 import os
 import re
 import sys
-from typing import List
 
 import shtab
 import tomli
 import tomli_w
 
-from polarity.lang import internal_lang
+from polarity.lang import change_language, lang
 from polarity.utils import (
     dict_merge,
     get_argument_value,
     get_config_path,
     get_home_path,
     mkfile,
-    strip_extension,
     vprint,
 )
 from polarity.version import __version__
-
 
 # Part 0: Functions
 
@@ -75,36 +72,6 @@ def merge_external_config(obj: object, name: str, config_path: dict) -> None:
         dict_merge(config_path[name.lower()], obj.DEFAULTS)
 
 
-def change_language(language_code: str) -> dict:
-    global lang_code
-    __lang_path = f"{paths['lang']}{language_code}.toml"
-    if language_code is None:
-        dict_merge(lang, internal_lang)
-    elif language_code == "internal":
-        return internal_lang
-    elif not os.path.exists(__lang_path):
-        vprint("language file not found", level="error")
-        dict_merge(lang, internal_lang, True)
-    elif os.path.exists(__lang_path):
-        lang_code = language_code
-        with open(__lang_path, "r") as fp:
-            # FIXME: language does not load?, don't actually know why
-
-            # Change language to internal without modifying the variable
-            # Doing this to avoid more languages than the internal one
-            # and the currently loaded overlapping
-            dict_merge(lang, internal_lang, True)
-            # Now, change
-            dict_merge(lang, tomli.loads(fp.read()), True)
-            # Merge internal language with loaded one, avoids errors due
-            # missing strings
-    return lang
-
-
-def get_installed_languages() -> List[str]:
-    return [strip_extension(f.name) for f in os.scandir(paths["lang"])]
-
-
 def change_verbose_level(new_level: str, change_print=True, change_log=False):
     global options
     if change_print:
@@ -143,6 +110,10 @@ def parse_arguments(get_parser=False) -> dict:
         _external_arg_groups.append(group_name)
         dest[dest_name.lower()] = {}
         for arg in args:
+            if "variable" not in arg or not arg["variable"]:
+                raise Exception(
+                    lang["args"]["except"]["argument_variable_empty"] % arg["args"][0]
+                )
             # Add argument to group
             z.add_argument(*arg["args"], **arg["attrib"])
             vprint(lang["args"]["added_arg"] % (*arg["args"], dest_name), "debug")
@@ -265,15 +236,9 @@ def parse_arguments(get_parser=False) -> dict:
     )
     general.add_argument("--language", help=lang_help["language"])
     general.add_argument(
-        "--installed-languages",
+        "--list-languages",
         action="store_true",
         help=lang_help["installed_languages"],
-    )
-    general.add_argument(
-        "--install-languages", nargs="*", help=lang_help["install_languages"]
-    )
-    general.add_argument(
-        "--update-languages", action="store_true", help=lang_help["update_languages"]
     )
     general.add_argument("--update", action="store_true", help=lang_help["update"])
     general.add_argument(
@@ -295,9 +260,6 @@ def parse_arguments(get_parser=False) -> dict:
     general.add_argument(
         "--download-log-file", help=lang_help["log_file"]
     ).complete = types[".log"]
-    general.add_argument(
-        "--language-directory", help=lang_help["language_dir"]
-    ).complete = shtab.DIRECTORY
     general.add_argument(
         "--log-directory", help=lang_help["log_dir"]
     ).complete = shtab.DIRECTORY
@@ -329,12 +291,9 @@ def parse_arguments(get_parser=False) -> dict:
     download.add_argument(
         "-R", "--redownload", action="store_true", help=lang_help["redownload"]
     )
-    download.add_argument("--series-directory", help=lang_help["download_dir_series"])
-    download.add_argument("--movies-directory", help=lang_help["download_dir_movies"])
     download.add_argument("--episode-format", help=lang_help["format_episode"])
     download.add_argument("--movie-format", help=lang_help["format_movie"])
-    # TODO: add general format / directory arguments and lang strings
-
+    download.add_argument("--generic-format", help=lang_help["format_generic"])
     # Gets all extractors with an ARGUMENTS object and converts their arguments to
     # argparse equivalents.
     for downloader in DOWNLOADERS.items():
@@ -342,6 +301,7 @@ def parse_arguments(get_parser=False) -> dict:
             continue
         downloader_name = downloader[0]
         parse_external_args(downloader[1].ARGUMENTS, opts["download"], downloader_name)
+
     debug = parser.add_argument_group(title=lang_group["debug"])
     debug.add_argument("--dump", choices=["options"], nargs="+", help=lang_help["dump"])
     debug.add_argument(
@@ -503,9 +463,7 @@ paths = {
         "cfg": "config.toml",
         "dl_log": "download.log",
         "dump": "Dumps/",
-        "lang": "Languages/",
         "log": "Logs/",
-        # "sync_list": "sync.json",
         "tmp": "Temp/",
     }.items()
 }
@@ -525,8 +483,6 @@ __defaults = {
     # Check for updates on start-up
     # This does not automatically update Polarity
     "check_for_updates": False,
-    # Automatically update language files
-    "auto_update_languages": False,
     # Download options
     "download": {
         # Maximum active downloads
@@ -583,11 +539,7 @@ __defaults = {
 }
 
 # Predefine configuration variables
-lang = {}
 options = {"verbose": "info", "verbose_logs": "debug"}
-
-lang = internal_lang
-
 
 # Part 2: Load options from configuration file (and some arguments)
 
@@ -596,7 +548,6 @@ __path_arguments = {
     "--binaries-directory": "bin",
     "--config-file": "cfg",
     "--download-log-file": "dl_log",
-    "--language-directory": "lang",
     "--log-directory": "log",
     "--temp-directory": "tmp",
 }
@@ -623,9 +574,8 @@ if paths["cfg"] and not os.path.exists(paths["cfg"]):
 # Load configuration from file
 config = load_config(paths["cfg"])
 
-# Import DOWNLOADER and EXTRACTOR list here to avoid import loops
-from polarity.downloader import DOWNLOADERS  # noqa: E402
-from polarity.extractor import EXTRACTORS  # noqa: E402
+from polarity.downloader import DOWNLOADERS
+from polarity.extractor import EXTRACTORS
 
 # Load new configuration entries
 dict_merge(config, __defaults)
@@ -646,7 +596,7 @@ elif config["language"] not in ("", "internal", "integrated"):
 else:
     lang_code = None
 # Update the language
-lang = change_language(language_code=lang_code)
+change_language(lang_code)
 # Set usage string
 USAGE = lang["polarity"]["usage"]
 # Set verbosity levels based from arguments and execution mode

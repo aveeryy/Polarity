@@ -2,7 +2,7 @@ import re
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
-from polarity.config import ConfigError, lang
+from polarity.config import ConfigError
 from polarity.extractor.base import (
     ContentExtractor,
     ExtractorError,
@@ -10,6 +10,7 @@ from polarity.extractor.base import (
     requires_login,
 )
 from polarity.extractor import flags
+from polarity.lang import lang
 from polarity.types import (
     Episode,
     Movie,
@@ -257,7 +258,7 @@ class AtresplayerExtractor(ContentExtractor):
 
         if return_raw_info:
             if is_single_season:
-                vprint("~TEMP~ content does not have seasons", "warning")
+                vprint(lang["atresplayer"]["no_seasons"], "error", "atresplayer")
                 return
             return self._series_json["seasons"]
 

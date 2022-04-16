@@ -18,13 +18,12 @@ from tqdm import TqdmWarning
 from polarity.config import (
     USAGE,
     change_verbose_level,
-    get_installed_languages,
-    lang,
     options,
     paths,
 )
 from polarity.downloader import PenguinDownloader
 from polarity.extractor import EXTRACTORS, flags
+from polarity.lang import lang, installed_languages
 from polarity.types import (
     Content,
     Episode,
@@ -38,8 +37,8 @@ from polarity.types import (
 from polarity.types.download_log import DownloadLog
 from polarity.types.filter import Filter, build_filter
 from polarity.types.progressbar import ProgressBar
-from polarity.update import check_for_updates, language_install, windows_setup
-from polarity.utils import FormattedText as FT
+from polarity.update import check_for_updates, windows_setup
+from polarity.utils import FormattedText as FT, get_installation_path
 from polarity.utils import (
     dict_merge,
     filename_datetime,
@@ -134,7 +133,7 @@ class Polarity:
         Avoids conflicts by removing locks from downloads
         """
         for downloader in self._downloaders:
-            vprint(f"~TEMP~ unlocking {downloader.name}'s download", "debug")
+            vprint(lang["main"]["unlocking"] % downloader.name, "debug")
             downloader._unlock()
 
     def delete_session_log(self) -> None:
@@ -164,30 +163,12 @@ class Polarity:
 
         # Pre-start functions
 
-        # Language installation / update
-        # First update old languages
-        if options["update_languages"] or options["auto_update_languages"]:
-            language_install(get_installed_languages())
-        # Then, install new languages
-        if options["install_languages"]:
-            language_install(options["install_languages"])
-
-        if options["installed_languages"]:
-            installed = get_installed_languages()
-            if not installed:
-                # since no languages are installed there's no need to
-                # load this string from lang
-                vprint("no languages installed", "error")
-                self.delete_session_log()
-                os._exit(1)
+        if options["list_languages"]:
             print(f"{FT.bold}{lang['polarity']['installed_languages']}{FT.reset}")
-            for _lang in get_installed_languages():
-                with open(f'{paths["lang"]}{_lang}.toml', "rb") as lf:
-                    loaded = tomli.load(lf)
-                    name = f"{FT.bold}{loaded['name']}{FT.reset}"
-                    print(
-                        f"* {lang['polarity']['language_format'] % (name, loaded['code'], loaded['author'],)}"
-                    )
+            for code, _lang in installed_languages.items():
+                print(
+                    f"* {lang['polarity']['language_format'] % (_lang['name'], code, _lang['author'])}"
+                )
             self.delete_session_log()
             os._exit(0)
 

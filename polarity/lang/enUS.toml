@@ -1,0 +1,240 @@
+name = "English (United States)"
+author = "aveeryy"
+
+[main]
+exit_msg = "Exiting..."
+unlocking = "Unlocking %s's download"
+
+[args]
+added_arg = "Added argument \"%s\" from %s"
+
+[args.except]
+argument_missing = "The \"variable\" entry of the argument %s does not exist, please inform about this (or fix it!)"
+
+[args.help]
+accounts_dir = "Custom directory for account files"
+binaries_dir = "Custom directory with ffmpeg binaries"
+config_file = "Custom configuration file path"
+download_dir_generic = "Download dir for generic content"
+download_dir_series = "Download dir for tv series"
+download_dir_movies = "Download dir for movies"
+dump = "Dump information to a file"
+email = "%s account email"
+exit_after_dump = "Exit after dumping information"
+extended_help = "Shows help with argument options"
+filters = "Extraction and download filters"
+format_episode = "Formatting for episodes' filenames"
+format_generic = "Formatting for generic content's filenames"
+format_movie = "Formatting for movies' filenames"
+format_search = "Formatting for search results"
+help = "Shows help"
+install_languages = "Install specified languages"
+installed_languages = "List installed languages"
+language = "Load specified language"
+language_dir = "Custom directory for language files"
+log_dir = "Custom directory for logs"
+log_file = "Custom download log file path"
+max_results = "Maximum number of results"
+max_results_per_extractor = "Maximum number of results per extractor"
+max_results_per_type = "Maximum number of results per media type"
+mode = "Execution mode"
+pass = "%s account password"
+redownload = "Allow redownloading previously downloaded content"
+remove_chars = "Remove invalid windows characters instead of replacing"
+resolution = "Preferred resolution"
+results_trim = "Trim search results' names"
+temp_dir = "Custom directory for temporary files"
+update = "Update to latest release"
+update_check = "Check for updates on startup"
+update_git = "Update to latest git commit"
+update_languages = "Update installed language files"
+url = "Input urls"
+verbose = "Verbose level"
+verbose_log = "Verbose level for logging"
+
+[args.groups]
+general = "General options"
+download = "Download options"
+extractor = "%s options"
+debug = "Debug options"
+search = "Search options"
+
+[polarity]
+all_tasks_finished = "Finished all tasks in %s"
+changed_index = "Changed index to %s"
+config_path = "Loaded configuration from %s"
+created_filter = "Created a(n) %s object with params \"%s\" and filter \"%s\""
+deleting_log = "Nothing to do, deleting log"
+dump_options = "options"
+dumped_to = "Dumped %s to %s"
+filter_processing = "Processing filters"
+finished_download = "Finished download tasks"
+finished_extraction = "Finished extraction tasks"
+installed_languages = "Languages:"
+language_format = "%s [%s] by %s"
+log_path = "Writing log to %s"
+not_a_content_id = "\"%s\" is not a content identifier"
+no_space_left = "No space left on device, exiting..."
+python_version = "Python %s | %s"
+requesting = "Requesting %s"
+search_no_results = "No results from search %s"
+search_term = "Search term: "
+search_usage = "polarity --mode search [OPTIONS] SEARCH_TERM"
+unknown_channel = "Unknown live tv channel identifier"
+unsupported_python = "Unsupported python version (%s), update to python 3.7 or higher"
+update_available = "Version %s is now available"
+usage = "polarity [OPTIONS] URL [URL...]"
+use_help = "Use --help to display all options"
+use = "Usage: "
+using_version = "Polarity %s"
+
+[polarity.except]
+invalid_http_method = "Invalid HTTP method: %s"
+missing_ffmpeg = "ffmpeg is not installed or not in PATH"
+verbose_error = "Invalid verbose level: %s"
+verbose_log_error = "Invalid verbose log level: %s"
+
+[dl]
+cannot_download_content = "%s \"%s\" can't be downloaded: %s"
+content_id = "content id"
+download_successful = "Downloaded %s \"%s\""
+downloading_content = "Downloading %s \"%s\""
+no_extractor = "Skipping %s \"%s\". No compatible extractor"
+no_redownload = "Skipping %s. Already downloaded"
+url = "url"
+
+[penguin]
+assisting = "Assisting thread %s with %s"
+current_pool = "Current pool: %s"
+download_locked = "Can't download \"%s\", locked by another downloader"
+ffmpeg_remux_failed = "ffmpeg process crashed, aborting, please create a GitHub issue with the following file attached: %s"
+key_download = "Downloading decryption key of segment %s"
+output_file_broken = "Failed to load download data file, recreating"
+processing_stream = "Processing stream %s"
+resuming = "Resuming the download of %s..."
+segment_downloaded = "Downloaded segment %s"
+segment_retry = "failed: segment %s download, retrying..."
+segment_skip = "skipping: segment %s"
+segment_start = "Downloading segment %s"
+stream_protocol = "Using the protocol %s for stream %s"
+thread_started = "Started thread \"%s\""
+threads_started = "Starting %d download threads"
+
+[penguin.args]
+keep_logs = "Keep download logs along the final file"
+tag_output = "Add the polarity version to the final file"
+threads = "Number of threads per download"
+
+[penguin.except]
+download_fail = "Failed to download segment %s: %s"
+
+[penguin.protocols]
+getting_playlist = "Parsing playlist"
+getting_stream = "Parsing streams"
+multiple_video_bitrates = "Multiple streams with same resolution detected"
+picking_best_stream_0 = "Picking video stream with highest resolution"
+picking_best_stream_1 = "Picking video stream with highest bitrate"
+picking_best_stream_2 = "Picking best audio stream"
+selected_stream = "Selected stream %s"
+
+[extractor]
+filter_check_fail = "Does not match with filters"
+generic_error = "An error has occurred! Please create a GitHub issue: %s"
+get_all_seasons = "Getting information of all seasons"
+get_media_info = "Getting info of %s \"%s\" (%s)"
+login_expired = "The login has expired, you may have to re-login"
+login_failure = "Failed to login: %s"
+login_loggedas = "Logged in as %s"
+login_success = "Logged in successfully"
+search_no_results = "No results on category %s with term %s"
+skip_dl_premium = "Premium content, or not in your region"
+waiting_for_login = "waiting for login"
+
+[extractor.base]
+check_failed = "Check for feature \u001b[1m%s\u001b[0m failed, the following conditions are false: %s"
+email_prompt = "Email/Username: "
+password_prompt = "Password: "
+using_filters = "Using filters, total count in progress bar will be inaccurate"
+
+[extractor.base.except]
+argument_variable_empty = "The \"variable\" entry of argument %s is empty, please report (or fix) this"
+failed_load_cookiejar = "failed to load cookiejar: %s"
+no_cookiejar = "Extractor has no cookiejar"
+
+[extractor.check]
+invalid_extractor = "Content extractor %s is invalid"
+
+[extractor.check.features]
+base = "base functionality"
+login = "login"
+search = "search"
+livetv = "live_tv"
+
+[extractor.except]
+cannot_identify_url = "Failed to identify URL"
+no_id = "No id inputted"
+no_url = "No url inputted"
+
+[types]
+series = "series"
+season = "season"
+episode = "episode"
+movie = "movie"
+content = "content"
+contentcontainer = "content container"
+
+[types.alt]
+series = "series"
+season = "season"
+episode = "episode"
+movie = "movie"
+content = "content"
+contentcontainer = "content container"
+
+[update]
+downloading_git = "Updating from git repo's branch %s"
+downloading_release = "Updating to latest release"
+downloading_native = "Updating to latest native release"
+new_release = "A new release (%s) is available"
+
+[update.except]
+unsupported_native = "Native binary update is not supported yet"
+
+[atresplayer]
+no_content_in_season = "No episodes in season %s (%s)"
+no_seasons = "Content does not have seasons"
+
+[atresplayer.except]
+invalid_codec = "Codec \"%s\" is invalid"
+
+[atresplayer.args]
+codec = "Codec preferance"
+
+[crunchyroll]
+bearer_fetch = "Fetching Bearer token"
+bearer_fetch_fail = "Bearer token fetch failed, aborting..."
+cms_fetch = "Fetching CMS policies"
+cms_fetch_fail = "CMS policies fetch failed, aborting..."
+unwanted_season = "Skipping season \"%s\", unwanted dub"
+using_method = "Using login method \"%s\""
+
+[crunchyroll.args]
+subs = "Subtitle languages"
+dubs = "Dub languages"
+meta = "Metadata language"
+hard = "Fetch a hardsubbed version"
+
+[pokemontv]
+get_channel_info = "Getting channel information"
+get_region_info = "Getting region information"
+
+[limelight]
+available_formats = "Available formats: %s"
+set_wanted_format = "The stream with format %s has been set as wanted"
+
+[limelight.args]
+format = "Preferred stream format"
+
+[limelight.except]
+invalid_id = "Format indentifier is invalid: %s"
+unsupported_rtmp = "RTMP streams are unsupported"

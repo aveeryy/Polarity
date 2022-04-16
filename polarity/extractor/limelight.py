@@ -1,7 +1,7 @@
 import re
 from typing import List, Tuple
 
-from polarity.config import lang
+from polarity.lang import lang
 from polarity.extractor.base import ExtractorError, StreamExtractor
 from polarity.types import Stream
 from polarity.utils import request_json, vprint

@@ -1,7 +1,7 @@
 from typing import List
 from urllib.parse import urljoin
 
-from polarity.config import lang
+from polarity.lang import lang
 from polarity.downloader.protocols.base import StreamProtocol
 from polarity.types.stream import Segment, SegmentPool
 from polarity.utils import request_xml, vprint

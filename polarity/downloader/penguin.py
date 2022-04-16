@@ -13,7 +13,7 @@ from time import sleep
 from typing import List
 from urllib.parse import unquote
 
-from polarity.config import lang
+from polarity.lang import lang
 from polarity.downloader.base import BaseDownloader
 from polarity.downloader.protocols import ALL_PROTOCOLS
 from polarity.types import Content, ProgressBar, Thread
@@ -131,7 +131,7 @@ class PenguinDownloader(BaseDownloader):
 
         if self._is_locked():
             vprint(
-                "~TEMP~ can not download: locked by another downloader",
+                lang["penguin"]["download_locked"] % self.content["name"],
                 "error",
                 "penguin",
                 extra_loggers=[self.logger],

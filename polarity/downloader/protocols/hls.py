@@ -1,7 +1,7 @@
 from m3u8 import parse
 from urllib.parse import urljoin
 
-from polarity.config import lang
+from polarity.lang import lang
 from polarity.downloader.protocols.base import StreamProtocol
 from polarity.types.stream import Segment, SegmentPool, ContentKey, M3U8Pool
 from polarity.utils import vprint, request_webpage
