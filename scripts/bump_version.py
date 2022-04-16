@@ -46,7 +46,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        main("polarity")
+        main()
     except KeyboardInterrupt:
         print("exiting")
         os._exit(0)
