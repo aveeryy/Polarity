@@ -3,7 +3,7 @@
 # Defaults to main branch
 # Requires Termux to be installed
 
-VERSION='2022.2.15 (git)'
+VERSION='2022.4.16 (git)'
 REPO='https://github.com/aveeryy/Polarity.git'
 
 echo '[-] Polarity Installer for Android' $VERSION
@@ -33,5 +33,3 @@ echo '[-] Installing Polarity'
 pip install --no-input 'git+'$REPO'@'$BRANCH
 echo '[-] Installation complete'
 echo '[-] Use Polarity with ''polarity <urls> [OPTIONS]'''
-# Open a new shell so alias settings apply
-bash
