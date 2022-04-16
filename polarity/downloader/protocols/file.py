@@ -22,7 +22,7 @@ class FileProtocol(StreamProtocol):
 
     SUPPORTED_EXTENSIONS = r".+"
 
-    def calculate_ranges(self, content_size: int) -> list[str]:
+    def calculate_ranges(self, content_size: int) -> List[str]:
         """
         Calculate byte ranges for segments
 

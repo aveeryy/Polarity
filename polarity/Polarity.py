@@ -22,7 +22,7 @@ from polarity.config import (
     paths,
 )
 from polarity.downloader import PenguinDownloader
-from polarity.extractor import EXTRACTORS, flags
+from polarity.extractor import CONTENT_EXTRACTORS, EXTRACTORS, flags
 from polarity.lang import lang, installed_languages
 from polarity.types import (
     Content,
@@ -367,7 +367,7 @@ class Polarity:
 
         # Get a list of extractors with search capabilities
         compatible_extractors = [
-            e for e in EXTRACTORS.items() if flags.EnableSearch in e[1].FLAGS
+            e for e in CONTENT_EXTRACTORS.items() if flags.EnableSearch in e[1].FLAGS
         ]
         # Create an empty dictionary for the results
         results = {Series: [], Season: [], Episode: [], Movie: []}
