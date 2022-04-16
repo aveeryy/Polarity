@@ -236,7 +236,7 @@ def parse_arguments(get_parser=False) -> dict:
     )
     general.add_argument("--language", help=lang_help["language"])
     general.add_argument(
-        "--installed-languages",
+        "--list-languages",
         action="store_true",
         help=lang_help["installed_languages"],
     )

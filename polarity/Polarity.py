@@ -163,15 +163,12 @@ class Polarity:
 
         # Pre-start functions
 
-        if options["installed_languages"]:
+        if options["list_languages"]:
             print(f"{FT.bold}{lang['polarity']['installed_languages']}{FT.reset}")
-            for _lang in installed_languages:
-                with open(_lang, "rb") as lf:
-                    loaded = tomli.load(lf)
-                    name = f"{FT.bold}{loaded['name']}{FT.reset}"
-                    print(
-                        f"* {lang['polarity']['language_format'] % (name, loaded['code'], loaded['author'],)}"
-                    )
+            for code, _lang in installed_languages.items():
+                print(
+                    f"* {lang['polarity']['language_format'] % (_lang['name'], code, _lang['author'])}"
+                )
             self.delete_session_log()
             os._exit(0)
 
