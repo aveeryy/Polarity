@@ -486,7 +486,7 @@ __defaults = {
     # Download options
     "download": {
         # Maximum active downloads
-        "active_downloads": 5,
+        "active_downloads": 3,
         # Output directory for series
         "series_directory": f'{__download_path}/{"Series"}'.replace("\\", "/"),
         # Output directory for movies
