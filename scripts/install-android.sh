@@ -2,7 +2,7 @@
 # Installs the latest release version from pip
 # Requires Termux to be installed
 
-VERSION='2022.2.15 (release)'
+VERSION='2022.4.16 (release)'
 
 echo '[-] Polarity Installer for Android' $VERSION
 
@@ -23,5 +23,3 @@ echo '[-] Installing the latest release'
 pip install --no-input Polarity
 echo '[-] Installation complete'
 echo '[-] Use Polarity with ''polarity <urls> [OPTIONS]'''
-# Open a new shell so settings apply
-bash
