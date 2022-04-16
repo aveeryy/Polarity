@@ -17,6 +17,7 @@ from typing import Dict, Iterable, List, Tuple, Union
 from urllib.parse import urlparse
 from xml.parsers.expat import ExpatError
 
+import cloudscraper
 import requests
 import xmltodict
 from requests.adapters import HTTPAdapter
@@ -28,7 +29,7 @@ retry_config = Retry(
     total=5, backoff_factor=0.5, status_forcelist=[502, 504, 504, 403, 404]
 )
 # create the requests session
-session = requests.Session()
+session = cloudscraper.create_scraper()
 # mount adapters
 session.mount("http://", HTTPAdapter(max_retries=retry_config))
 session.mount("https://", HTTPAdapter(max_retries=retry_config))
