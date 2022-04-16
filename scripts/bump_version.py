@@ -1,8 +1,8 @@
+import re
 import os
 from datetime import datetime
 
 from polarity.utils import version_to_tuple
-from polarity.version import __version__
 
 
 def bump_version(path: str, old: str, new: str):
@@ -22,9 +22,11 @@ def main() -> None:
     # get today's date
     dt = datetime.now()
     # change into scripts directory
-    os.chdir(os.path.dirname(__file__))
+    os.chdir(f"{os.path.dirname(__file__)}/..")
+    with open("polarity/version.py") as fp:
+        version = re.match(r'__version__ = "(.+)"', fp.read()).group(1)
     # convert current version to a tuple
-    current_version = version_to_tuple(__version__)
+    current_version = version_to_tuple(version)
     new_version = f"{dt.year}.{dt.month}.{dt.day}"
     # check if current version is today
     if current_version[:3] == version_to_tuple(new_version):
@@ -34,11 +36,11 @@ def main() -> None:
             revision = int(current_version[3]) + 1
         new_version += f"-{revision}"
     response = input(
-        f"current polarity version is {__version__}, bump to {new_version}? (Y/n) "
+        f"current polarity version is {version}, bump to {new_version}? (Y/n) "
     )
     if response in ("Y", "y", ""):
-        bump_version("../polarity/version.py", __version__, new_version)
-        bump_version("../setup.cfg", __version__, new_version)
+        bump_version("../polarity/version.py", version, new_version)
+        bump_version("../setup.cfg", version, new_version)
         print(f"bumped to {new_version}!")
         return True
     return False
