@@ -5,6 +5,7 @@ from polarity.utils import dict_merge, get_installation_path, strip_extension
 
 
 with open(f"{get_installation_path()}/lang/internal.toml", "rb") as fp:
+    # Load the default language
     internal_lang = tomli.load(fp)
     lang = internal_lang.copy()
 

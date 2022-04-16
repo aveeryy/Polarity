@@ -1,5 +1,4 @@
 name = "Español (España)"
-code = "esES"
 author = "aveeryy"
 
 [main]
@@ -9,12 +8,8 @@ unlocking = "Desbloqueando la descarga de %s"
 [args]
 added_arg = "Añadido argumento \"%s\" de %s"
 
-[args.groups]
-general = "Opciones generales"
-download = "Opciones de descarga"
-extractor = "Opciones de %s"
-debug = "Opciones de depuración"
-search = "Opciones de búsqueda"
+[args.except]
+argument_variable_empty = "El campo \"variable\" del argumento %s está vacio, por favor informa (o arregla) esto"
 
 [args.help]
 accounts_dir = "Directorio alternativo para archivos de cuentas"
@@ -57,11 +52,17 @@ url = "Enlaces"
 verbose = "Nivel de detallado de la salida"
 verbose_log = "Nivel de detallado de los registros"
 
+[args.groups]
+general = "Opciones generales"
+download = "Opciones de descarga"
+extractor = "Opciones de %s"
+debug = "Opciones de depuración"
+search = "Opciones de búsqueda"
+
 [polarity]
 all_tasks_finished = "Todas las tareas han finalizado en %s"
-available_languages = "Idiomas disponibles:"
-changed_index = "Cambiado índice a: %s"
-config_path = "Archivo de configuración: %s"
+changed_index = "Cambiado índice a %s"
+config_path = "Configuración cargada desde %s"
 created_filter = "Creado objeto %s con los parámetros %s y el filtro %s"
 deleting_log = "Nada que hacer, borrando registro"
 dump_options = "las opciones"
@@ -93,10 +94,6 @@ missing_ffmpeg = "ffmpeg no está instalado o no está en PATH"
 verbose_error = "Nivel de detallado invalido: %s"
 verbose_log_error = "Nivel de detallado de registros invalido: %s"
 
-[singularity]
-extracting_keys = "Extrayendo llaves de Widevine"
-using_version = "Singularity %s"
-
 [dl]
 cannot_download_content = "No se puede descargar %s \"%s\": %s"
 content_id = "el identificador de contenido"
@@ -109,13 +106,9 @@ url = "la URL"
 [penguin]
 assisting = "Asistiendo al hilo de descarga %s con %s"
 current_pool = "Pool actual: %s"
-doing_decryption = "Desencriptando la pista %s de %s con la llave %s"
 download_locked = "No se puede descargar \"%s\", bloqueado por otro descargador"
-debug_already_downloaded = "Saltando el segmento %s, ya se ha descargado previamente"
-debug_time_download = "La descarga ha tardado: %d segundos"
-debug_time_remux = "El multiplexado ha tardado: %d segundos"
 ffmpeg_remux_failed = "El proceso de ffmpeg ha crasheado, abortando, por favor crea una \"issue\" en GitHub con el siguiente archivo adjunto: %s"
-key_download = "Descargando la llave del segmento %s"
+key_download = "Descargando la llave de desencriptado del segmento %s"
 output_file_broken = "No se ha podido cargar el archivo de datos de descarga, recreando..."
 processing_stream = "Procesando el stream %s"
 resuming = "Resumiendo la descarga de %s..."
@@ -141,12 +134,12 @@ getting_stream = "Analizando stream"
 multiple_video_bitrates = "Múltiples pistas de audio con la misma resolución detectadas"
 picking_best_stream_0 = "Seleccionando el stream de video con mayor resolución"
 picking_best_stream_1 = "Seleccionando el stream de video con mayor bitrate"
-picking_best_stream_2 = "Seleccionando el stream de audio con mayor bitrate"
+picking_best_stream_2 = "Seleccionando el mejor stream"
 selected_stream = "Stream seleccionado: %s"
 
 [extractor]
 filter_check_fail = "No cumple con los filtros"
-generic_error = "¡Ha ocurrido un error! Mensaje de error: "
+generic_error = "¡Ha ocurrido un error! Por favor informa de esto en GitHub: %s"
 get_all_seasons = "Obteniendo información de todas las temporadas"
 get_media_info = "Obteniendo información %s \"%s\" (%s)"
 login_expired = "¡El inicio de sesión ha expirado!"
@@ -164,7 +157,6 @@ password_prompt = "Contraseña: "
 using_filters = "Usando filtros, el total en la barra de progreso va a ser impreciso"
 
 [extractor.base.except]
-argument_variable_empty = "El argumento de la variable está vacio"
 failed_load_cookiejar = "No se ha podido cargar la cookiejar: %s"
 no_cookiejar = "El extractor no tiene una cookiejar"
 
