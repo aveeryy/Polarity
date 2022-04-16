@@ -2,7 +2,6 @@ import argparse
 import os
 import re
 import sys
-from typing import List
 
 import shtab
 import tomli
@@ -15,7 +14,6 @@ from polarity.utils import (
     get_config_path,
     get_home_path,
     mkfile,
-    strip_extension,
     vprint,
 )
 from polarity.version import __version__
@@ -112,6 +110,10 @@ def parse_arguments(get_parser=False) -> dict:
         _external_arg_groups.append(group_name)
         dest[dest_name.lower()] = {}
         for arg in args:
+            if "variable" not in arg or not arg["variable"]:
+                raise Exception(
+                    lang["args"]["except"]["argument_variable_empty"] % arg["args"][0]
+                )
             # Add argument to group
             z.add_argument(*arg["args"], **arg["attrib"])
             vprint(lang["args"]["added_arg"] % (*arg["args"], dest_name), "debug")
@@ -462,7 +464,6 @@ paths = {
         "dl_log": "download.log",
         "dump": "Dumps/",
         "log": "Logs/",
-        # "sync_list": "sync.json",
         "tmp": "Temp/",
     }.items()
 }
