@@ -195,7 +195,7 @@ class AtresplayerExtractor(ContentExtractor):
         raise InvalidURLError
 
     def get_series_info(
-        self, series_id: str = None, return_raw_info=False
+        self, series_id: str, return_raw_info=False
     ) -> Union[Series, dict]:
 
         self._series_json = request_json(
@@ -241,7 +241,7 @@ class AtresplayerExtractor(ContentExtractor):
 
         return series
 
-    def get_seasons(self, series_id: str = None, return_raw_info=False) -> List[Season]:
+    def get_seasons(self, series_id: str, return_raw_info=False) -> List[Season]:
         vprint(lang["extractor"]["get_all_seasons"], "info", "atresplayer")
 
         if not hasattr(self, "_series_json"):
@@ -286,7 +286,7 @@ class AtresplayerExtractor(ContentExtractor):
         }
 
     def get_season_info(
-        self, season_id: str = None, return_raw_info=False
+        self, season_id: str, return_raw_info=False
     ) -> Union[Season, dict]:
 
         # Download season info json
@@ -317,7 +317,7 @@ class AtresplayerExtractor(ContentExtractor):
         )
 
     def get_episodes_from_season(
-        self, season_id: str = None, get_partial_episodes=False
+        self, series_id: str, season_id: str, get_partial_episodes=False
     ) -> List[Episode]:
 
         page = 0
@@ -328,7 +328,7 @@ class AtresplayerExtractor(ContentExtractor):
                 url=f"{self.API_URL}client/v1/row/search",
                 params={
                     "entityType": "ATPEpisode",
-                    "formatId": self.info.id,
+                    "formatId": series_id,
                     "seasonId": season_id,
                     "size": "100",
                     "page": page,
@@ -581,7 +581,9 @@ class AtresplayerExtractor(ContentExtractor):
                 total=season.episode_count,
                 leave=False,
             )
-            for episode in self.get_episodes_from_season(season):
+            for episode in self.get_episodes_from_season(
+                identifiers[Series], identifiers[Season]
+            ):
                 season.link_content(episode)
                 self.progress_bar.update()
             self.progress_bar.close()
