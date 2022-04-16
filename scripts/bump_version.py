@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 
-from polarity.downloader.penguin import __version__ as penguin
 from polarity.utils import version_to_tuple
 from polarity.version import __version__
 
@@ -19,34 +18,28 @@ def bump_version(path: str, old: str, new: str):
         fp.write(c)
 
 
-def main(module: str) -> None:
-
-    current = {
-        "polarity": (__version__, "../polarity/version.py"),
-        "penguin": (penguin, "../polarity/downloader/penguin.py"),
-    }
-
+def main() -> None:
+    # get today's date
     dt = datetime.now()
-
+    # change into scripts directory
     os.chdir(os.path.dirname(__file__))
-    current_module = version_to_tuple(current[module][0])
+    # convert current version to a tuple
+    current_version = version_to_tuple(__version__)
     new_version = f"{dt.year}.{dt.month}.{dt.day}"
     # check if current version is today
-    if current_module[:3] == version_to_tuple(new_version):
+    if current_version[:3] == version_to_tuple(new_version):
         revision = 1
-        if len(current_module) > 3:
+        if len(current_version) > 3:
             # already has a revision
-            revision = int(current_module[3]) + 1
+            revision = int(current_version[3]) + 1
         new_version += f"-{revision}"
     response = input(
-        f"current {module} version is {current[module][0]}, bump to {new_version}? (Y/n) "
+        f"current polarity version is {__version__}, bump to {new_version}? (Y/n) "
     )
     if response in ("Y", "y", ""):
-        bump_version(current[module][1], current[module][0], new_version)
-        if module == "polarity":
-            # also bump the configuration file
-            bump_version("../setup.cfg", current[module][0], new_version)
-        print("bumped!")
+        bump_version("../polarity/version.py", __version__, new_version)
+        bump_version("../setup.cfg", __version__, new_version)
+        print(f"bumped to {new_version}!")
         return True
     return False
 
@@ -54,7 +47,6 @@ def main(module: str) -> None:
 if __name__ == "__main__":
     try:
         main("polarity")
-        main("penguin")
     except KeyboardInterrupt:
         print("exiting")
         os._exit(0)
