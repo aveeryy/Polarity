@@ -94,21 +94,7 @@ class ContentExtractor(BaseExtractor):
 
         Also, executes some extraction-related hooks
         """
-        # predefine hook variables
-        hook_main_content = False
         while self._extractor.is_alive():
-            if hasattr(self, "info") and self.info.title and not hook_main_content:
-                # Extracted main content* hook
-                # *Series and Movie objects
-                self.__execute_hooks(
-                    "extracted_main_content",
-                    {
-                        "title": self.info.title,
-                        "type": self.info.__class__.__name__,
-                        "object": self.info,
-                    },
-                )
-                hook_main_content = True
             sleep(0.5)
         # remove handler from the logger
         logging.getLogger(f"extractor-{self._thread_id}").handlers = []
@@ -284,16 +270,25 @@ class ContentExtractor(BaseExtractor):
         return wrapper
 
     @_has_cookiejar
-    def save_cookies(
-        self, cookies: Union[CookieJar, list], filter_list: list = None
-    ) -> bool:
+    def save_cookies(self, cookies: Union[CookieJar, list], filter_list: list = None):
+        """
+        Import cookies from another cookiejar / a list of Cookie objects
+
+        :param cookies: Cookiejar / list of cookies
+        :param filter_list: Cookies to import (list of cookies' names)
+        """
         for cookie in cookies:
-            if filter_list is not None and cookie.name in filter_list:
+            if (
+                filter_list is None
+                or filter_list is not None
+                and cookie.name in filter_list
+            ):
                 self.cjar.set_cookie(cookie=cookie)
         self.cjar.save(ignore_discard=True, ignore_expires=True)
 
     @_has_cookiejar
     def cookie_exists(self, cookie_name: str) -> bool:
+        """Checks if the cookie exists in the jar"""
         return cookie_name in self.cjar.as_lwp_str()
 
     def login(self, username: str = None, password: str = None) -> bool:
@@ -323,6 +318,9 @@ class ContentExtractor(BaseExtractor):
     ##################################
     # Content filtering and checking #
     ##################################
+
+    def notify_extraction(self, content: Union[Content, ContentContainer]):
+        self.__execute_hooks("extracted_content", {"content": content})
 
     def check_content(self, content: Union[Content, ContentContainer]) -> bool:
         def check() -> bool:
