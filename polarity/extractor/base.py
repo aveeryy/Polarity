@@ -305,16 +305,14 @@ class ContentExtractor(BaseExtractor):
         return passes
 
     def _parse_filters(self) -> None:
-        """Parses number filters with _parse_number_filters, adds the rest to a list"""
+        """Parses non-NumberFilter episodes and adds them to self.filters"""
         number_filters = [f for f in self.unparsed_filters if type(f) is NumberFilter]
         self._seasons = self._parse_number_filters(number_filters)
-        self.filters = [
-            f for f in self.unparsed_filters if type(f) in (MatchFilter, TypeFilter)
-        ]
+        self.filters = [f for f in self.unparsed_filters if type(f) != NumberFilter]
 
     def _parse_number_filters(self, filters: list) -> dict:
-        _dict = {}
-        _final = {}
+        """Parse NumberFilter filters into a dict with seasons and episodes to extract"""
+        _final = {}  # The final result
         for _filter in filters:
             if _filter.seasons and _filter.episodes:
                 # S01E01-like string
@@ -325,20 +323,24 @@ class ContentExtractor(BaseExtractor):
             elif _filter.episodes:
                 # E01-like string
                 _dict = {"ALL": [k for k in _filter.episodes]}
-            # self._seasons = {**self._seasons, **_dict}
             for k, v in _dict.items():
+                # k is the season, e the episodes / content
                 if k not in _final:
-                    # Season 1 not in self.__seasons:
-                    # add values (v) to self._seasons[1]
+                    # Season 1 not in _final:
+                    # add values (v) to _final[k]
                     _final[k] = v
                 elif k in _final and _final[k] == "ALL":
-                    # Season 1 in self.__seasons, self._seasons[1] value is ALL
-                    # skip, since all episodes from season 1 are already set to
+                    # Season (k) is in _final and _final[k] value is ALL (episodes)
+                    # skip, since all episodes from that season are already set to
                     # extraction
-                    continue
+                    pass
                 elif k in _final and _final[k] != "ALL" and v != "ALL":
+                    # Season is in _final and _final[k] value is not ALL, therefore
+                    # is a list of episodes, extend that list
                     _final[k].extend(v)
                 elif k in _final and _final[k] != "ALL" and v == "ALL":
+                    # Season is in final and _final[k] value is not ALL, but new
+                    # value is ALL, therefore, replace the list will ALL
                     _final[k] = "ALL"
         return _final
 
@@ -356,7 +358,7 @@ class StreamExtractor(BaseExtractor):
     """
     StreamExtractor class
 
-    A complimentary class for ContentExtractor instances, 
+    A complimentary class for ContentExtractor instances,
 
     Subclasses of StreamExtractor need to be inherited along
     the ContentExtractor class
