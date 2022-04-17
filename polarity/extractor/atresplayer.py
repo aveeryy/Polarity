@@ -543,6 +543,7 @@ class AtresplayerExtractor(ContentExtractor):
         # Get the series information
         series = self.get_series_info(identifiers[Series])
         self.info.link_content(series)
+        self.notify_extraction(series)
 
         if url_type == Series:
             # Gets information from all seasons
@@ -560,14 +561,17 @@ class AtresplayerExtractor(ContentExtractor):
                 # link the episode
                 # better to treat it as a pseudo-movie
                 series.link_content(episode.as_movie())
+                self.notify_extraction(episode.as_movie())
                 self.progress_bar.update()
             elif not series._atresplayer_mono:
                 for season in self.get_seasons():
                     _season = self.get_season_info(season.id)
                     # Link the season
                     series.link_content(_season)
+                    self.notify_extraction(_season)
                     for episode in self.get_episodes_from_season(_season.id):
                         _season.link_content(episode)
+                        self.notify_extraction(episode)
                         self.progress_bar.update()
             self.progress_bar.close()
 
@@ -575,6 +579,7 @@ class AtresplayerExtractor(ContentExtractor):
             # Gets single season information
             season = self.get_season_info(season_id=identifiers[Season])
             series.link_content(season)
+            self.notify_extraction(episode)
             self.progress_bar = ProgressBar(
                 head="extraction",
                 desc=series.title,
@@ -585,6 +590,7 @@ class AtresplayerExtractor(ContentExtractor):
                 identifiers[Series], identifiers[Season]
             ):
                 season.link_content(episode)
+                self.notify_extraction(season)
                 self.progress_bar.update()
             self.progress_bar.close()
 
@@ -593,9 +599,11 @@ class AtresplayerExtractor(ContentExtractor):
             season = self.get_season_info(season_id=identifiers[Season])
             # Get the episode / movie information
             episode = self.get_episode_info(episode_id=identifiers[Episode])
-            # Do links
+            # Do links and notify of extractions
             series.link_content(season)
+            self.notify_extraction(season)
             season.link_content(episode)
+            self.notify_extraction(episode)
         elif url_type is None:
             raise ExtractorError(lang["extractor"]["except"]["cannot_identify_url"])
 
