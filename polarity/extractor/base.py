@@ -16,8 +16,14 @@ from polarity.utils import dict_merge, mkfile, vprint
 
 
 class BaseExtractor:
-    def __init__(self, url: str, _options: dict = None, _thread_id: int = 0) -> None:
+    """
+    The base class for other *Extractor classes
 
+    Do NOT use this as a parent class for an extractor, instead use
+    ContentExtractor or StreamExtractor
+    """
+
+    def __init__(self, url: str, _options: dict = None, _thread_id: int = 0) -> None:
         from polarity.config import options
 
         self.url = url
@@ -54,26 +60,21 @@ class ContentExtractor(BaseExtractor):
         self._seasons = {}
         self.info = ContentContainer("initial", "__polarity_initial")
 
-        if self.extractor_name.lower() not in ("base", "content"):
-            # Do extractor validation
-            self._validate_extractor()
-            if not self._valid_extractor:
-                return
+        if hasattr(self, "FLAGS") and flags.AccountCapabilities in self.FLAGS:
+            if self.options.get("save_login_info", True):
+                # Account Capabilities is enabled, use the extractor's cookiejar
+                cjar_path = f"{paths['account']}{self.extractor_name.lower()}.cjar"
 
-            if flags.AccountCapabilities in self.FLAGS:
-                if self.options.get("save_login_info", True):
-                    # Account Capabilities is enabled, use the extractor's cookiejar
-                    cjar_path = f"{paths['account']}{self.extractor_name.lower()}.cjar"
+                if not os.path.exists(cjar_path):
+                    # Create the cookiejar
+                    mkfile(cjar_path, "#LWP-Cookies-2.0\n")
 
-                    if not os.path.exists(cjar_path):
-                        # Create the cookiejar
-                        mkfile(cjar_path, "#LWP-Cookies-2.0\n")
-
-                    self.cjar = LWPCookieJar(cjar_path)
-                else:
-                    self.cjar = LWPCookieJar()
-                # Load the cookiejar
-                self.cjar.load(ignore_discard=True, ignore_expires=True)
+                self.cjar = LWPCookieJar(cjar_path)
+            else:
+                # create an empty cookiejar cookiejar
+                self.cjar = LWPCookieJar()
+            # Load the cookiejar
+            self.cjar.load(ignore_discard=True, ignore_expires=True)
 
         if filter_list is None or not filter_list:
             # Set seasons and episodes to extract to ALL
@@ -145,112 +146,6 @@ class ContentExtractor(BaseExtractor):
 
         self.info._extractor = self.extractor_name
         return self.info
-
-    def _validate_extractor(self) -> bool:
-        """Check if extractor has all needed variables"""
-
-        @dataclass(frozen=True)
-        class Condition:
-            name: str
-            condition: bool
-
-        @dataclass(frozen=True)
-        class Feature:
-            name: str
-            conditions: List[Condition]
-            function: object
-
-            def __post_init__(self):
-                self.function(self)
-
-        def check_all_or_none(feature: Feature) -> bool:
-            checked = [v.condition for v in feature.conditions]
-            valid = all(checked) or not any(checked)
-            if not valid:
-                vprint(
-                    lang["extractor"]["base"]["check_failed"]
-                    % (
-                        feature.name,
-                        [v.name for v in feature.conditions if not v.condition],
-                    ),
-                    level="error",
-                )
-                if self._valid_extractor:
-                    self._valid_extractor = False
-
-        def check_all(feature: Feature) -> bool:
-            checked = [v.condition for v in feature.conditions]
-            valid = all(checked)
-            if not valid:
-                vprint(
-                    lang["extractor"]["base"]["check_failed"]
-                    % (
-                        feature.name,
-                        [v.name for v in feature.conditions if not v.condition],
-                    ),
-                    level="error",
-                )
-                if self._valid_extractor:
-                    self._valid_extractor = False
-
-        if self.extractor_name.lower() == "base":
-            return
-
-        self._valid_extractor = True
-        features = lang["extractor"]["check"]["features"]
-
-        # The base functionality for a polarity extractor
-        Feature(
-            features["base"],
-            [
-                Condition("variable.HOST", hasattr(self, "HOST")),
-                Condition("variable.ARGUMENTS", hasattr(self, "ARGUMENTS")),
-                Condition("variable.DEFAULTS", hasattr(self, "DEFAULTS")),
-                Condition("variable.FLAGS", hasattr(self, "FLAGS")),
-                Condition("function._extract", hasattr(self, "_extract")),
-                Condition("function.identify_url", hasattr(self, "identify_url")),
-                Condition("function._get_url_type", hasattr(self, "_get_url_type")),
-            ],
-            check_all,
-        )
-
-        # Check if extractor is already invalid, cannot continue testing
-        if not self._valid_extractor:
-            return False
-
-        Feature(
-            features["login"],
-            [
-                Condition(
-                    "flag.AccountCapabilities", flags.AccountCapabilities in self.FLAGS
-                ),
-                Condition("function._login", hasattr(self, "_login")),
-                Condition("function.is_logged_in", hasattr(self, "is_logged_in")),
-            ],
-            check_all_or_none,
-        )
-
-        Feature(
-            features["search"],
-            [
-                Condition("flag.EnableSearch", flags.EnableSearch in self.FLAGS),
-                Condition("function._search", hasattr(self, "_search")),
-            ],
-            check_all_or_none,
-        )
-
-        Feature(
-            features["livetv"],
-            [
-                Condition("flag.EnableLiveTV", flags.EnableLiveTV in self.FLAGS),
-                Condition(
-                    "function.get_live_tv_stream", hasattr(self, "get_live_tv_stream")
-                ),
-            ],
-            check_all_or_none,
-        )
-
-        return self._valid_extractor
 
     ###################
     # Cookiejar stuff #
@@ -461,6 +356,8 @@ class StreamExtractor(BaseExtractor):
     """
     StreamExtractor class
 
+    A complimentary class for ContentExtractor instances, 
+
     Subclasses of StreamExtractor need to be inherited along
     the ContentExtractor class
 
@@ -490,8 +387,4 @@ class ExtractorError(Exception):
 
 
 class InvalidURLError(Exception):
-    pass
-
-
-class InvalidExtractorError(Exception):
     pass

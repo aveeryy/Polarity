@@ -160,15 +160,6 @@ using_filters = "Usando filtros, el total en la barra de progreso va a ser impre
 failed_load_cookiejar = "No se ha podido cargar la cookiejar: %s"
 no_cookiejar = "El extractor no tiene una cookiejar"
 
-[extractor.check]
-invalid_extractor = "El extractor de contenido %s no es válido"
-
-[extractor.check.features]
-base = "funcionalidad base"
-login = "inicio de sesión"
-search = "búsqueda"
-livetv = "tv en directo"
-
 [extractor.except]
 argument_missing = "El parámetro %s es requerido"
 cannot_identify_url = "No se ha podido identificar el enlace"
