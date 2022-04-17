@@ -215,6 +215,7 @@ class ContentExtractor(BaseExtractor):
     ##################################
 
     def notify_extraction(self, content: Union[Content, ContentContainer]):
+        content.extractor = self.extractor_name
         self.__execute_hooks("extracted_content", {"content": content})
 
     def check_content(self, content: Union[Content, ContentContainer]) -> bool:
