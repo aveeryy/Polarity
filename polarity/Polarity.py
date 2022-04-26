@@ -413,9 +413,6 @@ class Polarity:
                 level="info",
             )
 
-        # if 'requests' in options['dump']:
-        #    vprint('Enabled dumping of HTTP requests', error_level='debug')
-
     def process_filters(self, filters: str, link=True) -> List[Filter]:
         "Create Filter objects from a string and link them to their respective links"
         filter_list = []
@@ -487,6 +484,15 @@ class Polarity:
                 self.pool[self.pool.index(item)]["reserved"] = True
             return item
 
+        def process_item_hook(content) -> None:
+            item = content["content"]
+            if not isinstance(item, Content):
+                # skip non-Content objects
+                return
+            file_path = self._format_filename(item)
+            item.output = file_path
+            self.download_pool.append(item)
+
         while True:
             item = take_item()
             if item is None:
@@ -508,20 +514,15 @@ class Polarity:
             self._execute_hooks(
                 "started_extraction", {"extractor": name, "name": item["url"]}
             )
-            extractor_object = extractor(item["url"], item["filters"], _thread_id=id)
+            extractor_object = extractor(
+                item["url"],
+                filter_list=item["filters"],
+                _options={"hooks": {"extracted_content": [process_item_hook]}},
+                _thread_id=id,
+            )
             extracted_info = extractor_object.extract()
             self.extracted_items.append(extracted_info)
-
-            while True:
-                contents = extracted_info.get_all_content(pop=True)
-                if not contents and extracted_info._extracted:
-                    # No more content to add to download list
-                    # and extractor finish, end loop
-                    break
-                for content in contents:
-                    file_path = self._format_filename(content)
-                    content.output = file_path
-                    self.download_pool.append(content)
+            extracted_info.halt_until_extracted()
 
             self._execute_hooks(
                 "finished_extraction", {"extractor": name, "name": item["url"]}
