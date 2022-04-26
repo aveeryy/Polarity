@@ -164,15 +164,6 @@ using_filters = "using filters, total count will be inaccurate"
 failed_load_cookiejar = "failed to load cookiejar: %s"
 no_cookiejar = "extractor has no cookiejar"
 
-[extractor.check]
-invalid_extractor = "extractor %s is invalid"
-
-[extractor.check.features]
-base = "base_functionality"
-login = "login"
-search = "search"
-livetv = "live_tv"
-
 [extractor.except]
 argument_missing = "%s argument is required"
 cannot_identify_url = "failed to identify URL"

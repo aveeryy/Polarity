@@ -879,6 +879,7 @@ class CrunchyrollExtractor(ContentExtractor):
         if url_type == Series:
             series_guid = url_ids[Series]
             series = self.get_series_info(series_id=series_guid)
+            self.notify_extraction(series)
             # link the series
             self.info.link_content(series)
 
@@ -908,6 +909,7 @@ class CrunchyrollExtractor(ContentExtractor):
                     continue
 
                 _season = self.get_season_info(season.id)
+                self.notify_extraction(_season)
                 # link the season with the series
                 series.link_content(_season)
                 # avoid getting episode information from unwanted seasons
@@ -921,12 +923,15 @@ class CrunchyrollExtractor(ContentExtractor):
                         _season.episode_count += 1
                         # now check the content
                         self.check_content(episode)
+                        self.notify_extraction(episode)
 
         elif url_type == Episode:
             # Get series and season info
             series = self.get_series_info(series_id=url_ids[Series])
+            self.notify_extraction(series)
             self.info.link_content(series)
             season = self.get_season_info(season_id=url_ids[Season])
+            self.notify_extraction(season)
             if not season._unwanted:
                 series.link_content(season)
                 # Parse the raw episode info
@@ -940,5 +945,6 @@ class CrunchyrollExtractor(ContentExtractor):
                 season.link_content(episode)
                 # check the episode
                 self.check_content(episode)
+                self.notify_extraction(episode)
         # Since extraction has finished, remove the partial flag
         self.info._partial = False

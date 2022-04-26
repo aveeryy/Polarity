@@ -161,15 +161,6 @@ argument_variable_empty = "The \"variable\" entry of argument %s is empty, pleas
 failed_load_cookiejar = "failed to load cookiejar: %s"
 no_cookiejar = "Extractor has no cookiejar"
 
-[extractor.check]
-invalid_extractor = "Content extractor %s is invalid"
-
-[extractor.check.features]
-base = "base functionality"
-login = "login"
-search = "search"
-livetv = "live_tv"
-
 [extractor.except]
 cannot_identify_url = "Failed to identify URL"
 no_id = "No id inputted"

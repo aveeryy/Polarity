@@ -16,8 +16,14 @@ from polarity.utils import dict_merge, mkfile, vprint
 
 
 class BaseExtractor:
-    def __init__(self, url: str, _options: dict = None, _thread_id: int = 0) -> None:
+    """
+    The base class for other *Extractor classes
 
+    Do NOT use this as a parent class for an extractor, instead use
+    ContentExtractor or StreamExtractor
+    """
+
+    def __init__(self, url: str, _options: dict = None, _thread_id: int = 0) -> None:
         from polarity.config import options
 
         self.url = url
@@ -25,6 +31,8 @@ class BaseExtractor:
         self._thread_id = _thread_id
         self.extractor_name = self.__class__.__name__.replace("Extractor", "")
         self.hooks = options.pop("hooks", {})
+        if _options is not None:
+            dict_merge(self.hooks, _options.pop("hooks", {}), False, True, True)
 
         if _options is None:
             _options = {self.extractor_name: {}}
@@ -54,26 +62,21 @@ class ContentExtractor(BaseExtractor):
         self._seasons = {}
         self.info = ContentContainer("initial", "__polarity_initial")
 
-        if self.extractor_name.lower() not in ("base", "content"):
-            # Do extractor validation
-            self._validate_extractor()
-            if not self._valid_extractor:
-                return
+        if hasattr(self, "FLAGS") and flags.AccountCapabilities in self.FLAGS:
+            if self.options.get("save_login_info", True):
+                # Account Capabilities is enabled, use the extractor's cookiejar
+                cjar_path = f"{paths['account']}{self.extractor_name.lower()}.cjar"
 
-            if flags.AccountCapabilities in self.FLAGS:
-                if self.options.get("save_login_info", True):
-                    # Account Capabilities is enabled, use the extractor's cookiejar
-                    cjar_path = f"{paths['account']}{self.extractor_name.lower()}.cjar"
+                if not os.path.exists(cjar_path):
+                    # Create the cookiejar
+                    mkfile(cjar_path, "#LWP-Cookies-2.0\n")
 
-                    if not os.path.exists(cjar_path):
-                        # Create the cookiejar
-                        mkfile(cjar_path, "#LWP-Cookies-2.0\n")
-
-                    self.cjar = LWPCookieJar(cjar_path)
-                else:
-                    self.cjar = LWPCookieJar()
-                # Load the cookiejar
-                self.cjar.load(ignore_discard=True, ignore_expires=True)
+                self.cjar = LWPCookieJar(cjar_path)
+            else:
+                # create an empty cookiejar cookiejar
+                self.cjar = LWPCookieJar()
+            # Load the cookiejar
+            self.cjar.load(ignore_discard=True, ignore_expires=True)
 
         if filter_list is None or not filter_list:
             # Set seasons and episodes to extract to ALL
@@ -94,21 +97,7 @@ class ContentExtractor(BaseExtractor):
 
         Also, executes some extraction-related hooks
         """
-        # predefine hook variables
-        hook_main_content = False
         while self._extractor.is_alive():
-            if hasattr(self, "info") and self.info.title and not hook_main_content:
-                # Extracted main content* hook
-                # *Series and Movie objects
-                self.__execute_hooks(
-                    "extracted_main_content",
-                    {
-                        "title": self.info.title,
-                        "type": self.info.__class__.__name__,
-                        "object": self.info,
-                    },
-                )
-                hook_main_content = True
             sleep(0.5)
         # remove handler from the logger
         logging.getLogger(f"extractor-{self._thread_id}").handlers = []
@@ -160,112 +149,6 @@ class ContentExtractor(BaseExtractor):
         self.info._extractor = self.extractor_name
         return self.info
 
-    def _validate_extractor(self) -> bool:
-        """Check if extractor has all needed variables"""
-
-        @dataclass(frozen=True)
-        class Condition:
-            name: str
-            condition: bool
-
-        @dataclass(frozen=True)
-        class Feature:
-            name: str
-            conditions: List[Condition]
-            function: object
-
-            def __post_init__(self):
-                self.function(self)
-
-        def check_all_or_none(feature: Feature) -> bool:
-            checked = [v.condition for v in feature.conditions]
-            valid = all(checked) or not any(checked)
-            if not valid:
-                vprint(
-                    lang["extractor"]["base"]["check_failed"]
-                    % (
-                        feature.name,
-                        [v.name for v in feature.conditions if not v.condition],
-                    ),
-                    level="error",
-                )
-                if self._valid_extractor:
-                    self._valid_extractor = False
-
-        def check_all(feature: Feature) -> bool:
-            checked = [v.condition for v in feature.conditions]
-            valid = all(checked)
-            if not valid:
-                vprint(
-                    lang["extractor"]["base"]["check_failed"]
-                    % (
-                        feature.name,
-                        [v.name for v in feature.conditions if not v.condition],
-                    ),
-                    level="error",
-                )
-                if self._valid_extractor:
-                    self._valid_extractor = False
-
-        if self.extractor_name.lower() == "base":
-            return
-
-        self._valid_extractor = True
-        features = lang["extractor"]["check"]["features"]
-
-        # The base functionality for a polarity extractor
-        Feature(
-            features["base"],
-            [
-                Condition("variable.HOST", hasattr(self, "HOST")),
-                Condition("variable.ARGUMENTS", hasattr(self, "ARGUMENTS")),
-                Condition("variable.DEFAULTS", hasattr(self, "DEFAULTS")),
-                Condition("variable.FLAGS", hasattr(self, "FLAGS")),
-                Condition("function._extract", hasattr(self, "_extract")),
-                Condition("function.identify_url", hasattr(self, "identify_url")),
-                Condition("function._get_url_type", hasattr(self, "_get_url_type")),
-            ],
-            check_all,
-        )
-
-        # Check if extractor is already invalid, cannot continue testing
-        if not self._valid_extractor:
-            return False
-
-        Feature(
-            features["login"],
-            [
-                Condition(
-                    "flag.AccountCapabilities", flags.AccountCapabilities in self.FLAGS
-                ),
-                Condition("function._login", hasattr(self, "_login")),
-                Condition("function.is_logged_in", hasattr(self, "is_logged_in")),
-            ],
-            check_all_or_none,
-        )
-
-        Feature(
-            features["search"],
-            [
-                Condition("flag.EnableSearch", flags.EnableSearch in self.FLAGS),
-                Condition("function._search", hasattr(self, "_search")),
-            ],
-            check_all_or_none,
-        )
-
-        Feature(
-            features["livetv"],
-            [
-                Condition("flag.EnableLiveTV", flags.EnableLiveTV in self.FLAGS),
-                Condition(
-                    "function.get_live_tv_stream", hasattr(self, "get_live_tv_stream")
-                ),
-            ],
-            check_all_or_none,
-        )
-
-        return self._valid_extractor
-
     ###################
     # Cookiejar stuff #
     ###################
@@ -284,16 +167,25 @@ class ContentExtractor(BaseExtractor):
         return wrapper
 
     @_has_cookiejar
-    def save_cookies(
-        self, cookies: Union[CookieJar, list], filter_list: list = None
-    ) -> bool:
+    def save_cookies(self, cookies: Union[CookieJar, list], filter_list: list = None):
+        """
+        Import cookies from another cookiejar / a list of Cookie objects
+
+        :param cookies: Cookiejar / list of cookies
+        :param filter_list: Cookies to import (list of cookies' names)
+        """
         for cookie in cookies:
-            if filter_list is not None and cookie.name in filter_list:
+            if (
+                filter_list is None
+                or filter_list is not None
+                and cookie.name in filter_list
+            ):
                 self.cjar.set_cookie(cookie=cookie)
         self.cjar.save(ignore_discard=True, ignore_expires=True)
 
     @_has_cookiejar
     def cookie_exists(self, cookie_name: str) -> bool:
+        """Checks if the cookie exists in the jar"""
         return cookie_name in self.cjar.as_lwp_str()
 
     def login(self, username: str = None, password: str = None) -> bool:
@@ -323,6 +215,10 @@ class ContentExtractor(BaseExtractor):
     ##################################
     # Content filtering and checking #
     ##################################
+
+    def notify_extraction(self, content: Union[Content, ContentContainer]):
+        content.extractor = self.extractor_name
+        self.__execute_hooks("extracted_content", {"content": content})
 
     def check_content(self, content: Union[Content, ContentContainer]) -> bool:
         def check() -> bool:
@@ -412,16 +308,14 @@ class ContentExtractor(BaseExtractor):
         return passes
 
     def _parse_filters(self) -> None:
-        """Parses number filters with _parse_number_filters, adds the rest to a list"""
+        """Parses non-NumberFilter episodes and adds them to self.filters"""
         number_filters = [f for f in self.unparsed_filters if type(f) is NumberFilter]
         self._seasons = self._parse_number_filters(number_filters)
-        self.filters = [
-            f for f in self.unparsed_filters if type(f) in (MatchFilter, TypeFilter)
-        ]
+        self.filters = [f for f in self.unparsed_filters if type(f) != NumberFilter]
 
     def _parse_number_filters(self, filters: list) -> dict:
-        _dict = {}
-        _final = {}
+        """Parse NumberFilter filters into a dict with seasons and episodes to extract"""
+        _final = {}  # The final result
         for _filter in filters:
             if _filter.seasons and _filter.episodes:
                 # S01E01-like string
@@ -432,20 +326,24 @@ class ContentExtractor(BaseExtractor):
             elif _filter.episodes:
                 # E01-like string
                 _dict = {"ALL": [k for k in _filter.episodes]}
-            # self._seasons = {**self._seasons, **_dict}
             for k, v in _dict.items():
+                # k is the season, e the episodes / content
                 if k not in _final:
-                    # Season 1 not in self.__seasons:
-                    # add values (v) to self._seasons[1]
+                    # Season 1 not in _final:
+                    # add values (v) to _final[k]
                     _final[k] = v
                 elif k in _final and _final[k] == "ALL":
-                    # Season 1 in self.__seasons, self._seasons[1] value is ALL
-                    # skip, since all episodes from season 1 are already set to
+                    # Season (k) is in _final and _final[k] value is ALL (episodes)
+                    # skip, since all episodes from that season are already set to
                     # extraction
-                    continue
+                    pass
                 elif k in _final and _final[k] != "ALL" and v != "ALL":
+                    # Season is in _final and _final[k] value is not ALL, therefore
+                    # is a list of episodes, extend that list
                     _final[k].extend(v)
                 elif k in _final and _final[k] != "ALL" and v == "ALL":
+                    # Season is in final and _final[k] value is not ALL, but new
+                    # value is ALL, therefore, replace the list will ALL
                     _final[k] = "ALL"
         return _final
 
@@ -462,6 +360,8 @@ class ContentExtractor(BaseExtractor):
 class StreamExtractor(BaseExtractor):
     """
     StreamExtractor class
+
+    A complimentary class for ContentExtractor instances,
 
     Subclasses of StreamExtractor need to be inherited along
     the ContentExtractor class
@@ -492,8 +392,4 @@ class ExtractorError(Exception):
 
 
 class InvalidURLError(Exception):
-    pass
-
-
-class InvalidExtractorError(Exception):
     pass

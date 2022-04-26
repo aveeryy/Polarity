@@ -248,6 +248,7 @@ class PokemonTVExtractor(ContentExtractor, LimelightExtractor):
         link_to_season = False
 
         series = self.get_series_info(identifiers[Series])
+        self.notify_extraction(series)
         self.info.link_content(series)
         if series._pokemontv_type == "episode":
             link_to_season = True
@@ -285,6 +286,7 @@ class PokemonTVExtractor(ContentExtractor, LimelightExtractor):
                     series.link_content(episode)
 
                 self.check_content(episode)
+                self.notify_extraction(episode)
 
             progress_bar.close()
         elif url_type is Episode:
@@ -299,5 +301,5 @@ class PokemonTVExtractor(ContentExtractor, LimelightExtractor):
                         season.number = number
             else:
                 series.link_content(episode)
-
             self.check_content(episode)
+            self.notify_extraction(episode)
