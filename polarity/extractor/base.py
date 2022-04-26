@@ -31,6 +31,8 @@ class BaseExtractor:
         self._thread_id = _thread_id
         self.extractor_name = self.__class__.__name__.replace("Extractor", "")
         self.hooks = options.pop("hooks", {})
+        if _options is not None:
+            dict_merge(self.hooks, _options.pop("hooks", {}), False, True, True)
 
         if _options is None:
             _options = {self.extractor_name: {}}
