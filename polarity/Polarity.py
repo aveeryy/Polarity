@@ -12,12 +12,9 @@ from copy import deepcopy
 from threading import Lock
 from typing import Dict, List, Union
 
-import tomli
 from tqdm import TqdmWarning
 
 from polarity.config import (
-    USAGE,
-    change_verbose_level,
     options,
     paths,
 )
@@ -75,8 +72,6 @@ class Polarity:
         :param _logging_level: override log verbose lvl
         """
 
-        from polarity import log_filename
-
         self.urls = urls
         # Load the download log from the default path
         self.__download_log = DownloadLog()
@@ -99,7 +94,11 @@ class Polarity:
             % (platform.python_version(), platform.platform()),
             level="debug",
         )
-        vprint(lang["polarity"]["log_path"] % log_filename, "debug")
+
+        if "--polarity-disable-main-log" not in sys.argv:
+            from polarity import log_filename
+
+            vprint(lang["polarity"]["log_path"] % log_filename, "debug")
 
         set_console_title(f"Polarity {__version__}")
 
@@ -191,10 +190,11 @@ class Polarity:
         # Actual start-up
         if options["mode"] == "download":
             if not self.urls:
-                vprint(lang["polarity"]["deleting_log"], "debug")
-                self.delete_session_log()
+                if "--polarity-disable-main-log" not in sys.argv:
+                    vprint(lang["polarity"]["deleting_log"], "debug")
+                    self.delete_session_log()
                 # Exit if not urls have been inputted
-                print(f"{lang['polarity']['use']}{USAGE}\n")
+                print(f"{lang['polarity']['use']}{lang['polarity']['usage']}\n")
                 print(lang["polarity"]["use_help"])
                 os._exit(1)
 
@@ -216,6 +216,8 @@ class Polarity:
                 # ask user for login here, otherwise if more than one url
                 # is inputted the email and password prompts would collide one
                 # with eachother
+                if item["extractor"] is None:
+                    continue
                 if (
                     flags.ExtractionLoginRequired in item["extractor"][1].FLAGS
                     and not item["extractor"][1]().is_logged_in()
