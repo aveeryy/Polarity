@@ -1,6 +1,7 @@
 import io
 import logging
 import sys
+
 from polarity.config import paths  # noqa
 from polarity.utils import filename_datetime  # noqa
 
@@ -15,11 +16,11 @@ __handler.setFormatter(__formatter)
 logging.getLogger(__name__).addHandler(__handler)
 
 
-AVOID_RUNNING = ["pytest", "black"]
+AVOID_LOGGING = ["pytest", "black", "--polarity-disable-file-log"]
 
 # avoid creating an empty log file if vscode pytest's
 # test discovery is triggered
-if not [x for x in AVOID_RUNNING if x in sys.argv]:
+if not [x for x in AVOID_LOGGING if x in sys.argv]:
     # Set logging filename and configuration
     log_filename = paths["log"] + f"log_{filename_datetime()}.log"
     # create log file with the temporary handler output as a base
@@ -34,7 +35,7 @@ if not [x for x in AVOID_RUNNING if x in sys.argv]:
     log_handler.setFormatter(__formatter)
     logging.getLogger(__name__).addHandler(log_handler)
 
-# cleanup the temporary handler stuff
-__log_capture.close()
-del __log_capture
-del __handler
+    # cleanup the temporary handler stuff
+    __log_capture.close()
+    del __log_capture
+    del __handler

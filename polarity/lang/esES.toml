@@ -72,6 +72,7 @@ finished_download = "Finalizadas las tareas de descarga"
 finished_extraction = "Finalizadas las tareas de extracción"
 installed_languages = "Idiomas instalados:"
 language_format = "%s [%s] por %s"
+login_required = "%s requiere iniciar sesión"
 log_path = "Escribiendo registro en: %s"
 not_a_content_id = '"%s" no es un identificador de contenido'
 no_space_left = "No queda espacio disponible en el dispositivo, saliendo..."
@@ -79,7 +80,7 @@ python_version = "Python %s | %s"
 requesting = "Solicitando: %s"
 search_no_results = "No se han encontrado resultados con el término: %s"
 search_term = "Término de búsqueda: "
-search_usage = "polarity --mode search [OPCIONES] TÉRMINO_DE_BÚSQUEDA"
+search_usage = "polarity search [OPCIONES] TÉRMINO_DE_BÚSQUEDA"
 unknown_channel = "ID del canal de televisión desconocido"
 unsupported_python = "Versión de Python no soportada (%s), actualiza a Python 3.7 o superior"
 update_available = "La versión %s está disponible"
@@ -121,9 +122,10 @@ thread_started = "Se ha iniciado el hilo \"%s\""
 threads_started = "Iniciando %d hilos de descarga"
 
 [penguin.args]
+attempts = "Intentos de descarga por segmento"
 keep_logs = "Copia los registros de descarga junto al archivo final"
 tag_output = "Añade la versión de Polarity al archivo final"
-threads = "Número de hilos por descarga"
+threads = "Hilos de descarga a usar"
 
 [penguin.except]
 download_fail = "No se ha podido descargar el segmento %s: %s"
@@ -195,11 +197,9 @@ unsupported_native = "Actualizar binarios nativos no está implementado"
 no_content_in_season = "No hay episodios en %s (%s)"
 no_seasons = "El contenido no tiene temporadas"
 
-[atresplayer.except]
-invalid_codec = "El códec especificado en los ajustes es inválido."
-
 [atresplayer.args]
-codec = "Preferencia del códec"
+avc_codec = "Preferir códec AVC incluso si hay un stream con códec HEVC"
+hevc_codec = "Preferir códec HEVC si está disponible"
 
 [crunchyroll]
 bearer_fetch = "Obteniendo token Bearer"

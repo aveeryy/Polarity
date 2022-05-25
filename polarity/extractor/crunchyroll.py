@@ -31,107 +31,7 @@ class CrunchyrollExtractor(ContentExtractor):
 
     HOST = r"(?:http(?:s://|://|)|)(?:www\.|beta\.|)crunchyroll\.com"
 
-    DEFAULTS = {
-        "sub_language": ["all"],
-        "dub_language": ["all"],
-        "meta_language": "en-US",
-        "hardsub_language": "none",
-    }
-
-    ARGUMENTS = [
-        {
-            "args": ["--crunchyroll-subs"],
-            "attrib": {
-                "choices": [
-                    "all",
-                    "none",
-                    "en-US",
-                    "es-ES",
-                    "es-LA",
-                    "fr-FR",
-                    "pt-BR",
-                    "ar-ME",
-                    "it-IT",
-                    "de-DE",
-                    "ru-RU",
-                    "tr-TR",
-                ],
-                "help": lang["crunchyroll"]["args"]["subs"],
-                "nargs": "+",
-            },
-            "variable": "sub_language",
-        },
-        {
-            "args": ["--crunchyroll-dubs"],
-            "attrib": {
-                "choices": [
-                    "all",
-                    "ja-JP",
-                    "en-US",
-                    "es-LA",
-                    "fr-FR",
-                    "pt-BR",
-                    "it-IT",
-                    "de-DE",
-                    "ru-RU",
-                ],
-                "help": lang["crunchyroll"]["args"]["dubs"],
-                "nargs": "+",
-            },
-            "variable": "dub_language",
-        },
-        {
-            "args": ["--crunchyroll-meta"],
-            "attrib": {
-                "choices": [
-                    "en-US",
-                    "es-LA",
-                    "es-ES",
-                    "fr-FR",
-                    "pt-BR",
-                    "ar-ME",
-                    "it-IT",
-                    "de-DE",
-                    "ru-RU",
-                ],
-                "help": lang["crunchyroll"]["args"]["meta"],
-            },
-            "variable": "meta_language",
-        },
-        {
-            "args": ["--crunchyroll-hardsub"],
-            "attrib": {
-                "choices": [
-                    "none",
-                    "en-US",
-                    "es-LA",
-                    "es-ES",
-                    "fr-FR",
-                    "pt-BR",
-                    "ar-ME",
-                    "it-IT",
-                    "de-DE",
-                    "ru-RU",
-                ],
-                "help": lang["crunchyroll"]["args"]["hard"],
-            },
-            "variable": "hardsub_language",
-        },
-        {
-            "args": ["--crunchyroll-email"],
-            "attrib": {
-                "help": lang["args"]["help"]["email"] % "Crunchyroll",
-            },
-            "variable": "username",
-        },
-        {
-            "args": ["--crunchyroll-password"],
-            "attrib": {
-                "help": lang["args"]["help"]["pass"] % "Crunchyroll",
-            },
-            "variable": "password",
-        },
-    ]
+    API_URL = "https://beta-api.crunchyroll.com/"
 
     account_info = {
         "basic": "Basic bm9haWhkZXZtXzZpeWcwYThsMHE6",
@@ -146,62 +46,37 @@ class CrunchyrollExtractor(ContentExtractor):
         "email": None,
     }
 
-    API_URL = "https://beta-api.crunchyroll.com/"
-
     FLAGS = {flags.AccountCapabilities, flags.EnableSearch}
 
+    # fmt: off
     LANG_CODES = {
-        "en-US": {
-            "meta": "",
-            "lang": "eng",
-            "name": "English (USA)",
-            "dub": r"\(English Dub\)",
-        },
+        "en-US": {"meta": "", "lang": "eng", "name": "English (USA)", "dub": r"\(English Dub\)"},
         "es-ES": {"meta": "es-es", "lang": "spa", "name": "Español (España)"},
-        "es-LA": {
-            "meta": "es",
-            "lang": "spa",
-            "name": "Español (América Latina)",
-            "dub": r"\(Spanish Dub\)",
-        },
-        "fr-FR": {
-            "meta": "fr",
-            "lang": "fre",
-            "name": "Français (France)",
-            "dub": r"\(French Dub\)",
-        },
-        "pt-BR": {
-            "meta": "pt-br",
-            "lang": "por",
-            "name": "Português (Brasil)",
-            "dub": r"\(Portuguese Dub\)",
-        },
-        "de-DE": {
-            "meta": "de",
-            "lang": "ger",
-            "name": "Deutsch",
-            "dub": r"\(German Dub\)",
-        },
-        "it-IT": {
-            "meta": "it",
-            "lang": "ita",
-            "name": "Italiano",
-            "dub": r"\(Italian Dub\)",
-        },
+        "es-LA": {"meta": "es", "lang": "spa", "name": "Español (América Latina)", "dub": r"\(Spanish Dub\)"},
+        "fr-FR": {"meta": "fr", "lang": "fre", "name": "Français (France)", "dub": r"\(French Dub\)"},
+        "pt-BR": {"meta": "pt-br", "lang": "por", "name": "Português (Brasil)", "dub": r"\(Portuguese Dub\)"},
+        "pt-PT": {"meta": "pt-pt"},
+        "de-DE": {"meta": "de", "lang": "ger", "name": "Deutsch", "dub": r"\(German Dub\)"},
+        "it-IT": {"meta": "it", "lang": "ita", "name": "Italiano", "dub": r"\(Italian Dub\)"},
         "ar-ME": {"meta": "ar", "lang": "ara", "name": "العربية"},
-        "ru-RU": {
-            "meta": "ru",
-            "lang": "rus",
-            "name": "Русский",
-            "dub": r"\(Russian\)",
-        },
+        "ru-RU": {"meta": "ru", "lang": "rus", "name": "Русский", "dub": r"\(Russian\)"},
         "tr-TR": {"meta": "", "lang": "tur", "name": "Türkçe"},
         "ja-JP": {"meta": "", "lang": "jpn", "name": "日本語", "dub": r"[^()]"},
     }
+    # fmt: on
 
     def __post_init__(self) -> None:
         self.get_bearer_token()
         self.get_cms_tokens()
+
+        if self.options["crunchyroll"]["meta_language"] == "auto":
+            # Default to United States English
+            language = "en-US"
+            if not is_content_id(self.url):
+                language = self._get_url_language(self.url)
+                vprint(f"determined language: {language}", "debug", "crunchyroll")
+            # Set the language
+            self.options["crunchyroll"]["meta_language"] = language
 
     @staticmethod
     def check_for_error(contents: dict, error_msg: str = None) -> bool:
@@ -304,6 +179,21 @@ class CrunchyrollExtractor(ContentExtractor):
             if match:
                 return (media_type, match.group("id"))
         raise InvalidURLError
+
+    @classmethod
+    def _get_url_language(self, url: str) -> str:
+        """Get the metadata language from the content's url"""
+        REGEX = r"(?:/([\w-]{2,5})/|/)"
+        # Get the URL's path
+        path = urlparse(url).path
+        match = re.match(REGEX, path)
+        language = match.group(1)
+        if language in (None, "en-gb"):
+            # United States English is not specified in path
+            # British English is not supported in the new API
+            return "en-US"
+        # Get the language code for the API
+        return [k for k, v in self.LANG_CODES.items() if language == v["meta"]][0]
 
     def _get_etp_guid(
         self, series_id: int = None, season_id: int = None, episode_id: int = None

@@ -15,13 +15,7 @@ class LimelightExtractor(StreamExtractor):
 
     HOST = r"limelight:(\w{32})"
     DEFAULTS = {"preferred_format": "http"}
-    ARGUMENTS = [
-        {
-            "args": ["--limelight-format"],
-            "attrib": {"help": lang["limelight"]["args"]["format"]},
-            "variable": "preferred_format",
-        }
-    ]
+
     LIMELIGHT_API_URL = "https://production-ps.lvp.llnw.net/r/PlaylistService/media"
 
     @staticmethod

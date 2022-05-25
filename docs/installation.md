@@ -15,6 +15,7 @@ Download the **latest version** of Python: https://www.python.org/downloads/wind
 
 #### Using pip (Recommended)
 - Open a `cmd` or `powershell` window and type `pip install --user --upgrade Polarity`
+- Install ffmpeg using `python -m polarity --windows-setup`
 
 #### Using GitHub
 

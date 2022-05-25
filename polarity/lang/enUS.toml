@@ -72,6 +72,7 @@ finished_download = "Finished download tasks"
 finished_extraction = "Finished extraction tasks"
 installed_languages = "Languages:"
 language_format = "%s [%s] by %s"
+login_required = "%s requires login"
 log_path = "Writing log to %s"
 not_a_content_id = "\"%s\" is not a content identifier"
 no_space_left = "No space left on device, exiting..."
@@ -79,7 +80,7 @@ python_version = "Python %s | %s"
 requesting = "Requesting %s"
 search_no_results = "No results from search %s"
 search_term = "Search term: "
-search_usage = "polarity --mode search [OPTIONS] SEARCH_TERM"
+search_usage = "polarity search [OPTIONS] SEARCH_TERM"
 unknown_channel = "Unknown live tv channel identifier"
 unsupported_python = "Unsupported python version (%s), update to python 3.7 or higher"
 update_available = "Version %s is now available"
@@ -121,6 +122,7 @@ thread_started = "Started thread \"%s\""
 threads_started = "Starting %d download threads"
 
 [penguin.args]
+attempts = "Number of download attempts per segment"
 keep_logs = "Keep download logs along the final file"
 tag_output = "Add the polarity version to the final file"
 threads = "Number of threads per download"
@@ -195,11 +197,9 @@ unsupported_native = "Native binary update is not supported yet"
 no_content_in_season = "No episodes in season %s (%s)"
 no_seasons = "Content does not have seasons"
 
-[atresplayer.except]
-invalid_codec = "Codec \"%s\" is invalid"
-
 [atresplayer.args]
-codec = "Codec preferance"
+avc_codec = "Prefer AVC codec even if a HEVC stream is available"
+hevc_codec = "Prefer HEVC codec if available"
 
 [crunchyroll]
 bearer_fetch = "Fetching Bearer token"

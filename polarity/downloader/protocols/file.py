@@ -34,7 +34,7 @@ class FileProtocol(StreamProtocol):
         end = False  # stops range generation if True
         while True:
             # split the file in 1 MiB segments
-            final = current + (1024 ** 2)
+            final = current + (1024**2)
             if final > content_size:
                 # avoid requesting invalid bytes
                 final = content_size
@@ -42,7 +42,7 @@ class FileProtocol(StreamProtocol):
             yield f"{current + 1}-{final}"
             if end:
                 return
-            current += 1024 ** 2
+            current += 1024**2
 
     def process(self) -> List[SegmentPool]:
         """
