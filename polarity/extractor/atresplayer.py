@@ -2,7 +2,8 @@ import re
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
-from polarity.config import ConfigError
+from polarity.config.arguments import parser
+from polarity.config.errors import ConfigError
 from polarity.extractor.base import (
     ContentExtractor,
     ExtractorError,
@@ -32,49 +33,16 @@ from polarity.utils import (
 
 class AtresplayerExtractor(ContentExtractor):
     """
-    ## Atresplayer Extractor
-    `www.atresplayer.com`
-    ### Region lock
-    Stuff is region locked to Spain, some content is available worldwide with a premium account
+    TODO: docstrings
     """
 
-    HOST = r"(?:http(?:s://|://|)|)(?:www.|)atresplayer.com"
-
-    DEFAULTS = {
-        "codec": "hevc",
-    }
+    HOST = r"(?:http(?:s://|://)|)(?:www.|)atresplayer.com"
 
     API_URL = "https://api.atresplayer.com/"
 
     ACCOUNT_URL = "https://account.atresplayer.com/"
 
     LIVE_CHANNELS = {"antena3", "lasexta", "neox", "nova", "mega", "atreseries"}
-
-    ARGUMENTS = [
-        {
-            "args": ["--atresplayer-codec"],
-            "attrib": {
-                "choices": ["avc", "hevc"],
-                "default": "hevc",
-                "help": lang["atresplayer"]["args"]["codec"],
-            },
-            "variable": "codec",
-        },
-        {
-            "args": ["--atresplayer-email"],
-            "attrib": {
-                "help": lang["args"]["help"]["email"] % "Atresplayer",
-            },
-            "variable": "username",
-        },
-        {
-            "args": ["--atresplayer-password"],
-            "attrib": {
-                "help": lang["args"]["help"]["pass"] % "Atresplayer",
-            },
-            "variable": "password",
-        },
-    ]
 
     FLAGS = {
         flags.VideoExtractor,
@@ -85,7 +53,6 @@ class AtresplayerExtractor(ContentExtractor):
     }
 
     def _login(self, username: str, password: str):
-
         res = request_json(
             url=f"{self.ACCOUNT_URL}auth/v1/login",
             method="POST",
@@ -427,33 +394,27 @@ class AtresplayerExtractor(ContentExtractor):
                         streams.append(_stream)
                         streams_ids.append(stream_type[1])
 
-            if (
-                "hls_hevc" in streams_ids
-                and self.options["atresplayer"]["codec"].lower() == "hevc"
-            ):
+            if self.options["atresplayer"]["use_hevc"] and "hls_hevc" in streams_ids:
                 # Case 1: HEVC stream and preferred codec is HEVC
                 preferred = "hls_hevc"
             elif (
-                self.options["atresplayer"]["codec"].lower() == "avc"
+                not self.options["atresplayer"]["use_hevc"]
                 or "hls_hevc" not in streams_ids
             ):
-                # Case 2.1: Not DRM and codec preferance is AVC
-                # Case 2.2: Not DRM and not HEVC stream
+                # Case 2.1: Codec preferance is AVC
+                # Case 2.2: Codec preferance is HEVC, but no HEVC stream
                 preferred = "hls_avc"
-            else:
-                raise ConfigError(lang["atresplayer"]["except"]["invalid_codec"])
 
             # set the preferred stream
             [s for s in streams if preferred in s.id][0].wanted = True
 
         return streams
 
-    # Extra stuff
-
     @classmethod
     def get_all_genres(self) -> Dict[str, str]:
-        """Returns a list of dicts containing name,
-        id and API url of every Atresplayer genre"""
+        """
+        Returns a list of dicts containing name, id and API url of every Atresplayer genre
+        """
         genres = {}
         list_index = 0
         while True:

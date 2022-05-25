@@ -15,6 +15,7 @@ argument_variable_empty = "the \"variable\" entry of the argument %s does not ex
 accounts_dir = "custom directory for account files"
 binaries_dir = "custom directory with ffmpeg binaries"
 config_file = "custom configuration file path"
+do_not_redownload = "avoid redownloading previously downloaded content (default)"
 download_dir_generic = "download dir for generic content"
 download_dir_series = "download dir for tv series"
 download_dir_movies = "download dir for movies"
@@ -72,6 +73,7 @@ finished_download = "finished: download tasks"
 finished_extraction = "finished: extraction tasks"
 installed_languages = "languages:"
 language_format = "%s [%s] by %s"
+login_required = "%s requires login"
 log_path = "writing log to: %s"
 not_a_content_id = "\"%s\" is not a content identifier"
 no_space_left = "no space left on device, exiting..."
@@ -125,6 +127,7 @@ thread_started = "start: downloader \"%s\""
 threads_started = "start: %d download threads"
 
 [penguin.args]
+attempts = "number of download attempts per segment"
 keep_logs = "keep download logs along the final file"
 tag_output = "add the polarity version to the final file"
 threads = "number of threads per download"
@@ -199,11 +202,9 @@ unsupported_native = "native binary update is not supported yet"
 no_content_in_season = "no episodes in %s (%s)"
 no_seasons = "content does not have seasons"
 
-[atresplayer.except]
-invalid_codec = "invalid codec"
-
 [atresplayer.args]
-codec = "codec preferance"
+avc_codec = "prefer AVC codec even if a HEVC stream is available"
+hevc_codec = "prefer HEVC codec if available"
 
 [crunchyroll]
 bearer_fetch = "fetching: bearer token"

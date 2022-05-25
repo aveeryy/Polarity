@@ -135,7 +135,8 @@ def vprint(
         locked_by_me = True
 
     try:
-        from polarity.config import VALID_VERBOSE_LEVELS, ConfigError, options
+        from polarity.config import ConfigError, options
+        from polarity.config.defaults import VALID_VERBOSE_LEVELS
         from polarity.lang import lang
 
     except ImportError as ex:
@@ -400,7 +401,7 @@ def dict_merge(
     for k in merge_dct:
         if k in dct and type(dct[k]) is dict and type(merge_dct[k] is dict):
             dict_merge(dct[k], merge_dct[k], overwrite, True)
-        elif k not in dct or overwrite and merge_dct[k] not in (False, None):
+        elif k not in dct or overwrite and merge_dct[k] is not None:
             if (
                 k in dct
                 and isinstance(dct[k], list)

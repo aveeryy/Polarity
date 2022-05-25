@@ -30,20 +30,10 @@ from polarity.utils import (
 class PokemonTVExtractor(ContentExtractor, LimelightExtractor):
     """ """
 
-    # Hostname(s) of extractor's webpage
     HOST = r"(?:http(?:s://|://|)|)watch\.pokemon\.com"
 
     API_URL = "https://www.pokemon.com/api/pokemontv/v2"
 
-    # Default configuration for the extractor
-    # Will get written to configuration file on start-up
-    DEFAULTS = {}
-
-    # Command line arguments
-    ARGUMENTS = []
-
-    # Extractor functionality flags
-    # Check the polarity.extractor.flags module to see all the flags
     FLAGS = {}
 
     LANG_CODES = {

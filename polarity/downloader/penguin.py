@@ -34,62 +34,6 @@ from polarity.version import __version__
 class PenguinDownloader(BaseDownloader):
 
     thread_lock = threading.Lock()
-
-    ARGUMENTS = [
-        {
-            "args": ["--penguin-threads"],
-            "attrib": {"help": lang["penguin"]["args"]["threads"]},
-            "variable": "threads",
-        },
-        {
-            "args": ["--penguin-tag-output"],
-            "attrib": {
-                "help": lang["penguin"]["args"]["tag_output"],
-                "action": "store_true",
-            },
-            "variable": "tag_output",
-        },
-        {
-            "args": ["--penguin-keep_logs"],
-            "attrib": {
-                "help": lang["penguin"]["args"]["keep_logs"],
-                "action": "store_true",
-            },
-            "variable": "keep_logs",
-        },
-    ]
-
-    DEFAULTS = {
-        "attempts": 10,
-        "threads": 5,
-        # Add a metadata entry with the Polarity version
-        "tag_output": False,
-        "keep_logs": False,
-        # Delete segments as these are merged to the final file
-        # 'delete_merged_segments': True,
-        "ffmpeg": {
-            "codecs": {
-                "video": "copy",
-                "audio": "copy",
-                # Changing this is not recommended, specially with Crunchyroll
-                # since it uses SSA subtitles with styles, converting those to
-                # SRT will cause them to lose all formatting
-                # Instead make a codec rule with the source format's extension
-                # and the desired codec
-                "subtitles": "copy",
-            },
-            "codec_rules": {
-                ".vtt": [["subtitles", "srt"]],
-            },
-        },
-        "tweaks": {
-            # Fixes Atresplayer subtitles italic parts
-            "atresplayer_subtitle_fix": True,
-            # Converts ttml2 subtitles to srt with internal convertor
-            # "convert_ttml2_to_srt": True,
-        },
-    }
-
     _SIGNAL = {}
 
     def __init__(self, item: Content, _options=None, _thread_id: int = 0) -> None:
@@ -873,7 +817,7 @@ class PenguinDownloader(BaseDownloader):
         return data.replace("&apos;", "'").encode()
 
     def check_signal(self) -> str:
-        """Check if a signal has been sent to this PenguinDownloader object"""
+        """Check if a signal has been sent to this PenguinDownloader instance"""
         return [x for x in ("all", self._thread_id) if x in self._SIGNAL]
 
     def set_signal(self, signal: str) -> None:

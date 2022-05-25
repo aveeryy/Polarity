@@ -58,8 +58,6 @@ class Polarity:
         self,
         urls: list,
         opts: dict = None,
-        _verbose_level: str = None,
-        _logging_level: str = None,
     ) -> None:
         """
         Polarity class
@@ -95,12 +93,17 @@ class Polarity:
             level="debug",
         )
 
-        if "--polarity-disable-main-log" not in sys.argv:
+        if "--polarity-disable-file-log" not in sys.argv:
+            # The internal disable log argument has been passed, disable logging
             from polarity import log_filename
 
             vprint(lang["polarity"]["log_path"] % log_filename, "debug")
 
-        set_console_title(f"Polarity {__version__}")
+        # The string used to change the terminal's title messes mpv / vlc
+        # when running Polarity in a subshell (inside of '$()')
+        # TODO: remove when "watch" mode supercedes livetv
+        if options["action"] != "livetv":
+            set_console_title(f"Polarity {__version__}")
 
         # Warn user of unsupported Python versions
         if sys.version_info <= (3, 6):
@@ -117,13 +120,6 @@ class Polarity:
         # from the options dictionary so here's (hopefully) a
         # workaround for that
         self.hooks = options["hooks"] if "hooks" in options else {}
-
-        # Scripting only, override the session verbose level,
-        # since verbose level is set before options merge.
-        if _verbose_level is not None:
-            change_verbose_level(_verbose_level, True)
-        if _logging_level is not None:
-            change_verbose_level(_logging_level, False, True)
 
     def cleanup(self):
         """
@@ -187,10 +183,9 @@ class Polarity:
         if options["dump"]:
             self.dump_information(options["dump"])
 
-        # Actual start-up
-        if options["mode"] == "download":
+        if options["action"] == "download":
             if not self.urls:
-                if "--polarity-disable-main-log" not in sys.argv:
+                if "--polarity-disable-file-log" not in sys.argv:
                     vprint(lang["polarity"]["deleting_log"], "debug")
                     self.delete_session_log()
                 # Exit if not urls have been inputted
@@ -222,7 +217,7 @@ class Polarity:
                     flags.ExtractionLoginRequired in item["extractor"][1].FLAGS
                     and not item["extractor"][1]().is_logged_in()
                 ):
-                    vprint(f"{item['extractor'][0]} requires login")
+                    vprint(lang["polarity"]["login_required"] % item["extractor"][0])
                     # login into the extractor
                     item["extractor"][1]().login()
 
@@ -270,7 +265,7 @@ class Polarity:
                 level="debug",
             )
 
-        elif options["mode"] == "search":
+        elif options["action"] == "search":
             if not self.urls:
                 # no search parameters, clear log and exit
                 vprint(lang["polarity"]["deleting_log"], "debug")
@@ -305,26 +300,13 @@ class Polarity:
                         )
                     )
 
-        elif options["mode"] == "livetv":
+        elif options["action"] == "livetv":
             # TODO: add check for urls
             channel = self.get_live_tv_channel(self.urls[0])
             if channel is None:
                 vprint(lang["polarity"]["unknown_channel"], level="error")
                 return
             print(channel)
-
-        elif options["mode"] == "debug":
-            if options["debug_colors"]:
-
-                change_verbose_level("debug")
-                # Test for different color printing
-                vprint("demo", module_name="demo")
-                vprint("demo", "warning", "demo")
-                vprint("demo", "error", "demo")
-                vprint("demo", "critical", "demo")
-                vprint("demo", "debug", "demo")
-                ProgressBar(head="demo", desc="progress_bar", total=0)
-                ProgressBar(head="demo", desc="progress_bar", total=1)
 
     @classmethod
     def search(
@@ -336,7 +318,7 @@ class Polarity:
     ) -> Dict[MediaType, List[SearchResult]]:
         """
         Search for content in compatible extractors
-        
+
         :param string: search term
         :param absolute_max: maximum number of results
         :param max_per_extractor: maximum number of results per extractor
@@ -390,7 +372,9 @@ class Polarity:
     @classmethod
     def get_live_tv_channel(self, id: str) -> str:
         extractors = {
-            n.lower(): e for n, e in EXTRACTORS.items() if flags.EnableLiveTV in e.FLAGS
+            n.lower(): e
+            for n, e in CONTENT_EXTRACTORS.items()
+            if flags.EnableLiveTV in e.FLAGS
         }
         parsed_id = parse_content_id(id)
         if parsed_id.extractor not in extractors:
@@ -403,14 +387,25 @@ class Polarity:
 
         if "options" in info:
             with open(
-                f'{paths["log"]}/options_{dump_time}.json', "w", encoding="utf-8"
+                f'{paths["log"]}options_{dump_time}.json', "w", encoding="utf-8"
             ) as f:
                 json.dump(options, f, indent=4)
             vprint(
                 lang["polarity"]["dumped_to"]
                 % (
                     lang["polarity"]["dump_options"],
-                    f"{paths['log']}/options{dump_time}.json",
+                    f"{paths['log']}options_{dump_time}.json",
+                ),
+                level="info",
+            )
+        if "urls" in info:
+            with open(f'{paths["log"]}urls_{dump_time}.txt', "w", encoding="utf-8") as f:
+                f.write("\n".join(self.urls))
+            vprint(
+                lang["polarity"]["dumped_to"]
+                % (
+                    "URLs",
+                    f"{paths['log']}urls_{dump_time}.txt",
                 ),
                 level="info",
             )
@@ -508,7 +503,8 @@ class Polarity:
                         if not is_content_id(item["url"])
                         else lang["dl"]["content_id"],
                         item["url"],
-                    )
+                    ),
+                    level="warning",
                 )
                 continue
 
@@ -535,7 +531,7 @@ class Polarity:
             if not self.download_pool and self._finished_extractions:
                 break
             elif not self.download_pool:
-                time.sleep(1)
+                time.sleep(0.1)
                 continue
             # Take an item from the download pool
             item = self.download_pool.pop(0)

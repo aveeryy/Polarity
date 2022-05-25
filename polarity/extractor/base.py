@@ -41,8 +41,6 @@ class BaseExtractor:
             self.options = dict_merge(
                 options["extractor"], _options, overwrite=True, modify=False
             )
-            if self.extractor_name.lower() not in options["extractor"]:
-                options["extractor"][self.extractor_name.lower()] = self.DEFAULTS
             self._opts = options["extractor"][self.extractor_name.lower()]
 
 
@@ -112,7 +110,9 @@ class ContentExtractor(BaseExtractor):
     def extract(self) -> Union[Series, Movie]:
         if (
             "username" in self._opts
+            and self._opts["username"] is not None
             and "password" in self._opts
+            and self._opts["password"] is not None
             and flags.AccountCapabilities in self.FLAGS
         ):
             self.login(self._opts["username"], self._opts["password"])
@@ -195,16 +195,16 @@ class ContentExtractor(BaseExtractor):
         :param username: Account's email/username
         :param password: Account's password
         """
-        if not hasattr(self, "_login") or flags.AccountCapabilities not in self.FLAGS:
+        if not hasattr(self, "_login"):
             return True
-        if username is None and "username" not in self.__opts:
+        if username is None and "username" not in self._opts:
             username = input(lang["extractor"]["base"]["email_prompt"])
-        elif username is None and "username" in self.__opts:
-            username = self.__opts["username"]
-        if password is None and "password" not in self.__opts:
+        elif username is None and "username" in self._opts:
+            username = self._opts["username"]
+        if password is None and "password" not in self._opts:
             password = getpass(lang["extractor"]["base"]["password_prompt"])
-        elif password is None and "password" in self.__opts:
-            password = self.__opts["password"]
+        elif password is None and "password" in self._opts:
+            password = self._opts["password"]
         return self._login(username=username, password=password)
 
     def search(
