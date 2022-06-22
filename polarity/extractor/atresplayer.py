@@ -21,6 +21,7 @@ from polarity.types import (
     Series,
     Stream,
 )
+from polarity.types.content import Image, ImageType
 from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO
 from polarity.utils import (
     is_content_id,
@@ -196,8 +197,16 @@ class AtresplayerExtractor(ContentExtractor):
             else "",
             genres=[g["title"] for g in self._series_json["tags"]],
             images=[
-                self._series_json["image"]["pathHorizontal"] + "1920x1080.jpg",
-                self._series_json["image"]["pathVertical"] + "720x1280.jpg",
+                Image(
+                    self._series_json["image"]["pathHorizontal"] + "1920x1080.jpg",
+                    ImageType.landscape,
+                    resolution=(1920, 1920),
+                ),
+                Image(
+                    self._series_json["image"]["pathVertical"] + "720x1280.jpg",
+                    ImageType.portrait,
+                    resolution=(720, 1280),
+                ),
             ],
             season_count=None,
             episode_count=_episodes[0]["pageInfo"]["totalElements"],
@@ -279,7 +288,13 @@ class AtresplayerExtractor(ContentExtractor):
             extractor=self.extractor_name,
             synopsis=season_json["description"] if "description" in season_json else "",
             number=jsonld_info["number"],
-            images=[season_json["image"]["pathHorizontal"] + "1920x1080.jpg"],
+            images=[
+                Image(
+                    season_json["image"]["pathHorizontal"] + "1920x1080.jpg",
+                    ImageType.landscape,
+                    resolution=(1920, 1080),
+                )
+            ],
             episode_count=jsonld_info["episode_count"],
         )
 
@@ -349,7 +364,13 @@ class AtresplayerExtractor(ContentExtractor):
             extractor=self.extractor_name,
             synopsis=episode_info["description"] if "description" in episode_info else "",
             number=episode_info["numberOfEpisode"],
-            images=[episode_info["image"]["pathHorizontal"] + "1920x1080.jpg"],
+            images=[
+                Image(
+                    episode_info["image"]["pathHorizontal"] + "1920x1080.jpg",
+                    ImageType.landscape,
+                    resolution=(1920, 1080),
+                )
+            ],
             streams=self._get_streams(episode_id),
         )
 

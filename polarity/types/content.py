@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from time import sleep
-from typing import List
+from typing import List, Union
 
 from polarity.lang import lang
 
@@ -232,3 +232,16 @@ class Movie(Content):
     @property
     def short_name(self) -> str:
         return f"{self.title} ({self.date.year})"
+
+
+@dataclass
+class Image:
+    url: str
+    type: str
+    resolution: Union[tuple, str] = field(default="unknown")
+
+
+class ImageType:
+    landscape = "landscape"
+    portrait = "portrait"
+    square = "square"

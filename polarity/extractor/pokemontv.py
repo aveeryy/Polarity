@@ -14,6 +14,7 @@ from polarity.extractor.base import (
 from polarity.extractor.limelight import LimelightExtractor
 from polarity.types import Episode, Movie, ProgressBar, Season, Series, Stream
 from polarity.types.base import MediaType
+from polarity.types.content import Image, ImageType
 from polarity.types.ffmpeg import AUDIO, SUBTITLES, VIDEO
 from polarity.types.search import SearchResult
 
@@ -132,6 +133,18 @@ class PokemonTVExtractor(ContentExtractor, LimelightExtractor):
             synopsis=info["channel_description"],
             season_count=1,
             episode_count=len(info["media"]),
+            images=[
+                Image(
+                    info["channel_images"]["dashboard_image_1125_1500"],
+                    ImageType.portrait,
+                    resolution=(1125, 1500),
+                ),
+                Image(
+                    info["channel_images"]["spotlight_image_1660_940"],
+                    ImageType.landscape,
+                    resolution=(1660, 940),
+                ),
+            ],
         )
 
         series._pokemontv_type = info["media_type"]
@@ -170,7 +183,7 @@ class PokemonTVExtractor(ContentExtractor, LimelightExtractor):
             extractor=self.extractor_name,
             synopsis=episode_info["description"],
             date=datetime.fromtimestamp(episode_info["last_modified"]),
-            # TODO: add images
+            images=[Image(episode_info["images"]["large"], ImageType.landscape)],
         )
 
         if channel_info["media_type"] == "movie":

@@ -16,6 +16,7 @@ from polarity.types import (
     Series,
     Stream,
 )
+from polarity.types.content import Image, ImageType
 from polarity.types.ffmpeg import AUDIO, VIDEO
 from polarity.utils import (
     is_content_id,
@@ -427,8 +428,14 @@ class CrunchyrollExtractor(ContentExtractor):
             synopsis=series_json["description"],
             genres=series_json["keywords"],
             images=[
-                series_json["images"]["poster_tall"][0][-1:][0]["source"],
-                series_json["images"]["poster_wide"][0][-1:][0]["source"],
+                Image(
+                    series_json["images"]["poster_tall"][0][-1:][0]["source"],
+                    ImageType.portrait,
+                ),
+                Image(
+                    series_json["images"]["poster_wide"][0][-1:][0]["source"],
+                    ImageType.landscape,
+                ),
             ],
             episode_count=series_json["episode_count"],
             season_count=series_json["season_count"],
@@ -618,6 +625,12 @@ class CrunchyrollExtractor(ContentExtractor):
             extractor=self.extractor_name,
             synopsis=episode_info["description"],
             number=episode_info["episode_number"],
+            images=[
+                Image(
+                    episode_info["images"]["thumbnail"][0][-1:][0]["source"],
+                    ImageType.landscape,
+                )
+            ],
         )
         # If content does not have an episode number, assume it's a movie
         if episode.number is None:
