@@ -326,7 +326,7 @@ crunchyroll.add_argument(
     "--crunchyroll-dubs",
     choices=[
         "all",
-        "jp-JA",
+        "ja-JP",
         "en-US",
         "es-LA",
         "fr-FR",
