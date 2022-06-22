@@ -163,8 +163,8 @@ class CrunchyrollExtractor(ContentExtractor):
                 # 5. [\w-] -> matches the episode part of the url i.e episode-3...
                 # 6. media)- -> matches an episode short url
                 # 7. (?P<id>[\d]{6,}) -> matches the id on both a long and a short url, 811160  # noqa: E501
-                Series: r"(?:/[a-z-]{2,5}/|/)(?:series-(?P<id>\d+)|(?!media-)[^/]+)(?:/$|$)",  # noqa: E501
-                Episode: r"(?:/[a-z-]{2,5}/|/)(?:(?:[^/]+)/[\w-]+|media)-(?P<id>[\d]{6,})(?:/$|$)",  # noqa: E501
+                Series: r"(?:/[a-z]{2}/|[a-z]{2}-[a-z]{2}|/)(?:series-(?P<id>\d+)|(?!media-)[^/]+)(?:/$|$)",  # noqa: E501
+                Episode: r"(?:/[a-z]{2}/|[a-z]{2}-[a-z]{2}|/)(?:(?:[^/]+)/[\w-]+|media)-(?P<id>[\d]{6,})(?:/$|$)",  # noqa: E501
             }
         else:
             regexes = {
