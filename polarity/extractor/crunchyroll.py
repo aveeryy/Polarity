@@ -183,7 +183,7 @@ class CrunchyrollExtractor(ContentExtractor):
     @classmethod
     def _get_url_language(self, url: str) -> str:
         """Get the metadata language from the content's url"""
-        REGEX = r"(?:/([\w-]{2,5})/|/)"
+        REGEX = r"(?:/([\w]{2}|[\w]{2}-[\w]{2})/|/)"
         if url is None or not url:
             return "en-US"
         # Get the URL's path
