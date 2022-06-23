@@ -281,6 +281,7 @@ atresplayer_codec = atresplayer.add_mutually_exclusive_group()
 atresplayer_codec.add_argument(
     "--atresplayer-use-hevc",
     action="store_true",
+    default=None,
     help=lang["atresplayer"]["args"]["hevc_codec"],
     dest="extractor/atresplayer/use_hevc",
 )
