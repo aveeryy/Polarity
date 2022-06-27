@@ -40,6 +40,7 @@ class PenguinDownloader(BaseDownloader):
         super().__init__(item, _options, _thread_id)
 
         self.threads = []
+        self.stopped = False
 
         self.download_data = {
             "content_identifier": "",
@@ -167,6 +168,8 @@ class PenguinDownloader(BaseDownloader):
             # Check if seg. downloaders have finished
             if not [t for t in self.threads if t.is_alive()]:
                 self.progress_bar.close()
+                if self.stopped:
+                    return
                 self.download_data["download_finished"] = True
                 break
             sleep(1)
@@ -781,8 +784,8 @@ class PenguinDownloader(BaseDownloader):
                     )
 
                     # handle signaling
-                    # TODO: better testing of signal sending and checking
                     signals = self.check_signal()
+
                     if signals:
                         # Since there can be multiple signals,
                         # for example: one global and one
@@ -790,11 +793,20 @@ class PenguinDownloader(BaseDownloader):
                         signal = signals[0]
                         # if signal is stop, return
                         if signal == "stop":
+                            self.stopped = True
                             return
                         # if signal is pause, halt execution
                         # until signal is cleared
                         if signal == "pause":
-                            while self.get_signal()[0] == "pause":
+                            self._execute_hooks("thread_paused", {"thread": thread_name})
+
+                            while True:
+                                signals = self.check_signal()
+                                if not signals:
+                                    break
+                                elif signals[0] == "stop":
+                                    self.stopped = True
+                                    return
                                 sleep(0.2)
 
                     break
@@ -818,7 +830,7 @@ class PenguinDownloader(BaseDownloader):
 
     def check_signal(self) -> str:
         """Check if a signal has been sent to this PenguinDownloader instance"""
-        return [x for x in ("all", self._thread_id) if x in self._SIGNAL]
+        return [self._SIGNAL[x] for x in ("all", self._thread_id) if x in self._SIGNAL]
 
     def set_signal(self, signal: str) -> None:
         """
