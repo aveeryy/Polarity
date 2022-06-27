@@ -720,7 +720,7 @@ class CrunchyrollExtractor(ContentExtractor):
                 name=self.LANG_CODES[s["locale"]]["name"],
                 language=self.LANG_CODES[s["locale"]]["lang"],
                 wanted="all" in self.options["crunchyroll"]["sub_language"]
-                or s in self.options["crunchyroll"]["sub_language"],
+                or s["locale"] in self.options["crunchyroll"]["sub_language"],
             )
             for s in order_dict(
                 to_order=streams_json["subtitles"], order_definer=self.LANG_CODES
