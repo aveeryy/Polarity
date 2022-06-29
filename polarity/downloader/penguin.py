@@ -154,7 +154,14 @@ class PenguinDownloader(BaseDownloader):
             leave=False,
         )
 
-        self._execute_hooks("download_progress", {"signal": "download_started"})
+        self._execute_hooks(
+            "download_progress",
+            {
+                "signal": "download_started",
+                "resumed": can_resume,
+                "downloaded": self.download_data["downloaded_bytes"],
+            },
+        )
 
         # Create the download threads
         for i in range(self.options["penguin"]["threads"]):
